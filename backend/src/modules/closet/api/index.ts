@@ -1,4 +1,6 @@
 export * from "./dtos";
+export * from "./controller";
+export * from "./validators";
 
 export const ClosetRoutes = {
   uploadItem: "POST /api/closet/items/upload",

@@ -31,3 +31,12 @@
 
 ## 2026-04-10 Task: recommendation-planner-explainer-skeleton
 - Represent recommendation planner/explainer as distinct LLM gateway task types with prompt template descriptors and output schemas, keeping provider details out of the application layer.
+
+## 2026-04-10 Task: api-controller-skeleton
+- Add shared API routing types (request, handler, route descriptor) plus route parsing helper to keep controller scaffolding framework-agnostic.
+
+## 2026-04-10 Task: validation-scaffold
+- Introduce a framework-agnostic validation result type and per-module validators, with controllers invoking validators before calling application services.
+
+## 2026-04-10 Task: repository-adapter-scaffold
+- Ship repository ports per module with in-memory/no-op adapters and explicit record mappers so future ORM integration can swap implementations cleanly.

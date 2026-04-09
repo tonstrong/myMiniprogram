@@ -31,3 +31,12 @@
 
 ## 2026-04-10 Task: recommendation-planner-explainer-skeleton
 - The recommendation pipeline benefits from explicit orchestration states (candidate gathering, planner, validator, explainer) so failures can surface as insufficient-items or validation-failed without conflating provider errors.
+
+## 2026-04-10 Task: api-controller-skeleton
+- Framework-agnostic controllers are clearer when they expose typed request/route descriptors and map DTOs directly onto application contracts.
+
+## 2026-04-10 Task: validation-scaffold
+- A lightweight validation layer benefits from shared error shapes and module-level validators so transport adapters can map failures without framework coupling.
+
+## 2026-04-10 Task: repository-adapter-scaffold
+- Adding in-memory/no-op repositories plus mappers around persistence records keeps modules testable and ready for ORM wiring without binding to a vendor.

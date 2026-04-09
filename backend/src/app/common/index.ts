@@ -1,8 +1,40 @@
 export { AppError } from "./errors";
+export type {
+  ApiHandler,
+  ApiRequest,
+  ApiRouteDefinition,
+  HttpMethod
+} from "./api-routing";
+export { parseRoute } from "./api-routing";
 export { ok, fail } from "./response";
 export { createLogger } from "./logger";
 export type { Logger } from "./logger";
 export type { RequestContext } from "./request-context";
+export type {
+  FieldValidator,
+  ValidationIssue,
+  ValidationResult,
+  Validator
+} from "./validation";
+export {
+  createObjectValidator,
+  formatValidationErrors,
+  objectField,
+  optionalBoolean,
+  optionalNumber,
+  optionalObjectField,
+  optionalRecord,
+  optionalString,
+  optionalStringArray,
+  optionalStringEnum,
+  requiredBoolean,
+  requiredNumber,
+  requiredRecord,
+  requiredString,
+  requiredStringArray,
+  requiredStringEnum,
+  validateRequest
+} from "./validation";
 export type {
   ApiResult,
   ModuleRegistration,

@@ -1,4 +1,6 @@
 export * from "./dtos";
+export * from "./controller";
+export * from "./validators";
 
 export const StylePackRoutes = {
   importText: "POST /api/style-packs/import/text",

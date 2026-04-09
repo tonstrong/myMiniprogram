@@ -1,4 +1,6 @@
 export * from "./dtos";
+export * from "./controller";
+export * from "./validators";
 
 export const UserProfileRoutes = {
   getProfile: "GET /api/users/profile",

@@ -11,3 +11,6 @@ export interface ClosetRepository {
     entry: ClothingItemAttributeHistoryRecord
   ): Promise<void>;
 }
+
+export * from "./mappers";
+export * from "./repository-adapters";

@@ -36,8 +36,10 @@
 - [x] 基于 DTO / Entity 文档补齐接口层与应用层契约骨架（核心模块 DTO 与用例合同）
 - [x] 基于 SQL 初稿补齐持久化/ORM 骨架与迁移目录（保持框架无关）
 - [x] 基于 Prompt 文档补齐 recommendation planner / validator / explainer 调用链骨架（含 LLM gateway 任务类型扩展）
+- [x] 补齐核心模块 API 控制器骨架与路由描述（保持框架无关）
+- [x] 补齐 API 参数校验骨架（通用校验结果 + 模块级校验器 + 控制器校验挂钩）
+- [x] 补齐基础仓储适配层（模块级仓储接口 + in-memory/no-op 适配器 + mapper 边界）
 
 ### 下一步
-1. 补齐 API 控制器、参数校验与基础仓储适配层
-2. 接入实际 ORM / DB Driver 与迁移执行流程
-3. 为 recommendation 校验器与候选过滤器补齐具体规则与数据源
+1. 接入实际 ORM / DB Driver 与迁移执行流程
+2. 为 recommendation 校验器与候选过滤器补齐具体规则与数据源

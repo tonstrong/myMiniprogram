@@ -36,3 +36,22 @@ export interface RecommendationFeedbackRecord extends CreatedAtRecord {
   reasonTags?: JsonValue | null;
   comment?: string | null;
 }
+
+export type RecommendationArtifactStatus = "generated" | "failed" | "pending";
+
+export interface RecommendationPlannerRecord
+  extends BaseRecord,
+    RetryableProviderFields {
+  recommendationId: string;
+  planJson?: JsonValue | null;
+  status: RecommendationArtifactStatus;
+}
+
+export interface RecommendationExplainerRecord
+  extends BaseRecord,
+    RetryableProviderFields {
+  recommendationId: string;
+  explanationText?: string | null;
+  explanationJson?: JsonValue | null;
+  status: RecommendationArtifactStatus;
+}
