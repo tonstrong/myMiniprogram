@@ -13,3 +13,6 @@
 
 ## 2026-04-09 Task: provider-abstraction-prd
 - Use an internal LLM Gateway plus Provider Adapter pattern so clothing extraction, style extraction, and recommendation can switch providers via configuration without rewriting business logic.
+
+## 2026-04-09 Task: api-db-detailed-design
+- Split implementation documentation into two dedicated artifacts: one for business/API contracts and one for persistent schema design, while using the work log as a delivery record.

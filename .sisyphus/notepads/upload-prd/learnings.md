@@ -13,3 +13,6 @@
 
 ## 2026-04-09 Task: provider-abstraction-prd
 - Once LLMs become core to extraction and recommendation, provider switching must be elevated to a first-class architecture concern rather than hidden implementation detail.
+
+## 2026-04-09 Task: api-db-detailed-design
+- Once provider switching becomes a core architecture concern, API envelopes and database tables must both carry provider/model/tier/retry metadata to keep operations traceable.
