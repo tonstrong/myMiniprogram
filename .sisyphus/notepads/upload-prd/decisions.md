@@ -19,3 +19,6 @@
 
 ## 2026-04-09 Task: backend-ddd-sql-prompt-design
 - Materialize the next four implementation steps as four explicit artifacts plus one SQL script so backend structure, data contract, persistence, and LLM prompting can progress independently but stay aligned.
+
+## 2026-04-10 Task: backend-skeleton-init
+- Keep the backend skeleton framework-agnostic while embedding module boundaries and provider-agnostic LLM gateway configuration placeholders.

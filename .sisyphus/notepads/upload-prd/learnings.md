@@ -19,3 +19,6 @@
 
 ## 2026-04-09 Task: backend-ddd-sql-prompt-design
 - Once product docs stabilize, the fastest implementation path is to split delivery artifacts into backend module architecture, DTO/VO/Entity boundaries, SQL draft, and prompt design so engineering can parallelize work.
+
+## 2026-04-10 Task: backend-skeleton-init
+- A minimal backend skeleton still needs explicit module registration, config loading, and worker placeholders to keep LLM gateway and task-center boundaries enforceable.

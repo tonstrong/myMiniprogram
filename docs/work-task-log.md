@@ -28,3 +28,13 @@
 2. 基于 DTO / Entity 文档实现接口层与应用层骨架
 3. 基于 SQL 初稿生成建表迁移脚本与 ORM 模型
 4. 基于 Prompt 文档实现 recommendation planner / explainer 调用链
+
+## 2026-04-10 任务进展
+
+### 已完成
+- [x] 初始化后端项目骨架目录（TypeScript、模块与 Worker 结构、配置占位）
+
+### 下一步
+1. 基于 DTO / Entity 文档实现接口层与应用层骨架
+2. 基于 SQL 初稿生成建表迁移脚本与 ORM 模型
+3. 基于 Prompt 文档实现 recommendation planner / explainer 调用链
