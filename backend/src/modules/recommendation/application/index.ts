@@ -1,9 +1,5 @@
 import type { ProviderMeta } from "../../../app/common/types";
-
-export interface RecommendationWeather {
-  temperature: number;
-  condition: string;
-}
+import type { RecommendationWeather } from "./types";
 
 export interface GenerateRecommendationCommand {
   userId: string;
@@ -47,3 +43,8 @@ export interface RecommendationService {
   feedback(command: RecommendationFeedbackCommand): Promise<void>;
   save(userId: string, recommendationId: string): Promise<void>;
 }
+
+export * from "./contracts";
+export * from "./orchestrator";
+export * from "./prompts";
+export * from "./types";

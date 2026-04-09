@@ -25,3 +25,9 @@
 
 ## 2026-04-10 Task: backend-interface-application-scaffold
 - Add explicit API DTOs and application contracts for core modules while keeping provider routing configuration-driven and vendor-neutral.
+
+## 2026-04-10 Task: persistence-orm-scaffold
+- Place migration SQL and runner placeholders under `backend/` so execution can evolve without choosing an ORM prematurely.
+
+## 2026-04-10 Task: recommendation-planner-explainer-skeleton
+- Represent recommendation planner/explainer as distinct LLM gateway task types with prompt template descriptors and output schemas, keeping provider details out of the application layer.

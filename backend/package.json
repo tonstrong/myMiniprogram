@@ -6,6 +6,8 @@
     "dev": "tsx src/main.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:migrate:status": "tsx scripts/migrate-status.ts",
     "start": "node dist/main.js"
   },
   "dependencies": {

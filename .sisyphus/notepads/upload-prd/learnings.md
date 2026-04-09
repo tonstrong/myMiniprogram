@@ -25,3 +25,9 @@
 
 ## 2026-04-10 Task: backend-interface-application-scaffold
 - Aligning DTOs and application contracts with the detailed API/DDD docs clarifies boundaries before introducing ORM models or framework-specific controllers.
+
+## 2026-04-10 Task: persistence-orm-scaffold
+- Keeping persistence record types camelCase while documenting snake_case SQL mapping makes later ORM integration clearer without locking vendors.
+
+## 2026-04-10 Task: recommendation-planner-explainer-skeleton
+- The recommendation pipeline benefits from explicit orchestration states (candidate gathering, planner, validator, explainer) so failures can surface as insufficient-items or validation-failed without conflating provider errors.

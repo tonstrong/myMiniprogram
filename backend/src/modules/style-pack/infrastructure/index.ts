@@ -1,3 +1,11 @@
+import type {
+  StylePackRecord,
+  StylePackRuleVersionRecord
+} from "./persistence";
+
 export interface StylePackRepository {
-  save(rule: unknown): Promise<void>;
+  saveStylePack(record: StylePackRecord): Promise<void>;
+  updateStylePack(id: string, patch: Partial<StylePackRecord>): Promise<void>;
+  appendRuleVersion(record: StylePackRuleVersionRecord): Promise<void>;
+  findById(id: string): Promise<StylePackRecord | null>;
 }

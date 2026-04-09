@@ -13,3 +13,12 @@ export type {
   TaskStatusSnapshot,
   TaskType
 } from "./types";
+export type {
+  BaseRecord,
+  CreatedAtRecord,
+  JsonPrimitive,
+  JsonValue,
+  ProviderMetaJsonField,
+  ProviderModelFields,
+  RetryableProviderFields
+} from "./persistence";

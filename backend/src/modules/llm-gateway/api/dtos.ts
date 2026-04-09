@@ -3,7 +3,9 @@ import type { ProviderMeta } from "../../../app/common/types";
 export type LlmTaskTypeDTO =
   | "extract_clothing_attributes"
   | "extract_style_pack"
-  | "generate_outfit_recommendations";
+  | "generate_outfit_recommendations"
+  | "recommendation_planner"
+  | "recommendation_explainer";
 
 export interface LlmGatewayInvokeRequestDTO {
   taskType: LlmTaskTypeDTO;

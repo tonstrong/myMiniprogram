@@ -1,3 +1,7 @@
+import type { AsyncTaskRecord } from "./persistence";
+
 export interface TaskRepository {
-  save(task: unknown): Promise<void>;
+  create(task: AsyncTaskRecord): Promise<void>;
+  update(id: string, patch: Partial<AsyncTaskRecord>): Promise<void>;
+  findById(id: string): Promise<AsyncTaskRecord | null>;
 }

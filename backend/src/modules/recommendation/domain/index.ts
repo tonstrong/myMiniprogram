@@ -3,3 +3,5 @@ export interface RecommendationPlan {
   outfitIds: string[];
   reasoning: string;
 }
+
+export * from "./rules";

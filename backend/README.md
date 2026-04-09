@@ -39,6 +39,8 @@ Each module is split into API, Application, Domain, and Infrastructure placehold
 - `npm run dev` – run the TypeScript entrypoint with tsx
 - `npm run build` – compile to `dist/`
 - `npm run typecheck` – type-check without emitting
+- `npm run db:migrate` – placeholder migration runner (framework-agnostic)
+- `npm run db:migrate:status` – placeholder migration status
 
 ## Environment
 Copy `.env.example` to `.env` and fill in app/DB/queue/storage/LLM settings. Provider switching is driven by `LLM_PROVIDERS` and provider-specific settings; no vendor is hardcoded in code.
@@ -46,5 +48,5 @@ Copy `.env.example` to `.env` and fill in app/DB/queue/storage/LLM settings. Pro
 ## Next Implementation Steps
 - Implement API layer controllers and request validation
 - Flesh out application services and domain rules
-- Add persistence/ORM models and migrations
+- Add persistence adapters and hook up migration runner
 - Implement worker runners and queue adapters
