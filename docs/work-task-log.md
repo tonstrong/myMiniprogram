@@ -33,8 +33,9 @@
 
 ### 已完成
 - [x] 初始化后端项目骨架目录（TypeScript、模块与 Worker 结构、配置占位）
+- [x] 基于 DTO / Entity 文档补齐接口层与应用层契约骨架（核心模块 DTO 与用例合同）
 
 ### 下一步
-1. 基于 DTO / Entity 文档实现接口层与应用层骨架
-2. 基于 SQL 初稿生成建表迁移脚本与 ORM 模型
-3. 基于 Prompt 文档实现 recommendation planner / explainer 调用链
+1. 基于 SQL 初稿生成建表迁移脚本与 ORM 模型
+2. 基于 Prompt 文档实现 recommendation planner / explainer 调用链
+3. 补齐 API 控制器、参数校验与基础仓储适配层

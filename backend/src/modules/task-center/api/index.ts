@@ -1,4 +1,6 @@
+export * from "./dtos";
+
 export const TaskCenterRoutes = {
-  createTask: "POST /tasks",
-  getTask: "GET /tasks/:id"
+  createTask: "POST /api/tasks",
+  getTask: "GET /api/tasks/:taskId"
 };

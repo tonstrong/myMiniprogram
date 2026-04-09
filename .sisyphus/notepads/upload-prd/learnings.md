@@ -22,3 +22,6 @@
 
 ## 2026-04-10 Task: backend-skeleton-init
 - A minimal backend skeleton still needs explicit module registration, config loading, and worker placeholders to keep LLM gateway and task-center boundaries enforceable.
+
+## 2026-04-10 Task: backend-interface-application-scaffold
+- Aligning DTOs and application contracts with the detailed API/DDD docs clarifies boundaries before introducing ORM models or framework-specific controllers.

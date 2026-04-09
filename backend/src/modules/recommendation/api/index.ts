@@ -1,4 +1,8 @@
+export * from "./dtos";
+
 export const RecommendationRoutes = {
-  plan: "POST /recommendations/plan",
-  feedback: "POST /recommendations/:id/feedback"
+  generate: "POST /api/recommendations/generate",
+  getDetail: "GET /api/recommendations/:recommendationId",
+  feedback: "POST /api/recommendations/:recommendationId/feedback",
+  save: "POST /api/recommendations/:recommendationId/save"
 };

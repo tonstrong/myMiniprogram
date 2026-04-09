@@ -1,5 +1,8 @@
 import type { ModuleRegistration } from "../../app/common/types";
 
+export * from "./api";
+export * from "./application";
+
 export function registerUserProfileModule(): ModuleRegistration {
   return {
     name: "user-profile",

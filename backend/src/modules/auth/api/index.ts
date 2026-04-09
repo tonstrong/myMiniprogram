@@ -1,4 +1,6 @@
+export * from "./dtos";
+
 export const AuthRoutes = {
-  login: "POST /auth/login",
-  refresh: "POST /auth/refresh"
+  wechatLogin: "POST /api/auth/wechat-login",
+  refresh: "POST /api/auth/refresh"
 };

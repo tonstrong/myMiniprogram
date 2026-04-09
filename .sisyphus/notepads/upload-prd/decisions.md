@@ -22,3 +22,6 @@
 
 ## 2026-04-10 Task: backend-skeleton-init
 - Keep the backend skeleton framework-agnostic while embedding module boundaries and provider-agnostic LLM gateway configuration placeholders.
+
+## 2026-04-10 Task: backend-interface-application-scaffold
+- Add explicit API DTOs and application contracts for core modules while keeping provider routing configuration-driven and vendor-neutral.

@@ -1,12 +1,12 @@
 import type { ProviderMeta } from "../../../app/common/types";
 
-export type LlmTaskType =
+export type LlmTaskTypeDTO =
   | "extract_clothing_attributes"
   | "extract_style_pack"
   | "generate_outfit_recommendations";
 
-export interface LlmGatewayRequest {
-  taskType: LlmTaskType;
+export interface LlmGatewayInvokeRequestDTO {
+  taskType: LlmTaskTypeDTO;
   input: Record<string, unknown>;
   outputSchema?: Record<string, unknown>;
   providerHint?: string;
@@ -18,23 +18,8 @@ export interface LlmGatewayRequest {
   };
 }
 
-export interface LlmGatewayResponse {
+export interface LlmGatewayInvokeResponseDTO {
   output: Record<string, unknown>;
   providerMeta: ProviderMeta;
   rawText?: string;
-}
-
-export interface ProviderRoutingPolicy {
-  primaryProvider?: string;
-  fallbackProviders?: string[];
-  modelTier?: string;
-  timeoutMs?: number;
-  retryPolicy?: {
-    maxRetries: number;
-    backoffMs?: number;
-  };
-}
-
-export interface LlmGatewayService {
-  invoke(request: LlmGatewayRequest): Promise<LlmGatewayResponse>;
 }

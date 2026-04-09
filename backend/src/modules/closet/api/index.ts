@@ -1,5 +1,11 @@
+export * from "./dtos";
+
 export const ClosetRoutes = {
-  uploadItem: "POST /closet/items",
-  updateItem: "PUT /closet/items/:id",
-  archiveItem: "DELETE /closet/items/:id"
+  uploadItem: "POST /api/closet/items/upload",
+  listItems: "GET /api/closet/items",
+  getItem: "GET /api/closet/items/:itemId",
+  updateItem: "PUT /api/closet/items/:itemId",
+  confirmItem: "POST /api/closet/items/:itemId/confirm",
+  archiveItem: "POST /api/closet/items/:itemId/archive",
+  deleteItem: "DELETE /api/closet/items/:itemId"
 };
