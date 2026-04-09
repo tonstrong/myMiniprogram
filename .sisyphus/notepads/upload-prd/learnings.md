@@ -16,3 +16,6 @@
 
 ## 2026-04-09 Task: api-db-detailed-design
 - Once provider switching becomes a core architecture concern, API envelopes and database tables must both carry provider/model/tier/retry metadata to keep operations traceable.
+
+## 2026-04-09 Task: backend-ddd-sql-prompt-design
+- Once product docs stabilize, the fastest implementation path is to split delivery artifacts into backend module architecture, DTO/VO/Entity boundaries, SQL draft, and prompt design so engineering can parallelize work.

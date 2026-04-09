@@ -18,8 +18,13 @@
 ### 已完成（续）
 - [x] 输出接口详细设计文档：`docs/api-detailed-design.md`
 - [x] 输出数据库表设计文档：`docs/database-schema-design.md`
+- [x] 输出服务端模块拆分与目录结构设计：`docs/backend-module-architecture.md`
+- [x] 输出 DTO / VO / Entity 设计：`docs/dto-vo-entity-design.md`
+- [x] 输出建表 SQL 初稿：`sql/001_init_schema.sql`
+- [x] 输出推荐模块 Prompt 详细设计：`docs/recommendation-prompt-design.md`
 
 ### 下一步
-1. 将接口设计与数据库设计同步推送到 GitHub
-2. 基于接口文档开始服务端模块拆分与 DTO 设计
-3. 基于表结构开始建表脚本与 ORM 模型设计
+1. 基于模块拆分开始初始化后端项目目录
+2. 基于 DTO / Entity 文档实现接口层与应用层骨架
+3. 基于 SQL 初稿生成建表迁移脚本与 ORM 模型
+4. 基于 Prompt 文档实现 recommendation planner / explainer 调用链

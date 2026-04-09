@@ -16,3 +16,6 @@
 
 ## 2026-04-09 Task: api-db-detailed-design
 - Split implementation documentation into two dedicated artifacts: one for business/API contracts and one for persistent schema design, while using the work log as a delivery record.
+
+## 2026-04-09 Task: backend-ddd-sql-prompt-design
+- Materialize the next four implementation steps as four explicit artifacts plus one SQL script so backend structure, data contract, persistence, and LLM prompting can progress independently but stay aligned.
