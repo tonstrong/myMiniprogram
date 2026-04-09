@@ -10,3 +10,6 @@
 ## 2026-04-09 Task: llm-redesign-prd
 - Make multimodal LLM API the primary clothing-attribute extraction mechanism, with users manually confirming or editing extracted fields before the item becomes active.
 - Replace the prior rule-first recommendation description with an LLM-planning architecture guarded by deterministic candidate filtering and validator checks.
+
+## 2026-04-09 Task: provider-abstraction-prd
+- Use an internal LLM Gateway plus Provider Adapter pattern so clothing extraction, style extraction, and recommendation can switch providers via configuration without rewriting business logic.

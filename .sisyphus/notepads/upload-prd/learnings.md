@@ -10,3 +10,6 @@
 ## 2026-04-09 Task: llm-redesign-prd
 - The updated direction removes OCR, cutout, and card-generation dependencies; the MVP now centers on multimodal LLM attribute extraction plus user confirmation.
 - Recommendation should stay LLM-centered but inventory-constrained: hard candidate filtering, model planning, validator pass, then explanation generation.
+
+## 2026-04-09 Task: provider-abstraction-prd
+- Once LLMs become core to extraction and recommendation, provider switching must be elevated to a first-class architecture concern rather than hidden implementation detail.
