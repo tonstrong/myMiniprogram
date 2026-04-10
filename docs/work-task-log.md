@@ -45,3 +45,47 @@
 ### 下一步
 1. 接入实际 ORM / DB Driver 与迁移执行流程
 2. 为 recommendation 校验器与候选过滤器补齐具体规则与数据源
+
+### 已完成（续）
+- [x] 打通 TaskCenter 最小可运行链路（内存版 service + HTTP 路由）
+- [x] 打通 Closet 最小可运行链路：上传 -> 属性修改 -> 确认入库（内存版）
+- [x] 打通 StylePack 文本导入链路（内存版）
+- [x] 打通 Recommendation 最小可运行链路：候选衣物 -> mock planner / validator / explainer -> 推荐详情查询
+- [x] 打通 Auth / UserProfile 最小可运行链路（内存版登录、用户资料查询/更新）
+- [x] 修复 LLM Provider 环境变量兼容问题：同时兼容 `LLM_PROVIDER_PROVIDER_A_*` 与 `LLM_PROVIDER_A_*`
+- [x] 多次通过 `backend/` 下 `npm run typecheck` 与 `npm run build`
+- [x] 完成当前可运行 API happy path 手工验证：Auth、UserProfile、Closet、StylePack、Recommendation
+- [x] 将后端 DB driver 从 Postgres/`pg` 切换为 MySQL/`mysql2`
+- [x] 将 `backend` 迁移脚本与迁移表切换为 MySQL 语法
+- [x] 在本机 MySQL 上创建独立数据库 `test_closet_backend`，避免污染原有 `test` 库内已有业务表
+- [x] 已在本机 MySQL 上跑通 `db:migrate` / `db:migrate:status`，并确认核心业务表已创建
+- [x] 完成第一条 MySQL 持久化垂直切片：TaskCenter 改为 MySQL-backed repository
+- [x] 已验证 TaskCenter `POST /api/tasks` / `GET /api/tasks/:taskId` 可真实写入并读回 MySQL `async_tasks`
+- [x] 已验证 TaskCenter service 的 `updateTask()` 可在 MySQL 中完成状态更新并正确读回
+- [x] 完成第二条 MySQL 持久化垂直切片：Closet 改为 MySQL-backed repository
+- [x] 已验证 Closet `upload / update / confirm / list` 可真实写入并读回 MySQL `clothing_items`
+- [x] 已验证 Recommendation 可直接消费 MySQL Closet 数据作为候选集生成推荐
+- [x] 完成第三条 MySQL 持久化垂直切片：StylePack 改为 MySQL-backed repository
+- [x] 已验证 StylePack `import / update / activate / get / list` 可真实写入并读回 MySQL `style_packs`
+- [x] 已验证 Recommendation 可读取 MySQL 中已激活 StylePack 的 summary/rules 作为推荐上下文
+- [x] 完成第四条 MySQL 持久化垂直切片：Recommendation 结果存储改为 MySQL-backed repository
+- [x] 已新增并跑通 Recommendation 相关迁移：允许 `recommendations.style_pack_id` 为空、为 `recommendation_items` 增加 `reason_text`
+- [x] 已验证 Recommendation `generate / detail / save / feedback` 可真实写入并读回 MySQL `recommendations` / `recommendation_items` / `recommendation_feedback`
+- [x] 已修复 Recommendation 明细读回时 outfit item 顺序不稳定问题，保证与 generate 返回顺序一致
+- [x] 完成第五条 MySQL 持久化垂直切片：UserProfile 改为 MySQL-backed repository
+- [x] 已验证 UserProfile `get / update / get` 可真实写入并读回 MySQL `users` / `user_preferences`
+- [x] 已保持现有 API 行为：用户首次 `GET /api/users/profile` 时会自动生成最小用户记录
+
+### 当前阻塞 / 注意事项
+- [x] 已完成 DB driver 与 migration runner 从 Postgres/`pg` 到 MySQL/`mysql2` 的切换
+- [x] 已在真实本机 MySQL 上跑通 migration/status 验证
+- [x] 已获取本机 MySQL 连接信息并完成安全落库方案选择
+- [x] 已确认本机 MySQL 可连通：`root@localhost`，版本 `8.0.44`
+- [x] 已发现本机现有数据库：`information_schema`、`myquant`、`mysql`、`performance_schema`、`sys`、`test`
+- [x] 已识别到用户选择的 `test` 库内存在现有表（`users`/`posts`/`comments`），因此改为使用独立库 `test_closet_backend` 进行安全验证
+
+### 下一步（更新）
+1. 将当前 repository 从内存版逐步替换为 MySQL 持久化实现
+2. 让应用运行时默认读取 MySQL `DATABASE_URL` 并验证真实读写链路
+3. 评估是否保留 `test_closet_backend` 作为开发库，或切换到用户指定的新专用库名
+4. 下一条垂直切片优先评估 Auth 与 LlmGateway 是否需要继续落库，或整理当前 MySQL 化成果并准备提交/推送
