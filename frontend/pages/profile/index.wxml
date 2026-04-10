@@ -1,0 +1,50 @@
+<view class="container">
+  
+  <!-- 用户信息区 -->
+  <view class="profile-header flex-col items-center animate-fade-in">
+    <view class="avatar-wrap">
+      <image class="avatar-img" src="{{userInfo.avatarUrl}}" mode="aspectFill"></image>
+      <view class="avatar-badge"></view>
+    </view>
+    <text class="text-h2 username">{{userInfo.nickName}}</text>
+    <text class="text-caption signature">{{userInfo.signature}}</text>
+  </view>
+
+  <!-- 数据统计区 -->
+  <view class="stats-card glass-panel flex-row justify-between animate-fade-in" style="animation-delay: 0.1s;">
+    <view class="stat-item flex-col items-center">
+      <text class="stat-num">24</text>
+      <text class="stat-label">单品</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item flex-col items-center">
+      <text class="stat-num">3</text>
+      <text class="stat-label">风格包</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item flex-col items-center">
+      <text class="stat-num">12</text>
+      <text class="stat-label">收藏搭配</text>
+    </view>
+  </view>
+
+  <!-- 菜单列表区 -->
+  <view class="menu-list animate-fade-in" style="animation-delay: 0.2s;">
+    <block wx:for="{{menus}}" wx:key="id">
+      <view class="menu-item flex-row items-center justify-between" bindtap="onMenuClick" data-url="{{item.url}}">
+        <view class="flex-row items-center">
+          <text class="menu-icon">{{item.icon}}</text>
+          <text class="text-body font-medium">{{item.text}}</text>
+        </view>
+        <text class="menu-arrow text-tertiary">></text>
+      </view>
+    </block>
+  </view>
+
+  <!-- 底部注脚 -->
+  <view class="footer-note flex-col items-center animate-fade-in" style="animation-delay: 0.3s;">
+    <text class="text-caption">Virtual Closet AI Assistant</text>
+    <text class="text-caption">v1.0.0 MVP</text>
+  </view>
+
+</view>
