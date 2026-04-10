@@ -1,0 +1,43 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/closet/index",
+    "pages/closet/upload",
+    "pages/closet/detail",
+    "pages/style-pack/index",
+    "pages/style-pack/import",
+    "pages/style-pack/detail",
+    "pages/recommend/config",
+    "pages/recommend/result",
+    "pages/history/index",
+    "pages/profile/index"
+  ],
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#FAFAFA",
+    "navigationBarTitleText": "我的衣橱助手",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#FAFAFA"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#2C2C2C",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/closet/index",
+        "text": "衣橱"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的"
+      }
+    ]
+  },
+  "sitemapLocation": "sitemap.json"
+}
