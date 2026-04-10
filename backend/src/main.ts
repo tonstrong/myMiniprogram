@@ -1,6 +1,8 @@
 import { loadConfig } from "./app/config";
 import { createAppContext } from "./app/bootstrap/app";
 import { buildModuleRegistry } from "./app/bootstrap/modules";
+import { buildHttpRoutes } from "./app/transport/http/routes";
+import { startHttpServer } from "./app/transport/http/server";
 
 async function start() {
   const config = loadConfig();
@@ -14,6 +16,9 @@ async function start() {
   }
 
   appContext.logger.info("Backend bootstrap completed.");
+
+  const routes = buildHttpRoutes();
+  await startHttpServer({ context: appContext, routes });
 }
 
 start().catch((error) => {

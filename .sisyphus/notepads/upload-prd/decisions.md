@@ -40,3 +40,6 @@
 
 ## 2026-04-10 Task: repository-adapter-scaffold
 - Ship repository ports per module with in-memory/no-op adapters and explicit record mappers so future ORM integration can swap implementations cleanly.
+
+## 2026-04-10 Task: http-server-skeleton
+- Wire HTTP routes by instantiating controllers with stub service implementations that throw NOT_IMPLEMENTED, keeping the transport layer framework-agnostic while preserving route definitions.
