@@ -1,0 +1,43 @@
+<view class="container">
+  
+  <view class="header-area animate-fade-in">
+    <text class="text-h1">你的专属风格</text>
+    <text class="text-body subtitle">将博主灵感转化为可执行的穿搭规则</text>
+  </view>
+
+  <view class="pack-list animate-fade-in" style="animation-delay: 0.1s;">
+    <view class="section-title">已生效规则 ({{activePacks.length}})</view>
+    
+    <block wx:for="{{activePacks}}" wx:key="id">
+      <view class="pack-card glass-panel flex-row justify-between" bindtap="goDetail" data-id="{{item.id}}">
+        <view class="flex-col pack-info">
+          <view class="flex-row items-center">
+            <text class="text-h2">{{item.name}}</text>
+            <view class="tag-chip source-tag">{{item.source === 'video' ? '📺 视频' : '📝 文本'}}</view>
+          </view>
+          <text class="text-caption mt-2">{{item.summary}}</text>
+        </view>
+        <view class="arrow text-tertiary">></view>
+      </view>
+    </block>
+
+    <view class="section-title mt-4" wx:if="{{pendingPacks.length > 0}}">待确认 ({{pendingPacks.length}})</view>
+    
+    <block wx:for="{{pendingPacks}}" wx:key="id">
+      <view class="pack-card glass-panel pending flex-row justify-between" bindtap="goDetail" data-id="{{item.id}}">
+        <view class="flex-col pack-info">
+          <view class="flex-row items-center">
+            <text class="text-body font-medium">{{item.name}}</text>
+            <view class="spinner mini"></view>
+          </view>
+          <text class="text-caption mt-2">{{item.summary}}</text>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <view class="action-fixed">
+    <button class="btn-primary w-full" bindtap="goImport">导入新风格</button>
+  </view>
+
+</view>

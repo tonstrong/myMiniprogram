@@ -1,0 +1,53 @@
+<view class="container">
+  
+  <view class="type-switcher flex-row glass-panel animate-fade-in">
+    <view class="ts-item {{importType === 'text' ? 'active' : ''}}" bindtap="switchType" data-type="text">文本解析</view>
+    <view class="ts-item {{importType === 'video' ? 'active' : ''}}" bindtap="switchType" data-type="video">视频解析</view>
+  </view>
+
+  <view class="form-area animate-fade-in" style="animation-delay: 0.1s;">
+    <!-- 通用：风格包名称 -->
+    <view class="form-group">
+      <text class="fg-label">风格包命名</text>
+      <input class="fg-input" placeholder="例如：周末松弛感" value="{{title}}" bindinput="onTitleInput" />
+    </view>
+
+    <!-- 文本输入 -->
+    <block wx:if="{{importType === 'text'}}">
+      <view class="form-group mt-xl">
+        <text class="fg-label">输入内容</text>
+        <view class="text-area-wrap glass-panel">
+          <textarea class="fg-textarea" placeholder="在此粘贴博主的穿搭心得/文案，AI将自动提取配色、版型、场景等可复用规则。" value="{{textInput}}" bindinput="onTextInput" maxlength="5000"></textarea>
+        </view>
+      </view>
+    </block>
+
+    <!-- 视频上传 -->
+    <block wx:if="{{importType === 'video'}}">
+      <view class="form-group mt-xl">
+        <text class="fg-label">上传视频</text>
+        <view class="video-upload glass-panel flex-col items-center justify-center" bindtap="chooseVideo">
+          <block wx:if="{{!videoPath}}">
+            <view class="icon-camera text-tertiary">📺</view>
+            <text class="text-body mt-sm">点击选择视频</text>
+            <text class="text-caption text-tertiary mt-xs">自动转写音频并提取规则</text>
+          </block>
+          <block wx:else>
+            <video class="preview-video" src="{{videoPath}}" controls></video>
+          </block>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 底部操作区 -->
+  <view class="action-fixed flex-col animate-fade-in" style="animation-delay: 0.2s;">
+    <view class="agreement flex-row items-center justify-center" bindtap="toggleAgreement">
+      <view class="checkbox {{agreed ? 'checked' : ''}}"></view>
+      <text class="text-caption ml-sm">我承诺已获得该内容的合法授权</text>
+    </view>
+    
+    <button class="btn-primary w-full mt-lg {{!agreed ? 'btn-disabled' : ''}}" bindtap="submitImport">由 AI 提取结构化规则</button>
+  </view>
+
+</view>

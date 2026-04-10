@@ -1,0 +1,67 @@
+<scroll-view class="container no-pad flex-col" scroll-y>
+
+  <!-- 头部卡片 -->
+  <view class="hero-card glass-panel flex-col animate-fade-in">
+    <view class="flex-row items-center justify-between">
+      <text class="text-h2">{{packInfo.name}}</text>
+      <view class="status-badge {{isNew ? 'warning' : 'success'}}">{{isNew ? '待确认' : '生效中'}}</view>
+    </view>
+    <text class="text-body mt-md text-secondary">{{packInfo.summary}}</text>
+  </view>
+
+  <!-- 规则清单墙 -->
+  <view class="rules-board animate-fade-in" style="animation-delay: 0.1s;">
+    <view class="rule-group">
+      <text class="rg-title text-body font-medium">推荐色彩矩阵 <text class="icon-edit">✎</text></text>
+      <view class="rg-tags flex-row mt-sm">
+        <block wx:for="{{packInfo.rules.preferred_colors}}" wx:key="*this">
+          <view class="rule-tag color">{{item}}</view>
+        </block>
+      </view>
+    </view>
+
+    <view class="rule-group mt-xl">
+      <text class="rg-title text-body font-medium">版型与剪裁要求 <text class="icon-edit">✎</text></text>
+      <view class="rg-tags flex-row mt-sm">
+        <block wx:for="{{packInfo.rules.preferred_fit}}" wx:key="*this">
+          <view class="rule-tag fit">{{item}}</view>
+        </block>
+      </view>
+    </view>
+
+    <view class="rule-group mt-xl">
+      <text class="rg-title text-body font-medium" style="color:var(--status-error);">避雷清单 🚫 <text class="icon-edit">✎</text></text>
+      <view class="rg-tags flex-row mt-sm">
+        <block wx:for="{{packInfo.rules.avoid}}" wx:key="*this">
+          <view class="rule-tag avoid">{{item}}</view>
+        </block>
+      </view>
+    </view>
+
+    <view class="rule-group mt-xl">
+      <text class="rg-title text-body font-medium">适用场景 <text class="icon-edit">✎</text></text>
+      <view class="rg-tags flex-row mt-sm">
+        <block wx:for="{{packInfo.rules.scenes}}" wx:key="*this">
+          <view class="rule-tag scene">{{item}}</view>
+        </block>
+      </view>
+    </view>
+  </view>
+
+  <!-- 提示与操作区 -->
+  <view class="action-area flex-col animate-fade-in" style="animation-delay: 0.2s;">
+    <view class="info-tip flex-row items-center mb-lg">
+      <text class="tip-icon">✨</text>
+      <text class="text-caption">AI 分析已完成，您可点击相应规则进行人工调整以确保准确执行。</text>
+    </view>
+
+    <block wx:if="{{isNew}}">
+      <button class="btn-primary" bindtap="confirmPack">确认，开始使用</button>
+      <button class="btn-secondary mt-md" bindtap="removePack">放弃该规则</button>
+    </block>
+    <block wx:else>
+      <button class="btn-secondary" bindtap="removePack">停用此风格包</button>
+    </block>
+  </view>
+
+</scroll-view>

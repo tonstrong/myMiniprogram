@@ -1,0 +1,120 @@
+.type-switcher {
+  margin-top: var(--spacing-lg);
+  padding: 8rpx;
+  border-radius: var(--radius-max);
+  margin-bottom: var(--spacing-xl);
+}
+
+.ts-item {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  font-size: 28rpx;
+  color: var(--text-secondary);
+  border-radius: var(--radius-max);
+  transition: all 0.3s ease;
+}
+
+.ts-item.active {
+  background: var(--brand-primary);
+  color: #FFF;
+  font-weight: 500;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.1);
+}
+
+.form-area {
+  flex: 1;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.fg-label {
+  font-size: 28rpx;
+  color: var(--text-main);
+  font-weight: 500;
+  margin-bottom: var(--spacing-md);
+}
+
+.fg-input {
+  background: var(--color-bg-card);
+  border: 1px solid rgba(0,0,0,0.05);
+  border-radius: var(--radius-sm);
+  padding: 24rpx;
+  font-size: 30rpx;
+}
+
+.text-area-wrap {
+  padding: 24rpx;
+  border: 1px solid rgba(0,0,0,0.05);
+  height: 400rpx;
+}
+
+.fg-textarea {
+  width: 100%;
+  height: 100%;
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+
+.video-upload {
+  height: 300rpx;
+  border: 2px dashed rgba(0,0,0,0.1);
+}
+
+.preview-video {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+}
+
+.mt-sm { margin-top: var(--spacing-sm); }
+.mt-xs { margin-top: var(--spacing-xs); }
+.mt-lg { margin-top: var(--spacing-lg); }
+.mt-xl { margin-top: var(--spacing-xl); }
+.ml-sm { margin-left: var(--spacing-sm); }
+.w-full { width: 100%; }
+
+.icon-camera {
+  font-size: 64rpx;
+}
+
+.action-fixed {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: var(--spacing-lg) var(--spacing-xl) 60rpx;
+  background: var(--color-bg-primary);
+}
+
+.checkbox {
+  width: 32rpx;
+  height: 32rpx;
+  border: 2rpx solid var(--text-tertiary);
+  border-radius: 6rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.checkbox.checked {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+
+.checkbox.checked::after {
+  content: "✔";
+  color: #FFF;
+  font-size: 20rpx;
+}
+
+.agreement {
+  padding: var(--spacing-sm) 0;
+}
+
+.btn-disabled {
+  opacity: 0.5;
+}
