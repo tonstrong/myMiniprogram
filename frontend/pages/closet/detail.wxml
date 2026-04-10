@@ -1,0 +1,82 @@
+<scroll-view class="container no-pad" scroll-y>
+  
+  <!-- 商品大图 -->
+  <view class="hero-image-wrap">
+    <image class="hero-img" src="{{item.img}}" mode="aspectFill"></image>
+    <view class="hero-gradient"></view>
+  </view>
+
+  <!-- 识别结果确认表单 -->
+  <view class="form-panel glass-panel animate-fade-in">
+    <view class="form-header flex-row items-center justify-between">
+      <text class="text-h2">{{isNew ? 'AI 识别结果' : '单品特征'}}</text>
+      <text class="text-caption text-tertiary" wx:if="{{isNew}}">可点击修改</text>
+    </view>
+
+    <view class="form-list">
+      
+      <view class="f-row flex-row items-center justify-between" bindtap="editField" data-field="大类">
+        <text class="f-label">类别</text>
+        <view class="flex-row items-center">
+          <text class="f-value">{{item.category}}</text>
+          <text class="arrow">></text>
+        </view>
+      </view>
+
+      <view class="f-row flex-row items-center justify-between" bindtap="editField" data-field="版型">
+        <text class="f-label">版型</text>
+        <view class="flex-row items-center">
+          <text class="f-value">{{item.fit}}</text>
+          <text class="arrow">></text>
+        </view>
+      </view>
+
+      <view class="f-row flex-row items-center justify-between" bindtap="editField" data-field="颜色">
+        <text class="f-label">主色</text>
+        <view class="flex-row items-center">
+          <view class="color-dot" style="background-color: #FFFFFF; border: 1rpx solid #E5E7EB;"></view>
+          <text class="f-value">{{item.color}}</text>
+          <text class="arrow">></text>
+        </view>
+      </view>
+
+      <view class="f-row col-mode" bindtap="editField" data-field="季节">
+        <view class="flex-row items-center justify-between w-full h-auto">
+          <text class="f-label">适应季节</text>
+          <text class="arrow">></text>
+        </view>
+        <view class="tag-row flex-row mt-2">
+          <block wx:for="{{item.seasons}}" wx:key="*this">
+            <view class="tag-chip active">{{item}}</view>
+          </block>
+        </view>
+      </view>
+
+      <view class="f-row col-mode" bindtap="editField" data-field="风格">
+        <view class="flex-row items-center justify-between w-full h-auto">
+          <text class="f-label">AI 提纯风格</text>
+          <text class="arrow">></text>
+        </view>
+        <view class="tag-row flex-row mt-2">
+          <block wx:for="{{item.tags}}" wx:key="*this">
+            <view class="tag-chip active">{{item}}</view>
+          </block>
+          <view class="tag-chip">+ 添加</view>
+        </view>
+      </view>
+
+    </view>
+
+    <!-- 底部操作按钮 -->
+    <view class="action-bar flex-col mt-4">
+      <block wx:if="{{isNew}}">
+        <button class="btn-primary w-full" bindtap="confirmItem">确认并入库</button>
+      </block>
+      <block wx:else>
+        <button class="btn-primary w-full" bindtap="confirmItem">保存修改</button>
+        <view class="btn-secondary w-full mt-3 text-error" bindtap="deleteItem">删除单品</view>
+      </block>
+    </view>
+
+  </view>
+</scroll-view>

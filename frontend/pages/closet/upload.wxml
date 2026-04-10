@@ -1,0 +1,23 @@
+<view class="container flex-col items-center justify-center upload-container">
+  
+  <text class="text-h2 title">让衣橱数字化</text>
+  <text class="text-caption subtitle">拍下你的衣物，AI 将自动提取版型、颜色和材质</text>
+
+  <view class="upload-area flex-col items-center justify-center animate-fade-in" bindtap="{{status === 'idle' ? 'chooseImage' : ''}}">
+    
+    <block wx:if="{{status === 'idle'}}">
+      <view class="icon-camera">📷</view>
+      <text class="text-body mt-2">点击拍摄或相册选择</text>
+      <text class="text-caption text-tertiary">建议平铺，背景干净</text>
+    </block>
+
+    <block wx:elif="{{status === 'uploading' || status === 'processing' || status === 'done'}}">
+      <image src="{{previewImage}}" class="preview-img" mode="aspectFit"></image>
+      <view class="overlay flex-col items-center justify-center {{status === 'done' ? 'fade-out' : ''}}">
+        <view class="spinner"></view>
+        <text class="loading-text">{{status === 'uploading' ? '上传中...' : '多模态 AI 识别特征中...'}}</text>
+      </view>
+    </block>
+  </view>
+
+</view>

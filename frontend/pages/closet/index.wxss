@@ -1,0 +1,118 @@
+.closet-header {
+  padding-top: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  display: block;
+  margin-top: var(--spacing-xs);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* 筛选器滚动条 */
+.filter-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.filter-list {
+  display: flex;
+  padding-bottom: 8rpx;
+}
+
+.filter-item {
+  padding: 12rpx 32rpx;
+  border-radius: var(--radius-max);
+  background: var(--color-bg-secondary);
+  color: var(--text-secondary);
+  font-size: 28rpx;
+  margin-right: var(--spacing-md);
+  transition: all 0.3s ease;
+}
+
+.filter-item.active {
+  background: var(--brand-primary);
+  color: #FFF;
+  font-weight: 500;
+  box-shadow: 0 4rpx 12rpx rgba(28,28,30,0.2);
+}
+
+/* 瀑布流布局 */
+.waterfall {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 120rpx;
+}
+
+.col-left, .col-right {
+  width: 48%;
+  display: flex;
+  flex-direction: column;
+}
+
+.item-card {
+  margin-bottom: var(--spacing-lg);
+  overflow: hidden;
+  transition: transform 0.2s ease;
+}
+
+.item-card:active {
+  transform: scale(0.97);
+}
+
+.i-img {
+  width: 100%;
+  background-color: var(--color-bg-secondary);
+  display: block; /* remove image ghost space */
+}
+
+.i-info {
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.font-medium {
+  font-weight: 500;
+}
+
+.i-tags {
+  margin-top: 8rpx;
+  flex-wrap: wrap;
+}
+
+.mini-tag {
+  font-size: 20rpx;
+  color: var(--text-secondary);
+  background: rgba(28,28,30,0.05);
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  margin-right: 8rpx;
+  margin-top: 8rpx;
+}
+
+/* FAB */
+.fab-btn {
+  position: fixed;
+  bottom: 240rpx;
+  right: 48rpx;
+  width: 110rpx;
+  height: 110rpx;
+  border-radius: 50%;
+  background: var(--brand-gradient);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 16rpx 32rpx rgba(28,28,30,0.3);
+  z-index: 100;
+}
+
+.fab-btn:active {
+  transform: scale(0.9);
+}
+
+.fab-icon {
+  width: 48rpx;
+  height: 48rpx;
+}
