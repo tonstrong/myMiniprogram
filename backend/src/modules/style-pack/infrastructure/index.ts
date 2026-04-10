@@ -8,6 +8,7 @@ export interface StylePackRepository {
   updateStylePack(id: string, patch: Partial<StylePackRecord>): Promise<void>;
   appendRuleVersion(record: StylePackRuleVersionRecord): Promise<void>;
   findById(id: string): Promise<StylePackRecord | null>;
+  listStylePacksByUserId(userId: string): Promise<StylePackRecord[]>;
 }
 
 export * from "./mappers";

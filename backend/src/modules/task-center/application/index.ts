@@ -29,3 +29,5 @@ export interface TaskCenterService {
   getTask(taskId: string): Promise<TaskStatusSnapshot | null>;
   updateTask(command: UpdateTaskStatusCommand): Promise<TaskStatusSnapshot>;
 }
+
+export * from "./service";

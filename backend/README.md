@@ -39,11 +39,11 @@ Each module is split into API, Application, Domain, and Infrastructure placehold
 - `npm run dev` – run the TypeScript entrypoint with tsx
 - `npm run build` – compile to `dist/`
 - `npm run typecheck` – type-check without emitting
-- `npm run db:migrate` – placeholder migration runner (framework-agnostic)
-- `npm run db:migrate:status` – placeholder migration status
+- `npm run db:migrate` – lightweight MySQL migration runner
+- `npm run db:migrate:status` – MySQL migration status
 
 ## Environment
-Copy `.env.example` to `.env` and fill in app/DB/queue/storage/LLM settings. Provider switching is driven by `LLM_PROVIDERS` and provider-specific settings; no vendor is hardcoded in code.
+Copy `.env.example` to `.env` and fill in app/DB/queue/storage/LLM settings. The current DB runtime and migration scripts target MySQL via `DATABASE_URL`. Provider switching is driven by `LLM_PROVIDERS` and provider-specific settings; no vendor is hardcoded in code.
 
 ## Next Implementation Steps
 - Implement API layer controllers and request validation

@@ -21,3 +21,5 @@ export interface AuthService {
   verifyToken(token: string): Promise<AuthTokenPayload>;
   refreshToken(refreshToken: string): Promise<AuthLoginResult>;
 }
+
+export * from "./service";

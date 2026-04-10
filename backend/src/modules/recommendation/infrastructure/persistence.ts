@@ -9,7 +9,7 @@ export type RecommendationStatus = "generated" | "validated" | "failed" | "saved
 
 export interface RecommendationRecord extends BaseRecord, RetryableProviderFields {
   userId: string;
-  stylePackId: string;
+  stylePackId?: string | null;
   scene: string;
   weatherJson?: JsonValue | null;
   validatorResult?: JsonValue | null;
@@ -23,6 +23,7 @@ export interface RecommendationItemRecord extends CreatedAtRecord {
   outfitNo: number;
   itemId: string;
   role: string;
+  reasonText?: string | null;
   alternativeJson?: JsonValue | null;
 }
 

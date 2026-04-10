@@ -88,3 +88,5 @@ export interface ClosetService {
   archiveItem(userId: string, itemId: string): Promise<void>;
   deleteItem(userId: string, itemId: string): Promise<void>;
 }
+
+export * from "./service";

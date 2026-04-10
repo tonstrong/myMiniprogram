@@ -44,6 +44,7 @@ export interface RecommendationService {
   save(userId: string, recommendationId: string): Promise<void>;
 }
 
+export * from "./service";
 export * from "./contracts";
 export * from "./orchestrator";
 export * from "./prompts";

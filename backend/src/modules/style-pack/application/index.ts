@@ -74,3 +74,5 @@ export interface StylePackService {
   activate(userId: string, stylePackId: string): Promise<StylePackDetail>;
   deactivate(userId: string, stylePackId: string): Promise<StylePackDetail>;
 }
+
+export * from "./service";

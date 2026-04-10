@@ -22,3 +22,5 @@ export interface UserProfileService {
   getProfile(userId: string): Promise<UserProfileSnapshot>;
   updateProfile(command: UpdateUserProfileCommand): Promise<UserProfileSnapshot>;
 }
+
+export * from "./service";

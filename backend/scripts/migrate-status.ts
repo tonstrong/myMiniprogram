@@ -14,9 +14,9 @@ async function ensureMigrationTable(): Promise<void> {
   await withClient(async (client) => {
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${migrationTable} (
-        id SERIAL PRIMARY KEY,
-        filename TEXT NOT NULL UNIQUE,
-        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        filename VARCHAR(255) NOT NULL UNIQUE,
+        applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
   });
@@ -37,14 +37,16 @@ async function loadMigrationFiles(): Promise<MigrationFile[]> {
 
 async function loadAppliedMigrations(): Promise<Set<string>> {
   return withClient(async (client) => {
-    const result = await client.query<{ filename: string; applied_at: string }>(
+    const [rows] = await client.query<
+      Array<{ filename: string; applied_at: string }>
+    >(
       `SELECT filename, applied_at FROM ${migrationTable} ORDER BY filename ASC;`
     );
 
-    if (result.rows.length > 0) {
+    if (rows.length > 0) {
       // eslint-disable-next-line no-console
       console.log("[migrate:status] Applied migrations:");
-      for (const row of result.rows) {
+      for (const row of rows) {
         // eslint-disable-next-line no-console
         console.log(`  ✔ ${row.filename} (${row.applied_at})`);
       }
@@ -53,7 +55,7 @@ async function loadAppliedMigrations(): Promise<Set<string>> {
       console.log("[migrate:status] No applied migrations yet.");
     }
 
-    return new Set(result.rows.map((row) => row.filename));
+    return new Set(rows.map((row) => row.filename));
   });
 }
 

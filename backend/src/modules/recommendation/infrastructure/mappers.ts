@@ -70,6 +70,9 @@ export const mapRecommendationRecordsToResult = (
       outfitsByNo.get(item.outfitNo) ??
       ({ items: [] } satisfies RecommendationOutfit);
     outfit.items.push(item.itemId);
+    if (item.reasonText && !outfit.reason) {
+      outfit.reason = item.reasonText;
+    }
     const alternatives = coerceAlternatives(item.alternativeJson);
     if (alternatives) {
       outfit.alternatives = [...(outfit.alternatives ?? []), ...alternatives];

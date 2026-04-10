@@ -35,6 +35,17 @@ function requireEnv(key: string): string {
   return value;
 }
 
+function requireEnvAny(keys: string[]): string {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (value) {
+      return value;
+    }
+  }
+
+  throw new Error(`Missing required env var. Tried: ${keys.join(", ")}`);
+}
+
 function optionalEnv(key: string, fallback = ""): string {
   return process.env[key] ?? fallback;
 }
@@ -52,13 +63,23 @@ function buildProviders(): LlmProviderConfig[] {
 
   return providers.map((name) => {
     const normalized = name.toUpperCase().replace(/-/g, "_");
+    const legacyNormalized = normalized.replace(/^PROVIDER_/, "");
     const priority = priorityList.indexOf(name);
 
     return {
       name,
-      baseUrl: requireEnv(`LLM_PROVIDER_${normalized}_BASE_URL`),
-      apiKey: requireEnv(`LLM_PROVIDER_${normalized}_API_KEY`),
-      model: requireEnv(`LLM_PROVIDER_${normalized}_MODEL`),
+      baseUrl: requireEnvAny([
+        `LLM_PROVIDER_${normalized}_BASE_URL`,
+        `LLM_PROVIDER_${legacyNormalized}_BASE_URL`
+      ]),
+      apiKey: requireEnvAny([
+        `LLM_PROVIDER_${normalized}_API_KEY`,
+        `LLM_PROVIDER_${legacyNormalized}_API_KEY`
+      ]),
+      model: requireEnvAny([
+        `LLM_PROVIDER_${normalized}_MODEL`,
+        `LLM_PROVIDER_${legacyNormalized}_MODEL`
+      ]),
       priority: priority === -1 ? 999 : priority
     };
   });

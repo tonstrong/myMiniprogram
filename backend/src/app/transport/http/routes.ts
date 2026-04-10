@@ -1,35 +1,49 @@
+import { loadConfig } from "../../config";
 import type { ApiRouteDefinition } from "../../common";
 import { AppError } from "../../common/errors";
 import {
   AuthController,
-  createAuthControllerRoutes
+  createAuthControllerRoutes,
+  createInMemoryAuthService
 } from "../../../modules/auth";
-import type { AuthService } from "../../../modules/auth";
 import {
   ClosetController,
-  createClosetControllerRoutes
+  createClosetControllerRoutes,
+  createInMemoryClosetService
 } from "../../../modules/closet";
-import type { ClosetService } from "../../../modules/closet";
+import {
+  createInMemoryClosetRepository,
+  createMySqlClosetRepository
+} from "../../../modules/closet/infrastructure";
 import {
   RecommendationController,
-  createRecommendationControllerRoutes
+  createRecommendationControllerRoutes,
+  createInMemoryRecommendationService
 } from "../../../modules/recommendation";
-import type { RecommendationService } from "../../../modules/recommendation";
+import { createMySqlRecommendationRepository } from "../../../modules/recommendation/infrastructure";
 import {
   StylePackController,
+  createInMemoryStylePackService,
   createStylePackControllerRoutes
 } from "../../../modules/style-pack";
-import type { StylePackService } from "../../../modules/style-pack";
+import {
+  createInMemoryStylePackRepository,
+  createMySqlStylePackRepository
+} from "../../../modules/style-pack/infrastructure";
 import {
   TaskCenterController,
-  createTaskCenterControllerRoutes
+  createTaskCenterService,
+  createTaskCenterControllerRoutes,
+  createInMemoryTaskCenterService
 } from "../../../modules/task-center";
-import type { TaskCenterService } from "../../../modules/task-center";
+import { createMySqlTaskRepository } from "../../../modules/task-center/infrastructure";
 import {
   UserProfileController,
+  createUserProfileService,
+  createInMemoryUserProfileService,
   createUserProfileControllerRoutes
 } from "../../../modules/user-profile";
-import type { UserProfileService } from "../../../modules/user-profile";
+import { createMySqlUserProfileRepository } from "../../../modules/user-profile/infrastructure";
 import {
   LlmGatewayController,
   createLlmGatewayControllerRoutes
@@ -37,21 +51,46 @@ import {
 import type { LlmGatewayService } from "../../../modules/llm-gateway";
 
 export function buildHttpRoutes(): ApiRouteDefinition[] {
-  const authController = new AuthController({ authService: stubAuthService() });
+  const usesMySql = shouldUseMySqlPersistence();
+  const taskCenterService = usesMySql
+    ? createTaskCenterService({ repository: createMySqlTaskRepository() })
+    : createInMemoryTaskCenterService();
+  const closetRepository = usesMySql
+    ? createMySqlClosetRepository()
+    : createInMemoryClosetRepository();
+  const stylePackRepository = usesMySql
+    ? createMySqlStylePackRepository()
+    : createInMemoryStylePackRepository();
+  const authController = new AuthController({
+    authService: createInMemoryAuthService()
+  });
   const userProfileController = new UserProfileController({
-    userProfileService: stubUserProfileService()
+    userProfileService: usesMySql
+      ? createUserProfileService({ repository: createMySqlUserProfileRepository() })
+      : createInMemoryUserProfileService()
   });
   const closetController = new ClosetController({
-    closetService: stubClosetService()
+    closetService: createInMemoryClosetService({
+      taskCenterService,
+      repository: closetRepository
+    })
   });
   const stylePackController = new StylePackController({
-    stylePackService: stubStylePackService()
+    stylePackService: createInMemoryStylePackService({
+      repository: stylePackRepository
+    })
   });
   const recommendationController = new RecommendationController({
-    recommendationService: stubRecommendationService()
+    recommendationService: createInMemoryRecommendationService({
+      closetRepository,
+      stylePackRepository,
+      recommendationRepository: usesMySql
+        ? createMySqlRecommendationRepository()
+        : undefined
+    })
   });
   const taskCenterController = new TaskCenterController({
-    taskCenterService: stubTaskCenterService()
+    taskCenterService
   });
   const llmGatewayController = new LlmGatewayController({
     llmGatewayService: stubLlmGatewayService()
@@ -76,65 +115,12 @@ function notImplemented(serviceName: string, methodName: string): never {
   );
 }
 
-function stubAuthService(): AuthService {
-  return {
-    wechatLogin: async () => notImplemented("AuthService", "wechatLogin"),
-    verifyToken: async () => notImplemented("AuthService", "verifyToken"),
-    refreshToken: async () => notImplemented("AuthService", "refreshToken")
-  };
-}
-
-function stubUserProfileService(): UserProfileService {
-  return {
-    getProfile: async () => notImplemented("UserProfileService", "getProfile"),
-    updateProfile: async () =>
-      notImplemented("UserProfileService", "updateProfile")
-  };
-}
-
-function stubClosetService(): ClosetService {
-  return {
-    uploadItem: async () => notImplemented("ClosetService", "uploadItem"),
-    listItems: async () => notImplemented("ClosetService", "listItems"),
-    getItem: async () => notImplemented("ClosetService", "getItem"),
-    updateItem: async () => notImplemented("ClosetService", "updateItem"),
-    confirmItem: async () => notImplemented("ClosetService", "confirmItem"),
-    archiveItem: async () => notImplemented("ClosetService", "archiveItem"),
-    deleteItem: async () => notImplemented("ClosetService", "deleteItem")
-  };
-}
-
-function stubStylePackService(): StylePackService {
-  return {
-    importText: async () => notImplemented("StylePackService", "importText"),
-    importVideo: async () => notImplemented("StylePackService", "importVideo"),
-    list: async () => notImplemented("StylePackService", "list"),
-    getDetail: async () => notImplemented("StylePackService", "getDetail"),
-    update: async () => notImplemented("StylePackService", "update"),
-    activate: async () => notImplemented("StylePackService", "activate"),
-    deactivate: async () => notImplemented("StylePackService", "deactivate")
-  };
-}
-
-function stubRecommendationService(): RecommendationService {
-  return {
-    generate: async () => notImplemented("RecommendationService", "generate"),
-    getDetail: async () => notImplemented("RecommendationService", "getDetail"),
-    feedback: async () => notImplemented("RecommendationService", "feedback"),
-    save: async () => notImplemented("RecommendationService", "save")
-  };
-}
-
-function stubTaskCenterService(): TaskCenterService {
-  return {
-    createTask: async () => notImplemented("TaskCenterService", "createTask"),
-    getTask: async () => notImplemented("TaskCenterService", "getTask"),
-    updateTask: async () => notImplemented("TaskCenterService", "updateTask")
-  };
-}
-
 function stubLlmGatewayService(): LlmGatewayService {
   return {
     invoke: async () => notImplemented("LlmGatewayService", "invoke")
   };
+}
+
+function shouldUseMySqlPersistence(): boolean {
+  return loadConfig().databaseUrl.startsWith("mysql://");
 }
