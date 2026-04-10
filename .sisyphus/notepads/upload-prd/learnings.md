@@ -40,3 +40,6 @@
 
 ## 2026-04-10 Task: repository-adapter-scaffold
 - Adding in-memory/no-op repositories plus mappers around persistence records keeps modules testable and ready for ORM wiring without binding to a vendor.
+
+## 2026-04-10 Task: db-migrations
+- A lightweight Postgres pool plus migration runner keeps the backend framework-agnostic while enabling executable SQL migrations with a schema_migrations tracking table.
