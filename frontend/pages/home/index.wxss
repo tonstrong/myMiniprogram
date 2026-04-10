@@ -1,0 +1,129 @@
+.nav-space {
+  height: 180rpx; /* Custom nav space */
+}
+
+/* 头部 */
+.header-section {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: var(--spacing-xl);
+}
+
+.greeting-date {
+  text-transform: uppercase;
+  letter-spacing: 2rpx;
+  margin-bottom: var(--spacing-xs);
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  margin-top: var(--spacing-xs);
+}
+
+.avatar {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: var(--radius-max);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border: 4rpx solid #FFFFFF;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+}
+
+/* 待办任务 */
+.task-section {
+  margin-bottom: var(--spacing-xl);
+}
+.task-card {
+  padding: var(--spacing-md) var(--spacing-lg);
+  margin-bottom: var(--spacing-sm);
+}
+.task-icon {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: var(--radius-max);
+  margin-right: var(--spacing-md);
+}
+.task-icon.upload { background-color: var(--status-warning); }
+.task-icon.style { background-color: var(--brand-pop); }
+
+.btn-action {
+  font-size: 24rpx;
+  padding: 8rpx 24rpx;
+  border-radius: var(--radius-max);
+  background: var(--brand-primary);
+  color: #FFF;
+  margin: 0;
+}
+
+/* 推荐大卡 */
+.recommend-section {
+  margin-bottom: var(--spacing-xl);
+}
+.section-header {
+  margin-bottom: var(--spacing-md);
+}
+.recommend-card {
+  position: relative;
+  width: 100%;
+  height: 600rpx;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+.rc-bg {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+.rc-overlay {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  padding: var(--spacing-lg);
+  background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.6) 100%);
+}
+.blur-tag {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  color: #FFF;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  margin-right: var(--spacing-sm);
+}
+.rc-reason {
+  color: #FFF;
+  margin-bottom: var(--spacing-lg);
+  display: block;
+}
+
+/* 底部操作区 */
+.action-grid {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding-bottom: 200rpx; /* Leave space for bottom bar */
+}
+.action-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-lg);
+  align-items: flex-start;
+}
+.action-item:active {
+  transform: scale(0.98);
+}
+.action-icon {
+  font-size: 48rpx;
+  margin-bottom: var(--spacing-sm);
+}

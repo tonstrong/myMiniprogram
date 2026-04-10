@@ -1,0 +1,67 @@
+<view class="container">
+  
+  <!-- 自定义导航栏预留空间 -->
+  <view class="nav-space"></view>
+
+  <!-- 头部问候区�?-->
+  <view class="header-section animate-fade-in" style="animation-delay: 0.1s;">
+    <view class="greeting flex-col">
+      <text class="text-caption greeting-date">4�?0�?星期�?/text>
+      <text class="text-h1">{{greeting}}, {{userName}}.</text>
+      <text class="text-body subtitle">开始你的搭配灵感之旅吧</text>
+    </view>
+    <view class="avatar">
+      <image class="avatar-img" src="https://dummyimage.com/100x100/1C1C1E/FFFFFF?text=User" mode="aspectFill"></image>
+    </view>
+  </view>
+
+  <!-- 待办任务气泡 (如果�? -->
+  <view class="task-section animate-fade-in" wx:if="{{tasks.length > 0}}" style="animation-delay: 0.2s;">
+    <block wx:for="{{tasks}}" wx:key="id">
+      <view class="task-card flex-row items-center justify-between glass-panel">
+        <view class="flex-row items-center">
+          <view class="task-icon {{item.type}}"></view>
+          <text class="text-body">{{item.title}}</text>
+        </view>
+        <button class="btn-action">去处�?/button>
+      </view>
+    </block>
+  </view>
+
+  <!-- 今日推荐大卡�?-->
+  <view class="recommend-section animate-fade-in" style="animation-delay: 0.3s;" bindtap="goRecommend">
+    <view class="section-header flex-row justify-between items-center">
+      <text class="text-h2">今日推荐</text>
+    </view>
+    <view class="recommend-card">
+      <image class="rc-bg" src="{{todayRecommend.image}}" mode="aspectFill"></image>
+      <view class="rc-overlay flex-col justify-between">
+        <view class="rc-tags flex-row">
+          <view class="tag-chip blur-tag">{{todayRecommend.scene}}</view>
+          <view class="tag-chip blur-tag">{{todayRecommend.weather}}</view>
+        </view>
+        <view class="rc-bottom">
+          <text class="rc-reason text-h2">“{{todayRecommend.reason}}�?/text>
+          <view class="rc-action flex-row items-center justify-between">
+            <text class="text-caption" style="color:#FFF;">查看更多搭配搭配 ></text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 快捷操作入口 -->
+  <view class="action-grid animate-fade-in" style="animation-delay: 0.4s;">
+    <view class="action-item glass-panel" bindtap="goUpload">
+      <view class="action-icon">�?/view>
+      <text class="text-body">录入单品</text>
+      <text class="text-caption">拍照或上�?/text>
+    </view>
+    <view class="action-item glass-panel" bindtap="goStylePack">
+      <view class="action-icon">�?/view>
+      <text class="text-body">风格灵感</text>
+      <text class="text-caption">管理风格�?/text>
+    </view>
+  </view>
+
+</view>
