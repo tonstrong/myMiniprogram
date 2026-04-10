@@ -1,0 +1,48 @@
+<view class="container dark-theme flex-col">
+  
+  <text class="page-title text-h2 text-center animate-fade-in">为您生成了 {{looks.length}} 套搭配</text>
+
+  <swiper class="look-swiper animate-fade-in" style="animation-delay: 0.1s;" previous-margin="40rpx" next-margin="40rpx" bindchange="onSwiperChange">
+    <block wx:for="{{looks}}" wx:key="id">
+      <swiper-item class="si-wrap">
+        <view class="look-card {{currentSwipe === index ? 'active' : ''}} flex-col">
+          
+          <!-- 单品胶囊图组合 (Look Board) -->
+          <view class="collage-area flex-row">
+            <block wx:for="{{item.items}}" wx:key="id" wx:for-item="cloth">
+              <view class="cloth-item" style="flex: {{cloth.type === '下装' ? 1.5 : (cloth.type === '鞋履' ? 0.8 : 1)}}">
+                <image class="c-img" src="{{cloth.img}}" mode="aspectFill"></image>
+                <view class="c-label">{{cloth.type}}</view>
+              </view>
+            </block>
+          </view>
+
+          <!-- 推荐理由说明 -->
+          <view class="reason-area flex-col">
+            <text class="r-text text-body">“{{item.reason}}”</text>
+            <view class="alt-tip flex-row items-center mt-md" wx:if="{{item.alternative}}">
+              <text class="tip-icon">💡</text>
+              <text class="text-caption text-tertiary ml-sm">{{item.alternative.msg}}</text>
+            </view>
+          </view>
+
+          <!-- 反馈操作条 -->
+          <view class="feedback-bar flex-row justify-between items-center mt-auto">
+            <view class="fb-btn btn-dislike" bindtap="onAction" data-action="dislike">✕ 不合适</view>
+            <view class="fb-icons flex-row">
+              <view class="icon-btn" bindtap="onAction" data-action="save">⭐</view>
+              <view class="icon-btn" bindtap="onAction" data-action="like">❤️</view>
+            </view>
+          </view>
+        </view>
+      </swiper-item>
+    </block>
+  </swiper>
+
+  <view class="swiper-dots flex-row justify-center mt-lg">
+    <block wx:for="{{looks}}" wx:key="id">
+      <view class="dot {{currentSwipe === index ? 'active' : ''}}"></view>
+    </block>
+  </view>
+
+</view>

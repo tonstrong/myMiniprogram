@@ -1,0 +1,79 @@
+.no-pad { padding: 0; min-height: 100vh; background-color: var(--color-bg-primary); }
+
+.weather-bar {
+  padding: var(--spacing-xl) var(--spacing-lg);
+  background: var(--color-bg-card);
+  margin-bottom: var(--spacing-md);
+  border-bottom: 1rpx solid rgba(0,0,0,0.03);
+}
+
+.wx-icon { font-size: 64rpx; }
+.ml-sm { margin-left: var(--spacing-sm); }
+.font-medium { font-weight: 500; }
+
+.config-content { padding: var(--spacing-lg) var(--spacing-lg) 240rpx; }
+
+.c-title { font-size: 32rpx; font-weight: 600; color: var(--text-main); }
+.mt-md { margin-top: var(--spacing-md); }
+.mt-xl { margin-top: var(--spacing-xl); }
+.mt-xs { margin-top: var(--spacing-xs); display: block;}
+
+.c-options { flex-wrap: wrap; gap: var(--spacing-md); }
+
+.c-chip {
+  padding: 16rpx 40rpx;
+  border-radius: var(--radius-max);
+  background: var(--color-bg-card);
+  border: 1px solid rgba(0,0,0,0.05);
+  font-size: 28rpx;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+.c-chip.active {
+  background: var(--brand-primary);
+  color: #FFF;
+  border-color: var(--brand-primary);
+  box-shadow: 0 8rpx 16rpx rgba(28,28,30,0.15);
+}
+
+.c-list { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+
+.pack-row {
+  padding: var(--spacing-lg);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  border: 2rpx solid transparent;
+  transition: all 0.2s;
+}
+.pack-row.active {
+  background: #FFF;
+  border-color: var(--brand-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.radio-ind {
+  width: 32rpx; height: 32rpx;
+  border-radius: 50%;
+  border: 2rpx solid var(--text-tertiary);
+  display: flex; align-items: center; justify-content: center;
+}
+.radio-ind.checked {
+  border-color: var(--brand-primary);
+}
+.radio-ind.checked::after {
+  content: ''; width: 16rpx; height: 16rpx;
+  border-radius: 50%; background: var(--brand-primary);
+}
+
+.action-fixed {
+  position: fixed; bottom: 0; left: 0; width: 100%;
+  padding: var(--spacing-lg) var(--spacing-xl) 80rpx;
+  background: linear-gradient(to top, rgba(250,250,250,1) 50%, rgba(250,250,250,0) 100%);
+}
+
+.shadow-glow { box-shadow: 0 16rpx 32rpx rgba(28,28,30,0.2) !important; }
+.w-full { width: 100%; }
+.disabled { opacity: 0.8; pointer-events: none; }
+.mr-sm { margin-right: var(--spacing-md); }
+.inline { display: inline-block; vertical-align: middle; margin-bottom: 0;}
+.spinner.mini { width: 30rpx; height: 30rpx; border-width: 4rpx; border-top-color: #FFF; border-color: rgba(255,255,255,0.3); border-top-color: #FFF;}

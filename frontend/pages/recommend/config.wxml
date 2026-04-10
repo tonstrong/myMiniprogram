@@ -1,0 +1,53 @@
+<view class="container no-pad flex-col h-full">
+
+  <!-- 天气同步栏 -->
+  <view class="weather-bar flex-row items-center animate-fade-in">
+    <text class="wx-icon">🌤</text>
+    <view class="flex-col ml-sm">
+      <text class="text-caption text-secondary">已定位到您所在的城市</text>
+      <text class="text-body font-medium">{{weather}} · 适合多层次叠穿</text>
+    </view>
+  </view>
+
+  <view class="config-content flex-col animate-fade-in" style="animation-delay: 0.1s;">
+    <!-- 场景选择 -->
+    <view class="c-group">
+      <text class="c-title">前往何种场景？</text>
+      <view class="c-options flex-row mt-md">
+        <block wx:for="{{scenes}}" wx:key="*this">
+          <view class="c-chip {{activeScene === item ? 'active' : ''}}" bindtap="selectScene" data-scene="{{item}}">
+            {{item}}
+          </view>
+        </block>
+      </view>
+    </view>
+
+    <!-- 风格包选择 -->
+    <view class="c-group mt-xl">
+      <text class="c-title">想要应用的风格逻辑？</text>
+      <text class="text-caption text-tertiary mt-xs">AI 将依据该风格提取的经验进行搭配</text>
+      <view class="c-list mt-md">
+        <block wx:for="{{stylePacks}}" wx:key="id">
+          <view class="pack-row flex-row items-center justify-between {{selectedPack === item.id ? 'active' : ''}}" bindtap="selectPack" data-id="{{item.id}}">
+            <text class="text-body">{{item.name}}</text>
+            <view class="radio-ind {{selectedPack === item.id ? 'checked' : ''}}"></view>
+          </view>
+        </block>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部生成按钮 -->
+  <view class="action-fixed">
+    <block wx:if="{{!isGenerating}}">
+      <button class="btn-primary w-full shadow-glow" bindtap="generateLook">开始生成灵感图集</button>
+    </block>
+    <block wx:else>
+      <button class="btn-primary w-full disabled flex-row items-center justify-center">
+        <view class="spinner mini mr-sm inline"></view>
+        LLM 正在规划中...
+      </button>
+    </block>
+  </view>
+
+</view>
