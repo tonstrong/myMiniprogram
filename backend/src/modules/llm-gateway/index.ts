@@ -8,9 +8,10 @@ export function registerLlmGatewayModule(): ModuleRegistration {
   return {
     name: "llm-gateway",
     init: (context) => {
-      const service = new LlmGatewayServiceImpl();
-      context.container.register("llmGatewayService", service);
-      context.logger.info("LLM gateway module initialized with DashScope support");
+      // Current bootstrap context does not expose a DI container yet.
+      // Keep module initialization side-effect free until container wiring exists.
+      new LlmGatewayServiceImpl();
+      context.logger.info("LLM gateway module initialized");
     }
   };
 }

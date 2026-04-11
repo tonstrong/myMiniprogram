@@ -56,7 +56,7 @@ export class LlmGatewayServiceImpl implements LlmGatewayService {
         rawText: result.output as string,
         providerMeta: {
           provider: adapter.name,
-          model: providers.find(p => p.name === adapter.name)?.model || "unknown",
+          modelName: providers.find(p => p.name === adapter.name)?.model || "unknown",
           latencyMs: 0, // Placeholder
         }
       };
