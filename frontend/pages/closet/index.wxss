@@ -69,6 +69,21 @@
   display: block; /* remove image ghost space */
 }
 
+.i-placeholder {
+  width: 100%;
+  height: 360rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e5e7eb 0%, #cbd5e1 100%);
+}
+
+.i-placeholder-text {
+  color: rgba(28, 28, 30, 0.55);
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
 .i-info {
   padding: var(--spacing-sm) var(--spacing-md);
 }
@@ -114,5 +129,25 @@
 
 .fab-icon {
   width: 48rpx;
+  height: 48rpx;
+  position: relative;
+}
+
+.fab-line {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 999rpx;
+}
+
+.fab-line-horizontal {
+  width: 48rpx;
+  height: 8rpx;
+}
+
+.fab-line-vertical {
+  width: 8rpx;
   height: 48rpx;
 }

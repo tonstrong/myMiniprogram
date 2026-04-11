@@ -6,7 +6,8 @@ export type {
   HttpMethod
 } from "./api-routing";
 export { parseRoute } from "./api-routing";
-export { ok, fail } from "./response";
+export { ok, fail, binary } from "./response";
+export type { ApiResponse, BinaryResponse, HttpResponse } from "./response";
 export { createLogger } from "./logger";
 export type { Logger } from "./logger";
 export type { RequestContext } from "./request-context";

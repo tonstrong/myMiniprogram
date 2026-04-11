@@ -2,7 +2,7 @@ import api from '../../utils/api';
 
 const CATEGORY_OPTIONS = ['上衣', '下装', '外套', '连衣裙', '鞋履', '包袋', '配饰'];
 const FIT_OPTIONS = ['宽松', '修身', '直筒', '短款', '超长'];
-const COLOR_OPTIONS = ['白色', '黑色', '灰色', '蓝色', '卡其色', '米色'];
+const COLOR_OPTIONS = ['白色', '黑色', '灰色', '蓝色', '卡其色', '米色', '红色', '粉色', '黄色', '绿色', '紫色', '棕色', '多色'];
 const SEASON_OPTIONS = ['春', '夏', '秋', '冬'];
 const TAG_OPTIONS = ['极简', '通勤', '基础款', '休闲', '百搭'];
 
@@ -11,8 +11,12 @@ Page({
     itemId: '',
     isNew: false,
     taskId: '',
+    previewImage: '',
+    CATEGORY_OPTIONS,
+    FIT_OPTIONS,
+    COLOR_OPTIONS,
     item: {
-      img: 'https://dummyimage.com/600x800/E5E7EB/1C1C1E&text=Closet+Item',
+      img: '',
       category: '',
       subCategory: '',
       color: '',
@@ -28,7 +32,8 @@ Page({
     this.setData({
       itemId: options.id || '',
       isNew,
-      taskId: options.taskId || ''
+      taskId: options.taskId || '',
+      previewImage: options.preview ? decodeURIComponent(options.preview) : ''
     });
     wx.setNavigationBarTitle({ title: isNew ? '确认单品' : '单品详情' });
   },
@@ -45,22 +50,28 @@ Page({
         url: `/api/closet/items/${this.data.itemId}`,
         method: 'GET'
       });
-      this.setData({ item: mapItemDetail(detail) });
+      this.setData({ item: mapItemDetail(detail, this.data.previewImage) });
     } catch (error) {
       console.error('Fetch closet detail failed', error);
       wx.showToast({ title: '加载失败', icon: 'none' });
     }
   },
 
+  bindCategoryChange(e) {
+    this.setData({ 'item.category': CATEGORY_OPTIONS[e.detail.value] });
+  },
+
+  bindFitChange(e) {
+    this.setData({ 'item.fit': FIT_OPTIONS[e.detail.value] });
+  },
+
+  bindColorChange(e) {
+    this.setData({ 'item.color': COLOR_OPTIONS[e.detail.value] });
+  },
+
   editField(e) {
     const field = e.currentTarget.dataset.field;
     switch (field) {
-      case '大类':
-        return this.pickSingle('category', CATEGORY_OPTIONS);
-      case '版型':
-        return this.pickSingle('fit', FIT_OPTIONS);
-      case '颜色':
-        return this.pickSingle('color', COLOR_OPTIONS);
       case '季节':
         return this.pickMultiple('seasons', SEASON_OPTIONS, '适用季节');
       case '风格':
@@ -68,6 +79,24 @@ Page({
       default:
         wx.showToast({ title: `暂不支持编辑${field}`, icon: 'none' });
     }
+  },
+
+  addCustomTag() {
+    wx.showModal({
+      title: '添加自定义标签',
+      editable: true,
+      placeholderText: '请输入标签名称',
+      success: (res) => {
+        if (res.confirm && res.content) {
+          const tag = res.content.trim();
+          if (tag && !this.data.item.tags.includes(tag)) {
+            this.setData({
+              'item.tags': [...this.data.item.tags, tag]
+            });
+          }
+        }
+      }
+    });
   },
 
   pickSingle(key, options) {
@@ -157,10 +186,10 @@ Page({
   }
 });
 
-function mapItemDetail(detail) {
+function mapItemDetail(detail, previewImage = '') {
   const attributes = detail.attributes || {};
   return {
-    img: detail.imageOriginalUrl || 'https://dummyimage.com/600x800/E5E7EB/1C1C1E&text=Closet+Item',
+    img: normalizeImageUrl(detail.imageOriginalUrl) || previewImage || '',
     category: attributes.category || '',
     subCategory: attributes.subCategory || '',
     color: (attributes.colors || [])[0] || '',
@@ -169,6 +198,23 @@ function mapItemDetail(detail) {
     seasons: attributes.seasons || [],
     tags: attributes.tags || []
   };
+}
+
+function normalizeImageUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return '';
+  }
+
+  if (
+    url.startsWith('file://') ||
+    url.startsWith('wxfile://') ||
+    url.startsWith('http://tmp/') ||
+    url.startsWith('https://tmp/')
+  ) {
+    return '';
+  }
+
+  return url;
 }
 
 function buildUpdatePayload(item) {

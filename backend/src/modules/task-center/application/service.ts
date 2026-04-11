@@ -44,8 +44,8 @@ export class InMemoryTaskCenterService implements TaskCenterService {
     return mapAsyncTaskRecordToSnapshot(record);
   }
 
-  async getTask(taskId: string): Promise<TaskStatusSnapshot | null> {
-    const record = await this.deps.repository.findById(taskId);
+  async getTask(userId: string, taskId: string): Promise<TaskStatusSnapshot | null> {
+    const record = await this.deps.repository.findByIdForUser(taskId, userId);
     if (!record) {
       return null;
     }

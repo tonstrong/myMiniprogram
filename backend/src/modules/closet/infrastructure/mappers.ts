@@ -70,7 +70,7 @@ export const mapClothingRecordToSummary = (
   colors: coerceStringArray(record.colors),
   tags: coerceStringArray(record.tags),
   status: mapClothingStatus(record.status),
-  imageOriginalUrl: record.imageOriginalUrl ?? undefined,
+  imageOriginalUrl: normalizeImageUrl(record.imageOriginalUrl),
   updatedAt: record.updatedAt?.toISOString()
 });
 
@@ -94,8 +94,21 @@ export const mapClothingRecordToDetail = (
   return {
     itemId: record.id,
     status: mapClothingStatus(record.status),
-    imageOriginalUrl: record.imageOriginalUrl ?? undefined,
+    imageOriginalUrl: normalizeImageUrl(record.imageOriginalUrl),
     attributes,
     providerMeta: buildProviderMeta(record)
   };
 };
+
+function normalizeImageUrl(value?: string | null): string | undefined {
+  if (
+    !value ||
+    value.startsWith("file://") ||
+    value.startsWith("wxfile://") ||
+    value.startsWith("http://tmp/") ||
+    value.startsWith("https://tmp/")
+  ) {
+    return undefined;
+  }
+  return value;
+}

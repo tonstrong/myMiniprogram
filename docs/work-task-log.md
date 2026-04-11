@@ -75,6 +75,13 @@
 - [x] 完成第五条 MySQL 持久化垂直切片：UserProfile 改为 MySQL-backed repository
 - [x] 已验证 UserProfile `get / update / get` 可真实写入并读回 MySQL `users` / `user_preferences`
 - [x] 已保持现有 API 行为：用户首次 `GET /api/users/profile` 时会自动生成最小用户记录
+- [x] 新增 `004_add_clothing_item_images.sql`，在 MySQL 中为衣橱图片二进制存储增加 `clothing_item_images` 表与 `image_access_key`
+- [x] 将衣橱上传链路改为支持 base64 图片内容入参，并把图片 bytes 真实写入 MySQL
+- [x] 新增 `GET /api/closet/items/:itemId/image?userId=...&key=...` 图片读取接口，返回真实二进制图片内容
+- [x] 已验证衣橱上传后可返回可访问图片 URL，图片接口返回 `image/png` 且状态码 200
+- [x] 已修复衣橱错误图片地址问题：不再把 `file://` / `wxfile://` / `http://tmp/...` 当作正式图片地址存储
+- [x] 已加强 TaskCenter 用户隔离：`GET /api/tasks/:taskId` 改为按当前登录用户维度校验
+- [x] 已验证跨用户访问他人单品详情与任务状态均返回 404
 
 ### 当前阻塞 / 注意事项
 - [x] 已完成 DB driver 与 migration runner 从 Postgres/`pg` 到 MySQL/`mysql2` 的切换
@@ -88,4 +95,4 @@
 1. 将当前 repository 从内存版逐步替换为 MySQL 持久化实现
 2. 让应用运行时默认读取 MySQL `DATABASE_URL` 并验证真实读写链路
 3. 评估是否保留 `test_closet_backend` 作为开发库，或切换到用户指定的新专用库名
-4. 下一条垂直切片优先评估 Auth 与 LlmGateway 是否需要继续落库，或整理当前 MySQL 化成果并准备提交/推送
+4. 下一条垂直切片优先评估 Auth 与 LlmGateway 是否需要继续落库，或补充正式文件存储/对象存储方案替代 MySQL BLOB

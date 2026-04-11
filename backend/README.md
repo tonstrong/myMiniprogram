@@ -45,6 +45,10 @@ Each module is split into API, Application, Domain, and Infrastructure placehold
 ## Environment
 Copy `.env.example` to `.env` and fill in app/DB/queue/storage/LLM settings. The current DB runtime and migration scripts target MySQL via `DATABASE_URL`. Provider switching is driven by `LLM_PROVIDERS` and provider-specific settings; no vendor is hardcoded in code.
 
+Important image upload settings:
+- `PUBLIC_BASE_URL` should be the externally reachable backend base URL used to build closet image URLs.
+- `MAX_UPLOAD_BYTES` limits base64 image uploads accepted by `/api/closet/items/upload`.
+
 ## Next Implementation Steps
 - Implement API layer controllers and request validation
 - Flesh out application services and domain rules

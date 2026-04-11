@@ -19,6 +19,11 @@
     "navigationBarTextStyle": "black",
     "backgroundColor": "#FAFAFA"
   },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于识别所在城市，后续可联动天气、温度与穿搭推荐"
+    }
+  },
   "tabBar": {
     "color": "#999999",
     "selectedColor": "#2C2C2C",

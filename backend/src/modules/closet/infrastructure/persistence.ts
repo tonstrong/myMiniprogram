@@ -16,6 +16,7 @@ export type ClothingSourceType = "camera" | "album" | "import";
 export interface ClothingItemRecord extends BaseRecord, RetryableProviderFields {
   userId: string;
   imageOriginalUrl: string;
+  imageAccessKey?: string | null;
   category?: string | null;
   subCategory?: string | null;
   colors?: JsonValue | null;
@@ -30,6 +31,14 @@ export interface ClothingItemRecord extends BaseRecord, RetryableProviderFields 
   status: ClothingItemStatus;
   sourceType?: ClothingSourceType | null;
   confirmedAt?: Date | null;
+}
+
+export interface ClothingItemImageRecord extends CreatedAtRecord {
+  itemId: string;
+  contentType: string;
+  byteSize: number;
+  bytes: Buffer;
+  updatedAt: Date;
 }
 
 export type ClothingAttributeSource = "llm" | "user" | "system";

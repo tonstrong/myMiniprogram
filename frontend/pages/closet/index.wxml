@@ -10,7 +10,7 @@
         <block wx:for="{{filters}}" wx:key="*this">
           <view class="filter-item {{activeFilter === index ? 'active' : ''}}" 
                 bindtap="switchFilter" data-index="{{index}}">
-            <text>{{item}}</text>
+            <text>{{item.label}}</text>
           </view>
         </block>
       </view>
@@ -22,7 +22,10 @@
     <view class="col-left">
       <block wx:for="{{items}}" wx:key="id" wx:if="{{index % 2 === 0}}">
         <view class="item-card glass-panel" bindtap="goDetail" data-id="{{item.id}}">
-          <image class="i-img" src="{{item.img}}" mode="widthFix"></image>
+          <image wx:if="{{item.img}}" class="i-img" src="{{item.img}}" mode="widthFix"></image>
+          <view wx:else class="i-placeholder">
+            <text class="i-placeholder-text">单品</text>
+          </view>
           <view class="i-info">
             <text class="text-body font-medium">{{item.title}}</text>
             <view class="i-tags flex-row">
@@ -37,7 +40,10 @@
     <view class="col-right">
       <block wx:for="{{items}}" wx:key="id" wx:if="{{index % 2 !== 0}}">
         <view class="item-card glass-panel" bindtap="goDetail" data-id="{{item.id}}">
-          <image class="i-img" src="{{item.img}}" mode="widthFix"></image>
+          <image wx:if="{{item.img}}" class="i-img" src="{{item.img}}" mode="widthFix"></image>
+          <view wx:else class="i-placeholder">
+            <text class="i-placeholder-text">单品</text>
+          </view>
           <view class="i-info">
             <text class="text-body font-medium">{{item.title}}</text>
             <view class="i-tags flex-row">
@@ -53,6 +59,9 @@
 
   <!-- 悬浮长驻添加按钮 -->
   <view class="fab-btn" bindtap="goUpload">
-    <image src="https://dummyimage.com/48x48/FFFFFF/1C1C1E?text=+" class="fab-icon"></image>
+    <view class="fab-icon">
+      <view class="fab-line fab-line-horizontal"></view>
+      <view class="fab-line fab-line-vertical"></view>
+    </view>
   </view>
 </view>

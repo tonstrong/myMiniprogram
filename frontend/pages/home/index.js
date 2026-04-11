@@ -1,19 +1,24 @@
 import api from '../../utils/api';
 
+const LOCAL_AVATAR_KEY = 'profile:localAvatarUrl';
+const DEFAULT_AVATAR_URL = '';
+const PROFILE_GUIDE_SHOWN_KEY = 'profile:completionGuideShown';
+
 Page({
   data: {
     userName: '时尚体验官',
+    avatarUrl: DEFAULT_AVATAR_URL,
     greeting: '你好',
     currentDateText: '',
     tasks: [],
     closetCount: 0,
     stylePackCount: 0,
-    todayRecommend: {
-      scene: '今日建议',
-      weather: '以当前衣橱为准',
-      reason: '先补齐衣橱与风格包，AI 才能生成更准确的推荐。',
-      image: 'https://dummyimage.com/300x400/F3F4F6/1C1C1E&text=Outfit'
-    }
+      todayRecommend: {
+        scene: '今日建议',
+        weather: '以当前衣橱为准',
+        reason: '先补齐衣橱与风格包，AI 才能生成更准确的推荐。',
+        image: ''
+      }
   },
 
   onLoad() {
@@ -77,15 +82,46 @@ Page({
 
       this.setData({
         userName: profile.nickname || '时尚体验官',
+        avatarUrl: wx.getStorageSync(LOCAL_AVATAR_KEY) || profile.avatarUrl || DEFAULT_AVATAR_URL,
         closetCount: closetItems.length,
         stylePackCount: activeStylePackCount,
         tasks,
         todayRecommend: buildRecommendCard(activeClosetCount, activeStylePackCount)
       });
+
+      this.maybeShowProfileGuide(profile);
     } catch (error) {
       console.error('Load home dashboard failed', error);
       wx.showToast({ title: '首页加载失败', icon: 'none' });
     }
+  },
+
+  maybeShowProfileGuide(profile) {
+    const alreadyShown = wx.getStorageSync(PROFILE_GUIDE_SHOWN_KEY);
+    if (alreadyShown) {
+      return;
+    }
+
+    const hasNickname = !!(profile.nickname && profile.nickname.trim());
+    const hasAvatar = !!(wx.getStorageSync(LOCAL_AVATAR_KEY) || profile.avatarUrl);
+
+    if (hasNickname && hasAvatar) {
+      wx.setStorageSync(PROFILE_GUIDE_SHOWN_KEY, 'done');
+      return;
+    }
+
+    wx.setStorageSync(PROFILE_GUIDE_SHOWN_KEY, 'shown');
+    wx.showModal({
+      title: '完善头像和昵称',
+      content: '为了让首页问候和“我的”页展示更完整，建议先去完善头像和昵称。',
+      confirmText: '去完善',
+      cancelText: '稍后',
+      success: ({ confirm }) => {
+        if (confirm) {
+          wx.switchTab({ url: '/pages/profile/index' });
+        }
+      }
+    });
   },
 
   handleTask(e) {
@@ -118,7 +154,7 @@ function buildRecommendCard(activeClosetCount, activeStylePackCount) {
       scene: '开始生成推荐',
       weather: `已入库 ${activeClosetCount} 件单品`,
       reason: '至少需要 2 件已入库单品，先去确认更多衣橱内容吧。',
-      image: 'https://dummyimage.com/300x400/F3F4F6/1C1C1E&text=Closet'
+      image: ''
     };
   }
 
@@ -127,7 +163,7 @@ function buildRecommendCard(activeClosetCount, activeStylePackCount) {
       scene: '开始生成推荐',
       weather: `已入库 ${activeClosetCount} 件单品`,
       reason: '你已经具备基础推荐条件，再激活一个风格包会让推荐结果更贴近你的偏好。',
-      image: 'https://dummyimage.com/300x400/F3F4F6/1C1C1E&text=Style+Pack'
+      image: ''
     };
   }
 
@@ -135,6 +171,6 @@ function buildRecommendCard(activeClosetCount, activeStylePackCount) {
     scene: '开始生成推荐',
     weather: `已激活 ${activeStylePackCount} 个风格包`,
     reason: '衣橱和风格包都已准备好，可以直接进入推荐页生成新的搭配方案。',
-    image: 'https://dummyimage.com/300x400/F3F4F6/1C1C1E&text=Recommend'
+    image: ''
   };
 }

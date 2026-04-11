@@ -13,6 +13,8 @@ export interface LlmProviderConfig {
 export interface AppConfig {
   env: string;
   port: number;
+  publicBaseUrl: string;
+  maxUploadBytes: number;
   logLevel: LogLevel;
   databaseUrl: string;
   queueUrl: string;
@@ -88,9 +90,13 @@ function buildProviders(): LlmProviderConfig[] {
 export function loadConfig(): AppConfig {
   dotenv.config();
 
+  const port = Number(optionalEnv("APP_PORT", "4000"));
+
   return {
     env: optionalEnv("APP_ENV", "development"),
-    port: Number(optionalEnv("APP_PORT", "4000")),
+    port,
+    publicBaseUrl: optionalEnv("PUBLIC_BASE_URL", `http://127.0.0.1:${port}`),
+    maxUploadBytes: Number(optionalEnv("MAX_UPLOAD_BYTES", "10485760")),
     logLevel: (optionalEnv("LOG_LEVEL", "info") as LogLevel) || "info",
     databaseUrl: requireEnv("DATABASE_URL"),
     queueUrl: requireEnv("QUEUE_URL"),

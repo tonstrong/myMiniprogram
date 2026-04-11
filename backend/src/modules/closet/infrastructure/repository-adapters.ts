@@ -3,12 +3,14 @@ import { withClient } from "../../../app/db";
 import type { JsonValue } from "../../../app/common/persistence";
 import type { ClosetRepository } from "./index";
 import type {
+  ClothingItemImageRecord,
   ClothingItemAttributeHistoryRecord,
   ClothingItemRecord
 } from "./persistence";
 
 export class InMemoryClosetRepository implements ClosetRepository {
   private items = new Map<string, ClothingItemRecord>();
+  private images = new Map<string, ClothingItemImageRecord>();
   private attributeHistory: ClothingItemAttributeHistoryRecord[] = [];
 
   async saveItem(item: ClothingItemRecord): Promise<void> {
@@ -34,6 +36,14 @@ export class InMemoryClosetRepository implements ClosetRepository {
     return Array.from(this.items.values()).filter((item) => item.userId === userId);
   }
 
+  async saveItemImage(image: ClothingItemImageRecord): Promise<void> {
+    this.images.set(image.itemId, image);
+  }
+
+  async findItemImageByItemId(itemId: string): Promise<ClothingItemImageRecord | null> {
+    return this.images.get(itemId) ?? null;
+  }
+
   async appendAttributeHistory(
     entry: ClothingItemAttributeHistoryRecord
   ): Promise<void> {
@@ -48,6 +58,7 @@ interface ClothingItemRow extends RowDataPacket {
   id: string;
   user_id: string;
   image_original_url: string;
+  image_access_key: string | null;
   category: string | null;
   sub_category: string | null;
   colors: string | JsonValue[] | null;
@@ -70,6 +81,15 @@ interface ClothingItemRow extends RowDataPacket {
   confirmed_at: Date | string | null;
 }
 
+interface ClothingItemImageRow extends RowDataPacket {
+  item_id: string;
+  content_type: string;
+  byte_size: number;
+  bytes: Buffer;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
 export class MySqlClosetRepository implements ClosetRepository {
   async saveItem(item: ClothingItemRecord): Promise<void> {
     await withClient(async (client) => {
@@ -79,6 +99,7 @@ export class MySqlClosetRepository implements ClosetRepository {
           id,
           user_id,
           image_original_url,
+          image_access_key,
           category,
           sub_category,
           colors,
@@ -99,11 +120,12 @@ export class MySqlClosetRepository implements ClosetRepository {
           created_at,
           updated_at,
           confirmed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           item.id,
           item.userId,
           item.imageOriginalUrl,
+          item.imageAccessKey ?? null,
           item.category ?? null,
           item.subCategory ?? null,
           encodeJson(item.colors),
@@ -134,6 +156,7 @@ export class MySqlClosetRepository implements ClosetRepository {
     const values: unknown[] = [];
 
     pushAssignment(assignments, values, "image_original_url", patch.imageOriginalUrl);
+    pushAssignment(assignments, values, "image_access_key", patch.imageAccessKey);
     pushAssignment(assignments, values, "category", patch.category);
     pushAssignment(assignments, values, "sub_category", patch.subCategory);
     if (patch.colors !== undefined) {
@@ -204,6 +227,7 @@ export class MySqlClosetRepository implements ClosetRepository {
           id,
           user_id,
           image_original_url,
+          image_access_key,
           category,
           sub_category,
           colors,
@@ -242,6 +266,7 @@ export class MySqlClosetRepository implements ClosetRepository {
           id,
           user_id,
           image_original_url,
+          image_access_key,
           category,
           sub_category,
           colors,
@@ -263,12 +288,66 @@ export class MySqlClosetRepository implements ClosetRepository {
           updated_at,
           confirmed_at
         FROM clothing_items
-        WHERE user_id = ?
+        WHERE user_id = ? AND status <> 'deleted'
         ORDER BY updated_at DESC`,
         [userId]
       );
 
       return rows.map((row) => mapClothingItemRowToRecord(row));
+    });
+  }
+
+  async saveItemImage(image: ClothingItemImageRecord): Promise<void> {
+    await withClient(async (client) => {
+      await client.query(
+        `INSERT INTO clothing_item_images (
+          item_id,
+          content_type,
+          byte_size,
+          bytes,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          content_type = VALUES(content_type),
+          byte_size = VALUES(byte_size),
+          bytes = VALUES(bytes),
+          updated_at = VALUES(updated_at)`,
+        [
+          image.itemId,
+          image.contentType,
+          image.byteSize,
+          image.bytes,
+          formatDateTime(image.createdAt),
+          formatDateTime(image.updatedAt)
+        ]
+      );
+    });
+  }
+
+  async findItemImageByItemId(itemId: string): Promise<ClothingItemImageRecord | null> {
+    return withClient(async (client) => {
+      const [rows] = await client.query<ClothingItemImageRow[]>(
+        `SELECT item_id, content_type, byte_size, bytes, created_at, updated_at
+         FROM clothing_item_images
+         WHERE item_id = ?
+         LIMIT 1`,
+        [itemId]
+      );
+
+      const row = rows[0];
+      if (!row) {
+        return null;
+      }
+
+      return {
+        itemId: row.item_id,
+        contentType: row.content_type,
+        byteSize: row.byte_size,
+        bytes: row.bytes,
+        createdAt: toDate(row.created_at),
+        updatedAt: toDate(row.updated_at)
+      };
     });
   }
 
@@ -318,6 +397,12 @@ export const createNoopClosetRepository = (): ClosetRepository => ({
   async listItemsByUserId() {
     return [];
   },
+  async saveItemImage() {
+    return undefined;
+  },
+  async findItemImageByItemId() {
+    return null;
+  },
   async appendAttributeHistory() {
     return undefined;
   }
@@ -349,7 +434,8 @@ function mapClothingItemRowToRecord(row: ClothingItemRow): ClothingItemRecord {
   return {
     id: row.id,
     userId: row.user_id,
-    imageOriginalUrl: row.image_original_url,
+    imageOriginalUrl: sanitizeImageUrl(row.image_original_url),
+    imageAccessKey: row.image_access_key,
     category: row.category,
     subCategory: row.sub_category,
     colors: decodeJson(row.colors),
@@ -371,6 +457,19 @@ function mapClothingItemRowToRecord(row: ClothingItemRow): ClothingItemRecord {
     updatedAt: toDate(row.updated_at),
     confirmedAt: row.confirmed_at ? toDate(row.confirmed_at) : null
   };
+}
+
+function sanitizeImageUrl(value: string): string {
+  if (
+    !value ||
+    value.startsWith("file://") ||
+    value.startsWith("wxfile://") ||
+    value.startsWith("http://tmp/") ||
+    value.startsWith("https://tmp/")
+  ) {
+    return "";
+  }
+  return value;
 }
 
 function pushAssignment(

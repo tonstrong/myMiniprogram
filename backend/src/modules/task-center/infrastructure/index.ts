@@ -4,6 +4,7 @@ export interface TaskRepository {
   create(task: AsyncTaskRecord): Promise<void>;
   update(id: string, patch: Partial<AsyncTaskRecord>): Promise<void>;
   findById(id: string): Promise<AsyncTaskRecord | null>;
+  findByIdForUser(id: string, userId: string): Promise<AsyncTaskRecord | null>;
 }
 
 export * from "./mappers";

@@ -10,12 +10,39 @@
   margin-bottom: var(--spacing-md);
 }
 
+.avatar-button {
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  line-height: 1;
+  border: none;
+}
+
+.avatar-button::after {
+  border: none;
+}
+
 .avatar-img {
   width: 100%;
   height: 100%;
   border-radius: var(--radius-max);
   box-shadow: var(--shadow-md);
   border: 4rpx solid #FFF;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-max);
+  box-shadow: var(--shadow-md);
+  border: 4rpx solid #FFF;
+  background: linear-gradient(135deg, #1c1c1e 0%, #6b7280 100%);
+  color: #fff;
+  font-size: 56rpx;
+  font-weight: 600;
 }
 
 .avatar-badge {
@@ -29,12 +56,87 @@
   border: 4rpx solid #FFF;
 }
 
+.avatar-edit {
+  position: absolute;
+  left: 50%;
+  bottom: -18rpx;
+  transform: translateX(-50%);
+  background: rgba(28, 28, 30, 0.82);
+  color: #fff;
+  border-radius: 999rpx;
+  padding: 8rpx 18rpx;
+  font-size: 20rpx;
+  white-space: nowrap;
+}
+
 .username {
   margin-bottom: var(--spacing-xs);
 }
 
+.username-input {
+  text-align: center;
+  min-width: 300rpx;
+  height: 60rpx;
+  line-height: 60rpx;
+}
+
 .signature {
   color: var(--text-secondary);
+}
+
+.nickname-helper {
+  margin-top: 8rpx;
+  color: var(--text-tertiary);
+}
+
+.location-card {
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.lc-row {
+  gap: var(--spacing-md);
+}
+
+.lc-main {
+  flex: 1;
+}
+
+.lc-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.lc-value {
+  margin-top: 10rpx;
+  font-size: 34rpx;
+  color: var(--text-main);
+}
+
+.city-entry-arrow {
+  font-size: 36rpx;
+  color: var(--text-tertiary);
+  margin-left: var(--spacing-md);
+}
+
+.lc-caption {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--text-tertiary);
+  line-height: 1.6;
+}
+
+.city-helper-row {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-sm);
+  border-top: 1rpx solid rgba(0, 0, 0, 0.05);
+}
+
+.city-source {
+  font-size: 22rpx;
+  color: var(--text-tertiary);
 }
 
 /* 统计卡片 */
@@ -58,6 +160,12 @@
 .stat-label {
   font-size: 24rpx;
   color: var(--text-secondary);
+}
+
+.stat-hint {
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  color: var(--text-tertiary);
 }
 
 .stat-divider {

@@ -1,4 +1,5 @@
 import {
+  binary,
   fail,
   formatValidationErrors,
   ok,
@@ -13,6 +14,7 @@ import type {
   ClothingItemListItemDTO,
   ClothingItemListQueryDTO,
   ConfirmClothingItemRequestDTO,
+  GetClothingItemImageQueryDTO,
   UpdateClothingItemRequestDTO,
   UploadClothingItemRequestDTO,
   UploadClothingItemResponseDTO
@@ -21,6 +23,7 @@ import { ClosetRoutes } from "./index";
 import {
   validateClothingItemListQuery,
   validateConfirmClothingItemRequest,
+  validateGetClothingItemImageQuery,
   validateItemIdParams,
   validateUpdateClothingItemRequest,
   validateUploadClothingItemRequest
@@ -57,6 +60,8 @@ export class ClosetController {
       userId,
       sourceType: validation.value.sourceType,
       fileId: validation.value.fileId,
+      fileContentBase64: validation.value.fileContentBase64,
+      fileContentType: validation.value.fileContentType,
       originalFilename: validation.value.originalFilename
     });
 
@@ -133,6 +138,43 @@ export class ClosetController {
       imageOriginalUrl: detail.imageOriginalUrl,
       attributes: detail.attributes,
       llmMeta: detail.providerMeta
+    });
+  }
+
+  async getItemImage(
+    request: ApiRequest<unknown, GetClothingItemImageQueryDTO, ItemIdParams>
+  ) {
+    const paramValidation = validateRequest(request.params, validateItemIdParams);
+    if (!paramValidation.ok) {
+      return fail(
+        "INVALID_REQUEST",
+        formatValidationErrors(paramValidation.errors)
+      );
+    }
+
+    const queryValidation = validateRequest(
+      request.query,
+      validateGetClothingItemImageQuery
+    );
+    if (!queryValidation.ok) {
+      return fail(
+        "INVALID_REQUEST",
+        formatValidationErrors(queryValidation.errors)
+      );
+    }
+
+    const image = await this.deps.closetService.getItemImage(
+      queryValidation.value.userId,
+      paramValidation.value.itemId,
+      queryValidation.value.key
+    );
+
+    return binary(image.bytes, {
+      status: 200,
+      headers: {
+        "content-type": image.contentType,
+        "cache-control": "private, max-age=86400"
+      }
     });
   }
 
@@ -298,6 +340,11 @@ export function createClosetControllerRoutes(
       ...parseRoute(ClosetRoutes.getItem),
       summary: "Get clothing item detail",
       handler: controller.getItem.bind(controller)
+    },
+    {
+      ...parseRoute(ClosetRoutes.getItemImage),
+      summary: "Get clothing item image",
+      handler: controller.getItemImage.bind(controller)
     },
     {
       ...parseRoute(ClosetRoutes.updateItem),

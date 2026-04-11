@@ -2,30 +2,44 @@
   
   <!-- 用户信息区 -->
   <view class="profile-header flex-col items-center animate-fade-in">
-    <view class="avatar-wrap">
-      <image class="avatar-img" src="{{userInfo.avatarUrl}}" mode="aspectFill"></image>
-      <view class="avatar-badge"></view>
-    </view>
-    <text class="text-h2 username">{{userInfo.nickName}}</text>
+    <button class="avatar-button" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+      <view class="avatar-wrap">
+        <image wx:if="{{userInfo.avatarUrl}}" class="avatar-img" src="{{userInfo.avatarUrl}}" mode="aspectFill"></image>
+        <view wx:else class="avatar-placeholder">{{userInfo.nickName ? userInfo.nickName.slice(0, 1) : '衣'}}</view>
+        <view class="avatar-badge"></view>
+        <view class="avatar-edit">更换头像</view>
+      </view>
+    </button>
+    <input type="nickname" class="text-h2 username username-input" value="{{userInfo.nickName}}" placeholder="点击获取微信昵称" bindblur="onNicknameBlur" />
     <text class="text-caption signature">{{userInfo.signature}}</text>
+    <text class="text-caption nickname-helper">点击昵称，可获取微信昵称或手动填写</text>
   </view>
 
-  <!-- 数据统计区 -->
+  <view class="location-card glass-panel animate-fade-in" style="animation-delay: 0.05s;" bindtap="openCityActions">
+    <view class="lc-row flex-row items-center justify-between">
+      <view class="flex-col lc-main">
+        <text class="lc-title">所在城市</text>
+        <text class="lc-value">{{cityUi.isLocating ? '定位中...' : (cityUi.value || '未设置城市')}}</text>
+      </view>
+      <view class="city-entry-arrow">></view>
+    </view>
+    <view class="city-helper-row flex-row items-center justify-between">
+      <text class="lc-caption">点击所在城市，可选择定位或手动输入</text>
+      <text class="city-source" wx:if="{{cityUi.lastSource === 'location'}}">已通过定位更新</text>
+      <text class="city-source" wx:elif="{{cityUi.lastSource === 'manual'}}">已手动更新</text>
+      <text class="city-source" wx:else>来自资料</text>
+    </view>
+  </view>
+
   <view class="stats-card glass-panel flex-row justify-between animate-fade-in" style="animation-delay: 0.1s;">
-    <view class="stat-item flex-col items-center">
-      <text class="stat-num">24</text>
-      <text class="stat-label">单品</text>
-    </view>
-    <view class="stat-divider"></view>
-    <view class="stat-item flex-col items-center">
-      <text class="stat-num">3</text>
-      <text class="stat-label">风格包</text>
-    </view>
-    <view class="stat-divider"></view>
-    <view class="stat-item flex-col items-center">
-      <text class="stat-num">12</text>
-      <text class="stat-label">收藏搭配</text>
-    </view>
+    <block wx:for="{{stats}}" wx:key="id">
+      <view class="stat-item flex-col items-center">
+        <text class="stat-num">{{item.value}}</text>
+        <text class="stat-label">{{item.label}}</text>
+        <text class="stat-hint" wx:if="{{item.hint}}">{{item.hint}}</text>
+      </view>
+      <view class="stat-divider" wx:if="{{index !== stats.length - 1}}"></view>
+    </block>
   </view>
 
   <!-- 菜单列表区 -->

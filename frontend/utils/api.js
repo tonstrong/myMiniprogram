@@ -4,16 +4,16 @@ function request(options) {
   return new Promise(async (resolve, reject) => {
     let token = wx.getStorageSync('token') || '';
     let userId = wx.getStorageSync('userId') || '';
-    
+
     // 如果没有登录态且不是登录接口，尝试等待全局登录准备完毕，避免页面启动时并发请求导致 401
     if ((!token || !userId) && options.url !== '/api/auth/wechat-login') {
       const app = getApp();
       if (app && app.globalData && app.globalData.loginPromise) {
-         try {
-            await app.globalData.loginPromise;
-            token = wx.getStorageSync('token') || '';
-            userId = wx.getStorageSync('userId') || '';
-          } catch(e) {}
+        try {
+          await app.globalData.loginPromise;
+          token = wx.getStorageSync('token') || '';
+          userId = wx.getStorageSync('userId') || '';
+        } catch (e) { }
       }
     }
 
@@ -31,10 +31,10 @@ function request(options) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           // 假设后端返回标准结构: { code, message, data, requestId }
           if (res.data.code === 0 || !res.data.code) {
-             resolve(res.data.data !== undefined ? res.data.data : res.data);
+            resolve(res.data.data !== undefined ? res.data.data : res.data);
           } else {
-             console.error(`API Error HTTP 200 with code: ${res.data.code}`, res.data);
-             reject(res.data);
+            console.error(`API Error HTTP 200 with code: ${res.data.code}`, res.data);
+            reject(res.data);
           }
         } else {
           console.error(`API Error HTTP Status: ${res.statusCode}`, res.data);
@@ -73,7 +73,7 @@ function uploadFile(options) {
             } else {
               reject(data);
             }
-          } catch(e) {
+          } catch (e) {
             resolve(res.data);
           }
         } else {

@@ -22,6 +22,14 @@ export class InMemoryTaskRepository implements TaskRepository {
   async findById(id: string): Promise<AsyncTaskRecord | null> {
     return this.tasks.get(id) ?? null;
   }
+
+  async findByIdForUser(id: string, userId: string): Promise<AsyncTaskRecord | null> {
+    const task = this.tasks.get(id) ?? null;
+    if (!task || task.userId !== userId) {
+      return null;
+    }
+    return task;
+  }
 }
 
 export const createInMemoryTaskRepository = (): TaskRepository =>
@@ -167,6 +175,39 @@ export class MySqlTaskRepository implements TaskRepository {
       return mapAsyncTaskRowToRecord(row);
     });
   }
+
+  async findByIdForUser(id: string, userId: string): Promise<AsyncTaskRecord | null> {
+    return withClient(async (client) => {
+      const [rows] = await client.query<AsyncTaskRow[]>(
+        `SELECT
+          id,
+          user_id,
+          task_type,
+          biz_type,
+          biz_id,
+          status,
+          progress,
+          result_summary,
+          provider_meta,
+          error_code,
+          error_message,
+          created_at,
+          updated_at,
+          finished_at
+        FROM async_tasks
+        WHERE id = ? AND user_id = ?
+        LIMIT 1`,
+        [id, userId]
+      );
+
+      const row = rows[0];
+      if (!row) {
+        return null;
+      }
+
+      return mapAsyncTaskRowToRecord(row);
+    });
+  }
 }
 
 export const createMySqlTaskRepository = (): TaskRepository =>
@@ -180,6 +221,9 @@ export const createNoopTaskRepository = (): TaskRepository => ({
     return undefined;
   },
   async findById() {
+    return null;
+  },
+  async findByIdForUser() {
     return null;
   }
 });

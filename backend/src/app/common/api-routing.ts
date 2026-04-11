@@ -1,5 +1,5 @@
 import type { RequestContext } from "./request-context";
-import type { ApiResponse } from "./response";
+import type { HttpResponse } from "./response";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
@@ -15,7 +15,7 @@ export type ApiHandler<
   TQuery = any,
   TParams = any,
   TResult = any
-> = (request: ApiRequest<TBody, TQuery, TParams>) => Promise<ApiResponse<TResult>>;
+> = (request: ApiRequest<TBody, TQuery, TParams>) => Promise<HttpResponse<TResult>>;
 
 export interface ApiRouteDefinition<
   TBody = any,

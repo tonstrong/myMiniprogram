@@ -54,6 +54,11 @@ export class TaskCenterController {
   async getTask(
     request: ApiRequest<unknown, unknown, TaskIdParams>
   ): Promise<ApiResponse<TaskStatusResponseDTO>> {
+    const userId = request.context.userId;
+    if (!userId) {
+      return fail("UNAUTHORIZED", "Missing user id");
+    }
+
     const paramValidation = validateRequest(request.params, validateTaskIdParams);
     if (!paramValidation.ok) {
       return fail(
@@ -63,6 +68,7 @@ export class TaskCenterController {
     }
 
     const snapshot = await this.deps.taskCenterService.getTask(
+      userId,
       paramValidation.value.taskId
     );
 

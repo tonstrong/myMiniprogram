@@ -12,7 +12,14 @@ export type UploadSourceType = "camera" | "album";
 export interface UploadClothingItemRequestDTO {
   sourceType: UploadSourceType;
   fileId?: string;
+  fileContentBase64?: string;
+  fileContentType?: string;
   originalFilename?: string;
+}
+
+export interface GetClothingItemImageQueryDTO {
+  userId: string;
+  key: string;
 }
 
 export interface UploadClothingItemResponseDTO {

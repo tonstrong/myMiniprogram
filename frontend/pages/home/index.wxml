@@ -8,7 +8,8 @@
       <text class="text-body subtitle">开始你的搭配灵感之旅吧</text>
     </view>
     <view class="avatar">
-      <image class="avatar-img" src="https://dummyimage.com/100x100/1C1C1E/FFFFFF&text=User" mode="aspectFill"></image>
+      <image wx:if="{{avatarUrl}}" class="avatar-img" src="{{avatarUrl}}" mode="aspectFill"></image>
+      <view wx:else class="avatar-placeholder">{{userName ? userName.slice(0, 1) : '衣'}}</view>
     </view>
   </view>
 
@@ -29,7 +30,10 @@
       <text class="text-h2">今日推荐</text>
     </view>
     <view class="recommend-card">
-      <image class="rc-bg" src="{{todayRecommend.image}}" mode="aspectFill"></image>
+      <image wx:if="{{todayRecommend.image}}" class="rc-bg" src="{{todayRecommend.image}}" mode="aspectFill"></image>
+      <view wx:else class="rc-bg rc-placeholder">
+        <text class="rc-placeholder-text">{{todayRecommend.scene}}</text>
+      </view>
       <view class="rc-overlay flex-col justify-between">
         <view class="rc-tags flex-row">
           <view class="tag-chip blur-tag">{{todayRecommend.scene}}</view>

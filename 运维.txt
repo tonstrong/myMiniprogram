@@ -1,0 +1,11 @@
+cd /var/www/myMiniProgram
+git pull
+
+cd backend
+npm install
+npm run build
+npm run db:migrate
+pm2 restart closet-backend
+
+日志：
+pm2 logs closet-backend

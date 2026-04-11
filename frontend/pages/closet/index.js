@@ -2,7 +2,15 @@ import api from '../../utils/api';
 
 Page({
   data: {
-    filters: ['全部', '上衣', '下装', '外套', '鞋包'],
+    filters: [
+      { label: '全部', value: '' },
+      { label: '上衣', value: '上衣' },
+      { label: '下装', value: '下装' },
+      { label: '外套', value: '外套' },
+      { label: '鞋履', value: '鞋履' },
+      { label: '包袋', value: '包袋' },
+      { label: '饰品', value: '配饰' }
+    ],
     activeFilter: 0,
     items: [],
     loading: true
@@ -15,15 +23,18 @@ Page({
   async fetchItems() {
     this.setData({ loading: true });
     try {
-      const categoryFilter = this.data.activeFilter === 0 ? '' : this.data.filters[this.data.activeFilter];
+      const activeFilter = this.data.filters[this.data.activeFilter];
+      const categoryFilter = activeFilter?.value || '';
       const res = await api.request({
         url: `/api/closet/items${categoryFilter ? '?category=' + encodeURIComponent(categoryFilter) : ''}`,
         method: 'GET'
       });
 
-      const items = (res.items || []).map(item => ({
+      const items = (res.items || [])
+        .filter(item => item.status !== 'deleted')
+        .map(item => ({
         id: item.itemId,
-        img: item.imageOriginalUrl || 'https://dummyimage.com/300x400/E5E7EB/1C1C1E&text=Closet+Item',
+        img: item.imageOriginalUrl || '',
         title: [item.category, item.subCategory].filter(Boolean).join(' / ') || '待补充信息单品',
         tags: item.tags || []
       }));

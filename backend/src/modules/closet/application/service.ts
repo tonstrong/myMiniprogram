@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { AppError } from "../../../app/common/errors";
+import { loadConfig } from "../../../app/config";
 import type { PaginatedResult } from "../../../app/common/types";
 import type {
   ClothingAttributes,
@@ -36,10 +37,22 @@ export class InMemoryClosetService implements ClosetService {
   async uploadItem(command: UploadClothingItemCommand): Promise<UploadClothingItemResult> {
     const now = new Date();
     const itemId = generateId();
+    const accessKey = generateId();
+    const imageAsset = buildImageAsset(command);
+    const remoteImageUrl = isPersistableRemoteUrl(command.fileId)
+      ? command.fileId
+      : undefined;
     const record: ClothingItemRecord = {
       id: itemId,
       userId: command.userId,
-      imageOriginalUrl: buildImageUrl(command),
+      imageOriginalUrl: buildImageUrl(
+        command.userId,
+        itemId,
+        accessKey,
+        imageAsset,
+        remoteImageUrl
+      ),
+      imageAccessKey: imageAsset ? accessKey : null,
       category: null,
       subCategory: null,
       colors: null,
@@ -63,6 +76,16 @@ export class InMemoryClosetService implements ClosetService {
     };
 
     await this.deps.repository.saveItem(record);
+    if (imageAsset) {
+      await this.deps.repository.saveItemImage({
+        itemId,
+        contentType: imageAsset.contentType,
+        byteSize: imageAsset.bytes.byteLength,
+        bytes: imageAsset.bytes,
+        createdAt: now,
+        updatedAt: now
+      });
+    }
 
     const task = await this.deps.taskCenterService.createTask({
       taskType: "extract_clothing_attributes",
@@ -105,6 +128,27 @@ export class InMemoryClosetService implements ClosetService {
   async getItem(userId: string, itemId: string): Promise<ClothingItemDetail> {
     const record = await this.ensureItem(userId, itemId);
     return mapClothingRecordToDetail(record);
+  }
+
+  async getItemImage(
+    userId: string,
+    itemId: string,
+    accessKey: string
+  ): Promise<{ bytes: Buffer; contentType: string }> {
+    const record = await this.ensureItem(userId, itemId);
+    if (!record.imageAccessKey || record.imageAccessKey !== accessKey) {
+      throw new AppError("Image not found", "NOT_FOUND", 404);
+    }
+
+    const image = await this.deps.repository.findItemImageByItemId(itemId);
+    if (!image) {
+      throw new AppError("Image not found", "NOT_FOUND", 404);
+    }
+
+    return {
+      bytes: image.bytes,
+      contentType: image.contentType
+    };
   }
 
   async updateItem(command: UpdateClothingItemCommand): Promise<ClothingItemDetail> {
@@ -175,14 +219,58 @@ export function createInMemoryClosetService(
   });
 }
 
-function buildImageUrl(command: UploadClothingItemCommand): string {
-  if (command.fileId) {
-    return `file://${command.fileId}`;
+function buildImageUrl(
+  userId: string,
+  itemId: string,
+  accessKey: string,
+  imageAsset: { bytes: Buffer; contentType: string } | null,
+  remoteImageUrl?: string
+): string {
+  if (remoteImageUrl) {
+    return remoteImageUrl;
   }
-  if (command.originalFilename) {
-    return `file://${command.originalFilename}`;
+  if (!imageAsset) {
+    return "";
   }
-  return "unknown://image";
+
+  const config = loadConfig();
+  const query = new URLSearchParams({ userId, key: accessKey });
+  return `${config.publicBaseUrl}/api/closet/items/${itemId}/image?${query.toString()}`;
+}
+
+function isPersistableRemoteUrl(value?: string): value is string {
+  return !!value && (value.startsWith("http://") || value.startsWith("https://"));
+}
+
+function buildImageAsset(
+  command: UploadClothingItemCommand
+): { bytes: Buffer; contentType: string } | null {
+  if (!command.fileContentBase64) {
+    return null;
+  }
+
+  const config = loadConfig();
+  const bytes = Buffer.from(command.fileContentBase64, "base64");
+  if (bytes.byteLength === 0) {
+    throw new AppError("Image content is empty", "INVALID_REQUEST", 400);
+  }
+  if (bytes.byteLength > config.maxUploadBytes) {
+    throw new AppError("Uploaded image is too large", "INVALID_REQUEST", 400);
+  }
+
+  const contentType = normalizeContentType(command.fileContentType);
+  return { bytes, contentType };
+}
+
+function normalizeContentType(value?: string): string {
+  switch (value) {
+    case "image/jpeg":
+    case "image/png":
+    case "image/webp":
+      return value;
+    default:
+      return "image/jpeg";
+  }
 }
 
 function buildAttributePatch(
@@ -228,6 +316,9 @@ function buildAttributePatch(
 }
 
 function matchesFilters(record: ClothingItemRecord, query: ClosetQueryFilters): boolean {
+  if (record.status === "deleted") {
+    return false;
+  }
   if (query.category && record.category !== query.category) {
     return false;
   }

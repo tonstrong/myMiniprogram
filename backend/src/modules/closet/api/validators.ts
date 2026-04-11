@@ -10,6 +10,7 @@ import {
 import type {
   ClothingItemListQueryDTO,
   ConfirmClothingItemRequestDTO,
+  GetClothingItemImageQueryDTO,
   UpdateClothingItemRequestDTO,
   UploadClothingItemRequestDTO
 } from "./dtos";
@@ -29,7 +30,15 @@ export const validateUploadClothingItemRequest =
   createObjectValidator<UploadClothingItemRequestDTO>({
     sourceType: requiredStringEnum(uploadSourceTypes),
     fileId: optionalString({ minLength: 1 }),
+    fileContentBase64: optionalString({ minLength: 1 }),
+    fileContentType: optionalString({ minLength: 1 }),
     originalFilename: optionalString({ minLength: 1 })
+  });
+
+export const validateGetClothingItemImageQuery =
+  createObjectValidator<GetClothingItemImageQueryDTO>({
+    userId: requiredString({ minLength: 1 }),
+    key: requiredString({ minLength: 1 })
   });
 
 export const validateClothingItemListQuery =

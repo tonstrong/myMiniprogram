@@ -30,7 +30,14 @@ export interface UploadClothingItemCommand {
   userId: string;
   sourceType: "camera" | "album";
   fileId?: string;
+  fileContentBase64?: string;
+  fileContentType?: string;
   originalFilename?: string;
+}
+
+export interface ClothingItemImageAsset {
+  bytes: Buffer;
+  contentType: string;
 }
 
 export interface UploadClothingItemResult {
@@ -83,6 +90,11 @@ export interface ClosetService {
     query: ClosetQueryFilters
   ): Promise<PaginatedResult<ClothingItemSummary>>;
   getItem(userId: string, itemId: string): Promise<ClothingItemDetail>;
+  getItemImage(
+    userId: string,
+    itemId: string,
+    accessKey: string
+  ): Promise<ClothingItemImageAsset>;
   updateItem(command: UpdateClothingItemCommand): Promise<ClothingItemDetail>;
   confirmItem(command: ConfirmClothingItemCommand): Promise<ClothingItemDetail>;
   archiveItem(userId: string, itemId: string): Promise<void>;

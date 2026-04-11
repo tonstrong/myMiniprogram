@@ -26,7 +26,7 @@ export interface UpdateTaskStatusCommand {
 
 export interface TaskCenterService {
   createTask(command: CreateTaskCommand): Promise<TaskStatusSnapshot>;
-  getTask(taskId: string): Promise<TaskStatusSnapshot | null>;
+  getTask(userId: string, taskId: string): Promise<TaskStatusSnapshot | null>;
   updateTask(command: UpdateTaskStatusCommand): Promise<TaskStatusSnapshot>;
 }
 

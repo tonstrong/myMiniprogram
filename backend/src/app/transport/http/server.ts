@@ -1,7 +1,7 @@
 import http from "http";
 import type { IncomingMessage, ServerResponse } from "http";
 import type { AppContext } from "../../bootstrap/app";
-import type { ApiRouteDefinition } from "../../common";
+import type { ApiRouteDefinition, BinaryResponse } from "../../common";
 import { fail } from "../../common";
 import { AppError } from "../../common/errors";
 import { createRequestContext, parseQueryParams, parseRequestBody } from "./request";
@@ -68,6 +68,11 @@ async function handleRequest(
     params: match.params
   });
 
+  if (isBinaryResponse(result)) {
+    respondBinary(response, result);
+    return;
+  }
+
   const status = result.success ? 200 : mapErrorStatus(result.error?.code);
   respondJson(response, status, result);
 }
@@ -103,4 +108,22 @@ function respondJson(response: ServerResponse, status: number, payload: unknown)
   response.statusCode = status;
   response.setHeader("content-type", "application/json; charset=utf-8");
   response.end(JSON.stringify(payload));
+}
+
+function respondBinary(response: ServerResponse, payload: BinaryResponse): void {
+  response.statusCode = payload.status;
+  for (const [key, value] of Object.entries(payload.headers ?? {})) {
+    response.setHeader(key, value);
+  }
+  response.end(payload.body);
+}
+
+function isBinaryResponse(value: unknown): value is BinaryResponse {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "kind" in value &&
+    (value as { kind?: unknown }).kind === "binary" &&
+    "body" in value
+  );
 }
