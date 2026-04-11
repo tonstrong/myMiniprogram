@@ -79,7 +79,7 @@ export class InMemoryClosetService implements ClosetService {
     };
 
     await this.deps.repository.saveItem(record);
-    if (imageAsset) {
+    if (imageAsset && !remoteImageUrl) {
       await this.deps.repository.saveItemImage({
         itemId,
         contentType: imageAsset.contentType,
@@ -354,7 +354,12 @@ function buildImageUrl(
 }
 
 function isPersistableRemoteUrl(value?: string): value is string {
-  return !!value && (value.startsWith("http://") || value.startsWith("https://"));
+  return (
+    !!value &&
+    (value.startsWith("http://") ||
+      value.startsWith("https://") ||
+      value.startsWith("cloud://"))
+  );
 }
 
 function buildImageAsset(
