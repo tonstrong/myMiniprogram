@@ -18,3 +18,4 @@ export interface ProviderConfigRepository {
 
 export * from "./mappers";
 export * from "./repository-adapters";
+export { OpenAIAdapter } from "./adapters/openai-adapter";
