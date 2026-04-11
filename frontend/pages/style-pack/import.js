@@ -2,7 +2,7 @@ import api from '../../utils/api';
 
 Page({
   data: {
-    importType: 'text', // text, video
+    importType: 'text',
     title: '',
     textInput: '',
     videoPath: '',
@@ -44,37 +44,34 @@ Page({
       wx.showToast({ title: '请填写风格包名称', icon: 'none' });
       return;
     }
+    if (this.data.importType === 'text' && !this.data.textInput.trim()) {
+      wx.showToast({ title: '请填写文本内容', icon: 'none' });
+      return;
+    }
 
-    wx.showLoading({ title: '正在提取规则...' });
-    
+    wx.showLoading({ title: '正在导入...' });
     try {
-      let uploadRes;
-      if (this.data.importType === 'video') {
-         uploadRes = await api.uploadFile({
-           url: '/api/style-packs/import/video',
-           filePath: this.data.videoPath,
-           name: 'file',
-           formData: { title: this.data.title, authConfirmed: 'true' }
-         });
-      } else {
-         uploadRes = await api.request({
-           url: '/api/style-packs/import/text',
-           method: 'POST',
-           data: { title: this.data.title, text: this.data.textInput, authConfirmed: true }
-         });
-      }
+      const result = await api.request({
+        url: this.data.importType === 'text' ? '/api/style-packs/import/text' : '/api/style-packs/import/video',
+        method: 'POST',
+        data: this.data.importType === 'text'
+          ? {
+              title: this.data.title,
+              text: this.data.textInput,
+              authConfirmed: true
+            }
+          : {
+              title: this.data.title,
+              authConfirmed: true
+            }
+      });
 
-      const taskRes = await api.pollTaskStatus(uploadRes.taskId);
       wx.hideLoading();
-      
-      const packId = uploadRes.stylePackId || 'mock_new_pack';
-      wx.redirectTo({ url: `/pages/style-pack/detail?id=${packId}&isNew=true` });
-
-    } catch (e) {
-      console.error('Import error', e);
+      wx.redirectTo({ url: `/pages/style-pack/detail?id=${result.stylePackId}&isNew=1` });
+    } catch (error) {
       wx.hideLoading();
-      // fallback visually
-      setTimeout(() => wx.redirectTo({ url: '/pages/style-pack/detail?id=mock_new_pack&isNew=true' }), 1000);
+      console.error('Import style pack failed', error);
+      wx.showToast({ title: '导入失败', icon: 'none' });
     }
   }
 });

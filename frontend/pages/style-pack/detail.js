@@ -2,81 +2,90 @@ import api from '../../utils/api';
 
 Page({
   data: {
-    packId: '',
     isNew: false,
+    stylePackId: '',
     packInfo: {
-      name: '读取中...',
-      summary: '读取中...',
-      rules: {}
-    }
-  },
-
-  async onLoad(options) {
-    if (options.isNew === 'true') {
-      this.setData({ isNew: true });
-    }
-    const packId = (options.id && options.id !== 'mock_new_pack') ? options.id : null;
-    if (packId) {
-      this.setData({ packId });
-      await this.fetchStylePack(packId);
-    } else {
-      // Mock Data 
-      this.setData({
-        packInfo: {
-          name: '周末松弛感',
-          summary: '强调舒适透气，微宽松版型，色彩柔和自然。',
-          rules: {
-            preferred_colors: ['燕麦色', '浅灰', '米白', '低饱和蓝'],
-            preferred_fit: ['上宽下宽', '微廓形', '垂坠'],
-            avoid: ['紧身', '亮闪片', '硬挺材质'],
-            scenes: ['周末', '咖啡馆', '散步']
-          }
-        }
-      });
-    }
-  },
-
-  async fetchStylePack(packId) {
-    try {
-      const res = await api.request({ url: `/api/style-packs/${packId}`, method: 'GET' });
-      this.setData({ packInfo: res });
-    } catch(e) {
-      console.error('Fetch style pack error', e);
-    }
-  },
-
-  removePack() {
-    wx.showModal({
-      title: '停用风格包',
-      content: '停用后该风格原则将不再参与智能推荐',
-      confirmColor: '#FF9500',
-      success: async (res) => {
-        if (res.confirm) {
-          try {
-            if (this.data.packId) {
-               await api.request({ url: `/api/style-packs/${this.data.packId}/deactivate`, method: 'POST' });
-            }
-            wx.navigateBack();
-          } catch(e) {
-            console.error(e);
-            wx.navigateBack();
-          }
-        }
+      name: '',
+      summary: '',
+      rules: {
+        preferred_colors: [],
+        preferred_fit: [],
+        avoid: [],
+        scenes: []
       }
+    }
+  },
+
+  onLoad(options) {
+    this.setData({
+      stylePackId: options.id || '',
+      isNew: options.isNew === '1'
     });
+  },
+
+  onShow() {
+    if (this.data.stylePackId) {
+      this.fetchDetail();
+    }
+  },
+
+  async fetchDetail() {
+    try {
+      const detail = await api.request({
+        url: `/api/style-packs/${this.data.stylePackId}`,
+        method: 'GET'
+      });
+      this.setData({
+        packInfo: mapStylePackDetail(detail),
+        isNew: this.data.isNew || detail.status !== 'active'
+      });
+    } catch (error) {
+      console.error('Fetch style pack detail failed', error);
+      wx.showToast({ title: '加载失败', icon: 'none' });
+    }
+  },
+
+  async removePack() {
+    try {
+      await api.request({
+        url: `/api/style-packs/${this.data.stylePackId}/deactivate`,
+        method: 'POST',
+        data: {}
+      });
+      wx.showToast({ title: '已停用', icon: 'success' });
+      setTimeout(() => wx.navigateBack(), 600);
+    } catch (error) {
+      console.error('Deactivate style pack failed', error);
+      wx.showToast({ title: '操作失败', icon: 'none' });
+    }
   },
 
   async confirmPack() {
     try {
-      if (this.data.packId) {
-         await api.request({ url: `/api/style-packs/${this.data.packId}/activate`, method: 'POST' });
-      }
+      await api.request({
+        url: `/api/style-packs/${this.data.stylePackId}/activate`,
+        method: 'POST',
+        data: {}
+      });
       wx.showToast({ title: '已生效', icon: 'success' });
-      setTimeout(() => wx.navigateBack(), 1000);
-    } catch(e) {
-      console.error(e);
-      wx.showToast({ title: '已生效', icon: 'success' });
-      setTimeout(() => wx.navigateBack(), 1000);
+      setTimeout(() => wx.navigateBack(), 600);
+    } catch (error) {
+      console.error('Activate style pack failed', error);
+      wx.showToast({ title: '生效失败', icon: 'none' });
     }
   }
 });
+
+function mapStylePackDetail(detail) {
+  const rulesJson = detail.rulesJson || {};
+  return {
+    name: detail.name || '未命名风格包',
+    summary: detail.summaryText || detail.transcriptText || '尚未补充风格摘要',
+    rules: {
+      preferred_colors: rulesJson.preferred_colors || rulesJson.colors || [],
+      preferred_fit: rulesJson.preferred_fit || rulesJson.fit || [],
+      avoid: rulesJson.avoid || [],
+      scenes: rulesJson.scenes || []
+    }
+  };
+}
