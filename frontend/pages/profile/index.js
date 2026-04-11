@@ -89,6 +89,13 @@ Page({
     }
 
     wx.setStorageSync(LOCAL_AVATAR_KEY, avatarUrl);
+    const app = getApp();
+    if (app?.globalData) {
+      app.globalData.userInfo = {
+        ...(app.globalData.userInfo || {}),
+        avatarUrl
+      };
+    }
     this.setData({
       'userInfo.avatarUrl': avatarUrl
     });
@@ -167,6 +174,13 @@ Page({
         'userInfo.nickName': nextProfile.nickname || nextNickname,
         'userInfo.signature': buildSignature(nextProfile)
       });
+      const app = getApp();
+      if (app?.globalData) {
+        app.globalData.userInfo = {
+          ...(app.globalData.userInfo || {}),
+          nickName: nextProfile.nickname || nextNickname
+        };
+      }
       wx.showToast({ title: '昵称已保存', icon: 'success' });
     } catch (error) {
       console.error('Save nickname failed', error);

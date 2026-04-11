@@ -20,8 +20,22 @@ export class InMemoryUserProfileService implements UserProfileService {
   constructor(private readonly deps: UserProfileServiceDependencies) {}
 
   async getProfile(userId: string): Promise<UserProfileSnapshot> {
-    const user = await this.ensureUser(userId);
+    const user = await this.deps.repository.findById(userId);
     const preferences = await this.deps.repository.findPreferencesByUserId(userId);
+
+    if (!user) {
+      return {
+        userId,
+        nickname: undefined,
+        avatarUrl: undefined,
+        stylePreferences: [],
+        bodyPreferences: [],
+        city: preferences?.city ?? undefined,
+        defaultTemperatureSensitivity:
+          preferences?.temperatureSensitivity ?? undefined
+      };
+    }
+
     return mapUserProfileRecordsToSnapshot(user, preferences);
   }
 

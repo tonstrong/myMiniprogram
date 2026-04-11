@@ -6,6 +6,15 @@ App({
   },
   
   login() {
+    const cachedToken = wx.getStorageSync('token') || '';
+    const cachedUserId = wx.getStorageSync('userId') || '';
+    if (cachedToken && cachedUserId) {
+      this.globalData.userInfo = this.globalData.userInfo || { nickName: '时尚体验官' };
+      this.globalData.userId = cachedUserId;
+      this.globalData.loginPromise = Promise.resolve(cachedToken);
+      return this.globalData.loginPromise;
+    }
+
     const loginTask = new Promise((resolve, reject) => {
       wx.login({
         success: async (res) => {
