@@ -42,8 +42,12 @@
   background: var(--color-bg-card);
   border: 1px solid rgba(0,0,0,0.05);
   border-radius: var(--radius-sm);
-  padding: 24rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  min-height: 88rpx;
+  padding: 0 24rpx;
   font-size: 30rpx;
+  box-sizing: border-box;
 }
 
 .text-area-wrap {
