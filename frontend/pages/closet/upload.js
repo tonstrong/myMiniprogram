@@ -21,12 +21,14 @@ Page({
 
         wx.showLoading({ title: '上传中...' });
         try {
+          const cloudFileId = await uploadToCloud(tempFilePath);
           const fileContentBase64 = await readFileAsBase64(tempFilePath);
           const result = await api.request({
             url: '/api/closet/items/upload',
             method: 'POST',
             data: {
               sourceType: 'album',
+              fileId: cloudFileId,
               fileContentBase64,
               fileContentType: inferImageContentType(tempFilePath, file.fileType),
               originalFilename: tempFilePath.split('/').pop() || 'image.jpg'
@@ -62,6 +64,31 @@ function readFileAsBase64(filePath) {
       fail: reject
     });
   });
+}
+
+function uploadToCloud(filePath) {
+  return new Promise((resolve, reject) => {
+    if (!wx.cloud || typeof wx.cloud.uploadFile !== 'function') {
+      reject(new Error('云开发未初始化'));
+      return;
+    }
+
+    const extension = getFileExtension(filePath);
+    const userId = wx.getStorageSync('userId') || 'anonymous';
+    const cloudPath = `closet/${userId}/${Date.now()}-${Math.random().toString(16).slice(2)}${extension}`;
+
+    wx.cloud.uploadFile({
+      cloudPath,
+      filePath,
+      success: (res) => resolve(res.fileID),
+      fail: reject
+    });
+  });
+}
+
+function getFileExtension(filePath) {
+  const matched = /\.[a-zA-Z0-9]+$/.exec(filePath || '');
+  return matched ? matched[0] : '.jpg';
 }
 
 function inferImageContentType(filePath, fileType) {

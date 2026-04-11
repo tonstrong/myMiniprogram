@@ -2,7 +2,17 @@ import api from './utils/api';
 
 App({
   onLaunch() {
+    this.initCloud();
     this.login();
+  },
+
+  initCloud() {
+    if (wx.cloud && typeof wx.cloud.init === 'function') {
+      wx.cloud.init({
+        env: wx.cloud.DYNAMIC_CURRENT_ENV,
+        traceUser: true
+      });
+    }
   },
   
   login() {
