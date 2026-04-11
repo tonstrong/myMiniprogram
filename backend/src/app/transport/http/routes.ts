@@ -48,7 +48,7 @@ import {
   LlmGatewayController,
   createLlmGatewayControllerRoutes
 } from "../../../modules/llm-gateway";
-import type { LlmGatewayService } from "../../../modules/llm-gateway";
+import { LlmGatewayServiceImpl } from "../../../modules/llm-gateway/application/gateway-service-impl";
 
 export function buildHttpRoutes(): ApiRouteDefinition[] {
   const usesMySql = shouldUseMySqlPersistence();
@@ -72,12 +72,14 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
   const closetController = new ClosetController({
     closetService: createInMemoryClosetService({
       taskCenterService,
-      repository: closetRepository
+      repository: closetRepository,
+      llmGatewayService: createLlmGatewayService()
     })
   });
   const stylePackController = new StylePackController({
     stylePackService: createInMemoryStylePackService({
-      repository: stylePackRepository
+      repository: stylePackRepository,
+      llmGatewayService: createLlmGatewayService()
     })
   });
   const recommendationController = new RecommendationController({
@@ -93,7 +95,7 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
     taskCenterService
   });
   const llmGatewayController = new LlmGatewayController({
-    llmGatewayService: stubLlmGatewayService()
+    llmGatewayService: createLlmGatewayService()
   });
 
   return [
@@ -107,18 +109,8 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
   ];
 }
 
-function notImplemented(serviceName: string, methodName: string): never {
-  throw new AppError(
-    `${serviceName}.${methodName} not implemented`,
-    "NOT_IMPLEMENTED",
-    501
-  );
-}
-
-function stubLlmGatewayService(): LlmGatewayService {
-  return {
-    invoke: async () => notImplemented("LlmGatewayService", "invoke")
-  };
+function createLlmGatewayService() {
+  return new LlmGatewayServiceImpl();
 }
 
 function shouldUseMySqlPersistence(): boolean {

@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { AppError } from "../../../app/common/errors";
 import type { JsonValue } from "../../../app/common/persistence";
 import type { PaginatedResult } from "../../../app/common/types";
+import { loadConfig } from "../../../app/config";
 import type {
   ImportStylePackTextCommand,
   ImportStylePackVideoCommand,
@@ -11,6 +12,7 @@ import type {
   StylePackSummary,
   UpdateStylePackCommand
 } from "./index";
+import type { LlmGatewayService } from "../../llm-gateway";
 import type { StylePackRepository } from "../infrastructure";
 import {
   createInMemoryStylePackRepository,
@@ -24,6 +26,7 @@ const DEFAULT_PAGE_SIZE = 20;
 
 export interface StylePackServiceDependencies {
   repository: StylePackRepository;
+  llmGatewayService?: LlmGatewayService;
 }
 
 export class InMemoryStylePackService implements StylePackService {
@@ -32,6 +35,7 @@ export class InMemoryStylePackService implements StylePackService {
   async importText(command: ImportStylePackTextCommand): Promise<StylePackDetail> {
     ensureAuthConfirmed(command.authConfirmed);
     const now = new Date();
+    const extraction = await this.extractTextStylePack(command.text);
     const record: StylePackRecord = {
       id: generateId(),
       userId: command.userId,
@@ -39,15 +43,15 @@ export class InMemoryStylePackService implements StylePackService {
       sourceType: "text",
       sourceFileUrl: null,
       transcriptText: command.text,
-      summaryText: null,
-      rulesJson: null,
-      promptProfile: null,
+      summaryText: extraction?.summaryText ?? null,
+      rulesJson: (extraction?.rulesJson as JsonValue | undefined) ?? null,
+      promptProfile: (extraction?.promptProfile as JsonValue | undefined) ?? null,
       version: 1,
       status: "draft",
       activatedAt: null,
-      provider: null,
-      modelName: null,
-      modelTier: null,
+      provider: extraction?.providerMeta?.provider ?? null,
+      modelName: extraction?.providerMeta?.modelName ?? null,
+      modelTier: extraction?.providerMeta?.modelTier ?? null,
       createdAt: now,
       updatedAt: now
     };
@@ -179,6 +183,57 @@ export class InMemoryStylePackService implements StylePackService {
     }
     return record;
   }
+
+  private async extractTextStylePack(text: string): Promise<
+    | {
+        summaryText?: string;
+        rulesJson?: Record<string, unknown>;
+        promptProfile?: Record<string, unknown>;
+        providerMeta?: {
+          provider: string;
+          modelName?: string;
+          modelTier?: string;
+        };
+      }
+    | undefined
+  > {
+    if (!this.deps.llmGatewayService || loadConfig().llm.providers.length === 0) {
+      return undefined;
+    }
+
+    try {
+      const result = await this.deps.llmGatewayService.invoke({
+        taskType: "extract_style_pack",
+        input: {
+          messages: [
+            {
+              role: "system",
+              content:
+                "You extract concise fashion style-pack knowledge from user-provided text. Return strict JSON with keys: summaryText, rulesJson, promptProfile. summaryText must be a short Chinese summary. rulesJson and promptProfile must be JSON objects."
+            },
+            {
+              role: "user",
+              content: `请从以下文本中提炼风格包，返回 JSON：\n${text}`
+            }
+          ],
+          temperature: 0.2
+        },
+        outputSchema: {
+          type: "object"
+        }
+      });
+
+      const parsed = parseObjectLike(result);
+      return {
+        summaryText: asOptionalString(parsed.summaryText),
+        rulesJson: asOptionalObject(parsed.rulesJson),
+        promptProfile: asOptionalObject(parsed.promptProfile),
+        providerMeta: result.providerMeta
+      };
+    } catch {
+      return undefined;
+    }
+  }
 }
 
 export function createInMemoryStylePackService(
@@ -200,6 +255,40 @@ function buildSourceUrl(fileId?: string): string {
     return `file://${fileId}`;
   }
   return "unknown://source";
+}
+
+function parseObjectLike(result: { output: Record<string, unknown>; rawText?: string }) {
+  if (result.output && typeof result.output === "object" && !Array.isArray(result.output)) {
+    const text = typeof result.output.text === "string" ? result.output.text : undefined;
+    if (text) {
+      try {
+        return JSON.parse(text) as Record<string, unknown>;
+      } catch {
+        return result.output;
+      }
+    }
+    return result.output;
+  }
+
+  if (result.rawText) {
+    try {
+      return JSON.parse(result.rawText) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+
+  return {};
+}
+
+function asOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function asOptionalObject(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
 }
 
 function matchesFilters(record: StylePackRecord, query: StylePackQuery): boolean {

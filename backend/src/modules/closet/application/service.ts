@@ -15,6 +15,7 @@ import type {
   UploadClothingItemResult
 } from "./index";
 import type { TaskCenterService } from "../../task-center";
+import type { LlmGatewayService } from "../../llm-gateway";
 import type { ClosetRepository } from "../infrastructure";
 import {
   createInMemoryClosetRepository,
@@ -29,6 +30,7 @@ const DEFAULT_PAGE_SIZE = 20;
 export interface ClosetServiceDependencies {
   repository: ClosetRepository;
   taskCenterService: TaskCenterService;
+  llmGatewayService?: LlmGatewayService;
 }
 
 export class InMemoryClosetService implements ClosetService {
@@ -42,6 +44,7 @@ export class InMemoryClosetService implements ClosetService {
     const remoteImageUrl = isPersistableRemoteUrl(command.fileId)
       ? command.fileId
       : undefined;
+    const extraction = await this.extractAttributes(command, imageAsset);
     const record: ClothingItemRecord = {
       id: itemId,
       userId: command.userId,
@@ -53,24 +56,24 @@ export class InMemoryClosetService implements ClosetService {
         remoteImageUrl
       ),
       imageAccessKey: imageAsset ? accessKey : null,
-      category: null,
-      subCategory: null,
-      colors: null,
-      pattern: null,
-      material: null,
-      fit: null,
-      length: null,
-      seasons: null,
-      tags: null,
-      occasionTags: null,
-      llmConfidence: null,
+      category: extraction?.attributes.category ?? null,
+      subCategory: extraction?.attributes.subCategory ?? null,
+      colors: extraction?.attributes.colors ?? null,
+      pattern: extraction?.attributes.pattern ?? null,
+      material: extraction?.attributes.material ?? null,
+      fit: extraction?.attributes.fit ?? null,
+      length: extraction?.attributes.length ?? null,
+      seasons: extraction?.attributes.seasons ?? null,
+      tags: extraction?.attributes.tags ?? null,
+      occasionTags: extraction?.attributes.occasionTags ?? null,
+      llmConfidence: extraction?.attributes.confidence ?? null,
       status: "pending_review",
       sourceType: command.sourceType,
       confirmedAt: null,
-      provider: null,
-      modelName: null,
-      modelTier: null,
-      retryCount: null,
+      provider: extraction?.providerMeta?.provider ?? null,
+      modelName: extraction?.providerMeta?.modelName ?? null,
+      modelTier: extraction?.providerMeta?.modelTier ?? null,
+      retryCount: extraction?.providerMeta?.retryCount ?? null,
       createdAt: now,
       updatedAt: now
     };
@@ -104,6 +107,73 @@ export class InMemoryClosetService implements ClosetService {
       taskId: task.taskId,
       status: task.status
     };
+  }
+
+  private async extractAttributes(
+    command: UploadClothingItemCommand,
+    imageAsset: { bytes: Buffer; contentType: string } | null
+  ): Promise<
+    | {
+        attributes: Partial<ClothingAttributes>;
+        providerMeta?: {
+          provider: string;
+          modelName?: string;
+          modelTier?: string;
+          retryCount?: number;
+        };
+      }
+    | undefined
+  > {
+    if (!this.deps.llmGatewayService || !imageAsset || loadConfig().llm.providers.length === 0) {
+      return undefined;
+    }
+
+    try {
+      const imageDataUrl = `data:${imageAsset.contentType};base64,${command.fileContentBase64}`;
+      const result = await this.deps.llmGatewayService.invoke({
+        taskType: "extract_clothing_attributes",
+        input: {
+          messages: [
+            {
+              role: "system",
+              content:
+                "You extract clothing attributes from a single garment image. Return strict JSON with keys: category, subCategory, colors, pattern, material, fit, length, seasons, tags, occasionTags, confidence. Use arrays for colors/fit/seasons/tags/occasionTags. If unsure, omit fields."
+            },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Analyze this clothing item image and return only JSON." },
+                { type: "image_url", image_url: { url: imageDataUrl } }
+              ]
+            }
+          ],
+          temperature: 0
+        },
+        outputSchema: {
+          type: "object"
+        }
+      });
+
+      const parsed = parseObjectLike(result);
+      return {
+        attributes: {
+          category: asOptionalString(parsed.category),
+          subCategory: asOptionalString(parsed.subCategory),
+          colors: asOptionalStringArray(parsed.colors),
+          pattern: asOptionalString(parsed.pattern),
+          material: asOptionalString(parsed.material),
+          fit: asOptionalStringArray(parsed.fit),
+          length: asOptionalString(parsed.length),
+          seasons: asOptionalStringArray(parsed.seasons),
+          tags: asOptionalStringArray(parsed.tags),
+          occasionTags: asOptionalStringArray(parsed.occasionTags),
+          confidence: asOptionalConfidence(parsed.confidence)
+        },
+        providerMeta: result.providerMeta
+      };
+    } catch {
+      return undefined;
+    }
   }
 
   async listItems(
@@ -209,13 +279,58 @@ export class InMemoryClosetService implements ClosetService {
   }
 }
 
+function parseObjectLike(result: { output: Record<string, unknown>; rawText?: string }) {
+  if (result.output && typeof result.output === "object" && !Array.isArray(result.output)) {
+    const text = typeof result.output.text === "string" ? result.output.text : undefined;
+    if (text) {
+      try {
+        return JSON.parse(text) as Record<string, unknown>;
+      } catch {
+        return result.output;
+      }
+    }
+    return result.output;
+  }
+
+  if (result.rawText) {
+    try {
+      return JSON.parse(result.rawText) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+
+  return {};
+}
+
+function asOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function asOptionalStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const list = value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+  return list.length > 0 ? list : undefined;
+}
+
+function asOptionalConfidence(value: unknown): Record<string, number> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const entries = Object.entries(value).filter(([, entry]) => typeof entry === "number");
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
 export function createInMemoryClosetService(
   deps: Pick<ClosetServiceDependencies, "taskCenterService"> &
-    Partial<Pick<ClosetServiceDependencies, "repository">>
+    Partial<Pick<ClosetServiceDependencies, "repository" | "llmGatewayService">>
 ): ClosetService {
   return new InMemoryClosetService({
     repository: deps.repository ?? createInMemoryClosetRepository(),
-    taskCenterService: deps.taskCenterService
+    taskCenterService: deps.taskCenterService,
+    llmGatewayService: deps.llmGatewayService
   });
 }
 
