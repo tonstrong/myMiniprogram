@@ -1,5 +1,4 @@
 <view class="container">
-  
   <view class="tab-header flex-row items-center animate-fade-in">
     <block wx:for="{{tabs}}" wx:key="*this">
       <view class="tab-item {{activeTab === index ? 'active' : ''}}" bindtap="switchTab" data-index="{{index}}">
@@ -9,29 +8,14 @@
   </view>
 
   <view class="grid-wrap animate-fade-in" style="animation-delay: 0.1s;">
-    <block wx:if="{{records.length === 0}}">
-      <view class="empty-state flex-col items-center justify-center">
-        <text class="text-h1 text-tertiary">📭</text>
-        <text class="text-body text-secondary mt-md">暂无记录</text>
+    <view class="empty-state flex-col items-center justify-center glass-panel capability-panel">
+      <text class="text-h1 text-tertiary">📭</text>
+      <text class="text-body text-secondary mt-md">暂无可展示的历史记录</text>
+      <text class="text-caption capability-copy">{{backendMessage}}</text>
+      <view class="status-pill {{backendReady ? 'ready' : 'error'}}">
+        {{backendReady ? '后端已连通' : '后端未连通'}}
       </view>
-    </block>
-    
-    <block wx:else>
-      <view class="grid-layout">
-        <block wx:for="{{records}}" wx:key="id">
-          <view class="grid-card glass-panel">
-            <image src="{{item.mainImg}}" class="g-img" mode="aspectFill"></image>
-            <view class="overlay flex-row justify-between items-end">
-              <view class="flex-col">
-                <text class="g-date">{{item.date}}</text>
-                <text class="g-scene">{{item.scene}}</text>
-              </view>
-              <view class="star-icon">⭐</view>
-            </view>
-          </view>
-        </block>
-      </view>
-    </block>
+      <button class="btn-primary mt-action" bindtap="goRecommend">去生成新搭配</button>
+    </view>
   </view>
-
 </view>
