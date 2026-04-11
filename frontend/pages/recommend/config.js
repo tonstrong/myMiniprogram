@@ -58,8 +58,24 @@ Page({
     } catch (error) {
       this.setData({ isGenerating: false });
       console.error('Generate recommendation failed', error);
-      const message = error?.error?.message || error?.message || '生成失败，请先确认至少有 2 件已入库单品';
+      const rawMessage = error?.error?.message || error?.message || '';
+      const message = mapRecommendationErrorMessage(rawMessage);
       wx.showToast({ title: message, icon: 'none' });
     }
   }
 });
+
+function mapRecommendationErrorMessage(message) {
+  if (!message) {
+    return '暂时还不能生成推荐，请先确认至少有 2 件已入库单品';
+  }
+
+  if (
+    message.includes('No available wardrobe candidates were found') ||
+    message.includes('当前衣橱里还没有可用于推荐的单品')
+  ) {
+    return '先确认并入库至少 2 件单品，再来生成推荐';
+  }
+
+  return message;
+}

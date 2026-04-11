@@ -37,7 +37,7 @@ export class RecommendationOrchestrator {
       return {
         status: "insufficient_items",
         stage: "candidate_gathering",
-        reason: "No available wardrobe candidates were found."
+        reason: "当前衣橱里还没有可用于推荐的单品，请先确认并入库至少 2 件单品。"
       };
     }
 
