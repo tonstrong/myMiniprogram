@@ -4,24 +4,34 @@ Page({
   data: {
     scenes: ['通勤', '约会', '休闲', '旅行', '居家'],
     activeScene: '通勤',
-    weather: '晴天 18°C', // 模拟当前天气
-    stylePacks: [
-      { id: '', name: '无特定风格 (日常)' }
-    ],
+    weather: '晴天 18°C',
+    stylePacks: [{ id: '', name: '无特定风格 (日常)' }],
     selectedPack: '',
     isGenerating: false
   },
 
-  async onShow() {
-    // 动态拉取可用风格包
+  onShow() {
+    this.fetchStylePacks();
+  },
+
+  async fetchStylePacks() {
     try {
-      const res = await api.request({ url: '/api/style-packs', method: 'GET' });
-      const packs = res.items || res || [];
-      const activePacks = packs.filter(p => p.status === 'active' || p.status === 'confirmed');
-      this.setData({
-        stylePacks: [{ id: '', name: '无特定风格 (日常)' }, ...activePacks]
+      const res = await api.request({
+        url: '/api/style-packs?pageNo=1&pageSize=50',
+        method: 'GET'
       });
-    } catch(e) { /* keep default mock */ }
+
+      const activePacks = (res.items || [])
+        .filter(item => item.status === 'active')
+        .map(item => ({ id: item.stylePackId, name: item.name }));
+
+      this.setData({
+        stylePacks: [{ id: '', name: '无特定风格 (日常)' }, ...activePacks],
+        selectedPack: activePacks[0]?.id || ''
+      });
+    } catch (error) {
+      console.error('Fetch active style packs failed', error);
+    }
   },
 
   selectScene(e) {
@@ -34,29 +44,22 @@ Page({
 
   async generateLook() {
     this.setData({ isGenerating: true });
-    
     try {
-      const genRes = await api.request({
+      const result = await api.request({
         url: '/api/recommendations/generate',
         method: 'POST',
         data: {
           scene: this.data.activeScene,
-          weather: this.data.weather,
-          stylePackId: this.data.selectedPack !== '' ? this.data.selectedPack : undefined,
-          preferenceTags: []
+          stylePackId: this.data.selectedPack || undefined
         }
       });
-      
-      const taskRes = await api.pollTaskStatus(genRes.taskId);
       this.setData({ isGenerating: false });
-      
-      const recId = genRes.recommendationId || taskRes.recommendationId || 'mock_rec_id';
-      wx.navigateTo({ url: `/pages/recommend/result?id=${recId}` });
-      
-    } catch (e) {
-      console.error('Generate look error', e);
+      wx.navigateTo({ url: `/pages/recommend/result?id=${result.recommendationId}` });
+    } catch (error) {
       this.setData({ isGenerating: false });
-      wx.navigateTo({ url: '/pages/recommend/result' });
+      console.error('Generate recommendation failed', error);
+      const message = error?.error?.message || error?.message || '生成失败，请先确认至少有 2 件已入库单品';
+      wx.showToast({ title: message, icon: 'none' });
     }
   }
 });
