@@ -77,13 +77,13 @@
     </view>
 
     <!-- 底部操作按钮 -->
-    <view class="action-bar flex-col mt-4">
+    <view class="action-bar mt-4 {{isNew ? 'single' : 'double'}}">
       <block wx:if="{{isNew}}">
-        <button class="btn-primary w-full" bindtap="confirmItem">确认并入库</button>
+        <button class="btn-primary action-btn" bindtap="confirmItem">确认并入库</button>
       </block>
       <block wx:else>
-        <button class="btn-primary w-full" bindtap="confirmItem">保存修改</button>
-        <view class="btn-secondary w-full mt-3 text-error" bindtap="deleteItem">删除单品</view>
+        <button class="btn-primary action-btn" bindtap="confirmItem">保存修改</button>
+        <button class="btn-secondary action-btn text-error" bindtap="deleteItem">删除单品</button>
       </block>
     </view>
 

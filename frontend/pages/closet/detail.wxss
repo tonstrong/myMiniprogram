@@ -111,4 +111,35 @@
 
 .action-bar {
   margin-top: 64rpx;
+  display: flex;
+  gap: 20rpx;
+}
+
+.action-bar.single {
+  flex-direction: column;
+}
+
+.action-bar.double {
+  flex-direction: row;
+}
+
+.action-btn {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+
+.action-bar .btn-secondary {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.action-bar .text-error {
+  border: 1rpx solid rgba(255, 59, 48, 0.12);
 }
