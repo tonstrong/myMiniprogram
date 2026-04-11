@@ -82,6 +82,10 @@
 - [x] 已修复衣橱错误图片地址问题：不再把 `file://` / `wxfile://` / `http://tmp/...` 当作正式图片地址存储
 - [x] 已加强 TaskCenter 用户隔离：`GET /api/tasks/:taskId` 改为按当前登录用户维度校验
 - [x] 已验证跨用户访问他人单品详情与任务状态均返回 404
+- [x] 已将前端衣橱图片上传切换为腾讯小程序云开发存储：`wx.cloud.init` + `wx.cloud.uploadFile`
+- [x] 已将后端衣橱图片保存链路切换为优先持久化 `cloud://fileID`，不再强依赖 MySQL BLOB
+- [x] 已接通真实 LLM Gateway：上传单品时可同步提取服装属性，导入文本风格包时可同步提炼 summary/rules/promptProfile（已配置 provider 时）
+- [x] 已修复衣橱详情页底部操作按钮移动端布局问题
 
 ### 当前阻塞 / 注意事项
 - [x] 已完成 DB driver 与 migration runner 从 Postgres/`pg` 到 MySQL/`mysql2` 的切换
@@ -95,4 +99,4 @@
 1. 将当前 repository 从内存版逐步替换为 MySQL 持久化实现
 2. 让应用运行时默认读取 MySQL `DATABASE_URL` 并验证真实读写链路
 3. 评估是否保留 `test_closet_backend` 作为开发库，或切换到用户指定的新专用库名
-4. 下一条垂直切片优先评估 Auth 与 LlmGateway 是否需要继续落库，或补充正式文件存储/对象存储方案替代 MySQL BLOB
+4. 下一条垂直切片优先补充腾讯云文件读取/权限策略说明，并决定是否完全移除遗留 MySQL BLOB 兼容链路
