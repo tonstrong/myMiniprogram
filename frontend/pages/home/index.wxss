@@ -66,6 +66,9 @@
 .recommend-section {
   margin-bottom: var(--spacing-xl);
 }
+.stats-inline {
+  margin-bottom: var(--spacing-lg);
+}
 .section-header {
   margin-bottom: var(--spacing-md);
 }
