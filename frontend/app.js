@@ -33,9 +33,7 @@ App({
       });
     });
 
-    const timeoutTask = new Promise((_, reject) => setTimeout(() => reject(new Error('Login Timeout')), 5000));
-    
-    this.globalData.loginPromise = Promise.race([loginTask, timeoutTask]).catch(e => {
+    this.globalData.loginPromise = loginTask.catch(e => {
         // Fallback for visual mock when backend is missing
         this.globalData.userInfo = { nickName: '游客(脱机)' };
         return '';
