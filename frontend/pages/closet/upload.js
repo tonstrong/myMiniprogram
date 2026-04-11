@@ -2,13 +2,8 @@ import api from '../../utils/api';
 
 Page({
   data: {
-    status: 'idle', // idle, uploading, processing, done
-    previewImage: '',
-    animationData: {}
-  },
-
-  onLoad() {
-    // init logic
+    status: 'idle',
+    previewImage: ''
   },
 
   chooseImage() {
@@ -16,47 +11,39 @@ Page({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
-      success: (res) => {
-        const tempFilePath = res.tempFiles[0].tempFilePath;
+      success: async (res) => {
+        const file = res.tempFiles[0];
+        const tempFilePath = file.tempFilePath;
         this.setData({
           previewImage: tempFilePath,
           status: 'uploading'
         });
-        this.uploadAndProcess(tempFilePath);
+
+        wx.showLoading({ title: '上传中...' });
+        try {
+          const result = await api.request({
+            url: '/api/closet/items/upload',
+            method: 'POST',
+            data: {
+              sourceType: 'album',
+              originalFilename: tempFilePath.split('/').pop() || 'image.jpg'
+            }
+          });
+
+          this.setData({ status: 'done' });
+          wx.hideLoading();
+          wx.showToast({ title: '识别任务已创建', icon: 'success' });
+
+          setTimeout(() => {
+            wx.redirectTo({ url: `/pages/closet/detail?id=${result.itemId}&isNew=1&taskId=${result.taskId}` });
+          }, 600);
+        } catch (error) {
+          wx.hideLoading();
+          console.error('Upload item failed', error);
+          this.setData({ status: 'idle' });
+          wx.showToast({ title: '上传失败', icon: 'none' });
+        }
       }
     });
-  },
-
-  async uploadAndProcess(tempFilePath) {
-    try {
-      // 1. Upload
-      const uploadRes = await api.uploadFile({
-        url: '/api/closet/items/upload',
-        filePath: tempFilePath,
-        name: 'file',
-        formData: { sourceType: 'camera' }
-      });
-      console.log('Upload success, taskId:', uploadRes.taskId);
-      
-      this.setData({ status: 'processing' });
-      
-      // 2. Poll Task Status
-      const taskRes = await api.pollTaskStatus(uploadRes.taskId);
-      console.log('Task finished:', taskRes);
-
-      this.setData({ status: 'done' });
-      wx.showToast({ title: '识别完成', icon: 'success' });
-
-      // redirect to detail
-      setTimeout(() => {
-        // assume the uploaded item ID is passed via taskRes, fallback to mock if undefined
-        const itemId = uploadRes.itemId || 'mock_new'; 
-        wx.redirectTo({ url: `/pages/closet/detail?id=${itemId}&isNew=true` });
-      }, 1000);
-
-    } catch (e) {
-      console.error('Upload/Process error:', e);
-      this.setData({ status: 'idle' });
-    }
   }
 });
