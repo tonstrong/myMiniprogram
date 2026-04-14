@@ -137,12 +137,12 @@ export class InMemoryClosetService implements ClosetService {
             {
               role: "system",
               content:
-                "You extract clothing attributes from a single garment image. Return strict JSON with keys: category, subCategory, colors, pattern, material, fit, length, seasons, tags, occasionTags, confidence. Use arrays for colors/fit/seasons/tags/occasionTags. If unsure, omit fields."
+                "You extract clothing attributes from a single garment image. Only identify clothing, shoes, bags, or accessories. If the image is not a wearable fashion item, leave category empty. Return strict JSON with keys: category, subCategory, colors, pattern, material, fit, length, seasons, tags, occasionTags, confidence. Use arrays for colors/fit/seasons/tags/occasionTags. IMPORTANT: all attribute values must be in Simplified Chinese only. Never return English labels such as top, pants, outerwear, dress, shoes, accessory, black, white, spring, summer, casual, minimal. If unsure, omit fields."
             },
             {
               role: "user",
               content: [
-                { type: "text", text: "Analyze this clothing item image and return only JSON." },
+                { type: "text", text: "请识别这张图片中的服饰属性，只返回 JSON，且所有字段值必须使用简体中文。若不是衣物/鞋包/配饰，请不要胡乱识别。" },
                 { type: "image_url", image_url: { url: imageDataUrl } }
               ]
             }
@@ -389,7 +389,7 @@ function normalizeCategory(value?: string): string | undefined {
     belt: "配饰"
   };
 
-  return mapping[normalized] || normalizeLabel(value);
+  return mapping[normalized];
 }
 
 function normalizeColor(value: string): string | undefined {
@@ -413,7 +413,7 @@ function normalizeColor(value: string): string | undefined {
     multicolor: "多色",
     multi: "多色"
   };
-  return mapping[normalized] || normalizeLabel(value);
+  return mapping[normalized];
 }
 
 function normalizeSeason(value: string): string | undefined {
@@ -425,7 +425,7 @@ function normalizeSeason(value: string): string | undefined {
     fall: "秋",
     winter: "冬"
   };
-  return mapping[normalized] || normalizeLabel(value);
+  return mapping[normalized];
 }
 
 function normalizeFit(value: string): string | undefined {
@@ -441,7 +441,7 @@ function normalizeFit(value: string): string | undefined {
     cropped: "短款",
     long: "长款"
   };
-  return mapping[normalized] || normalizeLabel(value);
+  return mapping[normalized];
 }
 
 function normalizeTag(value: string): string | undefined {
@@ -460,7 +460,7 @@ function normalizeTag(value: string): string | undefined {
     streetwear: "街头",
     chic: "时髦"
   };
-  return mapping[normalized] || normalizeLabel(value);
+  return mapping[normalized];
 }
 
 function normalizeLabel(value?: string): string | undefined {
