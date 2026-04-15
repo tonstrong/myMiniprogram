@@ -7,6 +7,8 @@ import type { ClosetRepository } from "../../closet/infrastructure";
 import type { StylePackRepository } from "../../style-pack/infrastructure";
 import { mapStylePackRecordToDetail } from "../../style-pack/infrastructure";
 import type { RecommendationRepository } from "../infrastructure";
+import type { WeatherService } from "../../weather";
+import type { UserProfileRepository } from "../../user-profile/infrastructure";
 import {
   createInMemoryRecommendationRepository,
   mapRecommendationRecordsToResult
@@ -43,6 +45,8 @@ export interface RecommendationServiceDependencies {
   closetRepository: ClosetRepository;
   stylePackRepository: StylePackRepository;
   recommendationRepository: RecommendationRepository;
+  weatherService?: WeatherService;
+  userProfileRepository?: UserProfileRepository;
 }
 
 export class InMemoryRecommendationService implements RecommendationService {
@@ -51,6 +55,7 @@ export class InMemoryRecommendationService implements RecommendationService {
   async generate(
     command: GenerateRecommendationCommand
   ): Promise<RecommendationResult> {
+    const effectiveWeather = await this.resolveWeather(command);
     const stylePackContext = await this.loadStylePackContext(
       command.userId,
       command.stylePackId
@@ -69,7 +74,10 @@ export class InMemoryRecommendationService implements RecommendationService {
       explainer
     });
 
-    const orchestration = await orchestrator.execute(command);
+    const orchestration = await orchestrator.execute({
+      ...command,
+      weather: effectiveWeather
+    });
     if (orchestration.status !== "completed" || !orchestration.outfits) {
       throw new AppError(
         orchestration.reason ?? "Unable to generate recommendation",
@@ -97,7 +105,7 @@ export class InMemoryRecommendationService implements RecommendationService {
       userId: command.userId,
       stylePackId: command.stylePackId ?? null,
       scene: command.scene,
-      weatherJson: command.weather as unknown as JsonValue,
+      weatherJson: effectiveWeather as unknown as JsonValue,
       provider: providerMeta?.provider ?? null,
       modelName: providerMeta?.modelName ?? null,
       modelTier: providerMeta?.modelTier ?? null,
@@ -205,6 +213,35 @@ export class InMemoryRecommendationService implements RecommendationService {
     );
     if (!recommendation) {
       throw new AppError("Recommendation not found", "NOT_FOUND", 404);
+    }
+  }
+
+  private async resolveWeather(command: GenerateRecommendationCommand) {
+    if (command.weather) {
+      return command.weather;
+    }
+
+    if (!this.deps.weatherService || !this.deps.userProfileRepository) {
+      return undefined;
+    }
+
+    const preferences = await this.deps.userProfileRepository.findPreferencesByUserId(
+      command.userId
+    );
+    if (!preferences?.city) {
+      return undefined;
+    }
+
+    try {
+      const weather = await this.deps.weatherService.getCurrentWeatherForUser(
+        command.userId
+      );
+      return {
+        temperature: Math.round(weather.temperature),
+        condition: weather.condition
+      };
+    } catch {
+      return undefined;
     }
   }
 

@@ -43,7 +43,19 @@ import {
   createInMemoryUserProfileService,
   createUserProfileControllerRoutes
 } from "../../../modules/user-profile";
-import { createMySqlUserProfileRepository } from "../../../modules/user-profile/infrastructure";
+import {
+  createInMemoryUserProfileRepository,
+  createMySqlUserProfileRepository
+} from "../../../modules/user-profile/infrastructure";
+import {
+  WeatherController,
+  createSharedWeatherService,
+  createWeatherControllerRoutes
+} from "../../../modules/weather";
+import {
+  createInMemoryWeatherCacheRepository,
+  createMySqlWeatherCacheRepository
+} from "../../../modules/weather/infrastructure";
 import {
   LlmGatewayController,
   createLlmGatewayControllerRoutes
@@ -61,12 +73,18 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
   const stylePackRepository = usesMySql
     ? createMySqlStylePackRepository()
     : createInMemoryStylePackRepository();
+  const userProfileRepository = usesMySql
+    ? createMySqlUserProfileRepository()
+    : createInMemoryUserProfileRepository();
+  const weatherRepository = usesMySql
+    ? createMySqlWeatherCacheRepository()
+    : createInMemoryWeatherCacheRepository();
   const authController = new AuthController({
     authService: createInMemoryAuthService()
   });
   const userProfileController = new UserProfileController({
     userProfileService: usesMySql
-      ? createUserProfileService({ repository: createMySqlUserProfileRepository() })
+      ? createUserProfileService({ repository: userProfileRepository })
       : createInMemoryUserProfileService()
   });
   const closetController = new ClosetController({
@@ -86,6 +104,11 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
     recommendationService: createInMemoryRecommendationService({
       closetRepository,
       stylePackRepository,
+      weatherService: createSharedWeatherService({
+        repository: weatherRepository,
+        userProfileRepository
+      }),
+      userProfileRepository,
       recommendationRepository: usesMySql
         ? createMySqlRecommendationRepository()
         : undefined
@@ -97,6 +120,12 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
   const llmGatewayController = new LlmGatewayController({
     llmGatewayService: createLlmGatewayService()
   });
+  const weatherController = new WeatherController({
+    weatherService: createSharedWeatherService({
+      repository: weatherRepository,
+      userProfileRepository
+    })
+  });
 
   return [
     ...createAuthControllerRoutes(authController),
@@ -105,7 +134,8 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
     ...createStylePackControllerRoutes(stylePackController),
     ...createRecommendationControllerRoutes(recommendationController),
     ...createTaskCenterControllerRoutes(taskCenterController),
-    ...createLlmGatewayControllerRoutes(llmGatewayController)
+    ...createLlmGatewayControllerRoutes(llmGatewayController),
+    ...createWeatherControllerRoutes(weatherController)
   ];
 }
 

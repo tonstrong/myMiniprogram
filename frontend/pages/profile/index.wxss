@@ -134,9 +134,19 @@
   border-top: 1rpx solid rgba(0, 0, 0, 0.05);
 }
 
+.city-helper-copy {
+  flex: 1;
+}
+
 .city-source {
   font-size: 22rpx;
   color: var(--text-tertiary);
+}
+
+.weather-hint {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--text-secondary);
 }
 
 /* 统计卡片 */

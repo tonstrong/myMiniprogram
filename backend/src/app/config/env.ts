@@ -27,6 +27,11 @@ export interface AppConfig {
     timeoutMs: number;
     retryLimit: number;
   };
+  weather: {
+    provider: string;
+    apiKey: string;
+    ttlSeconds: number;
+  };
 }
 
 function requireEnv(key: string): string {
@@ -108,6 +113,11 @@ export function loadConfig(): AppConfig {
       providers: buildProviders(),
       timeoutMs: Number(optionalEnv("LLM_PROVIDER_TIMEOUT_MS", "20000")),
       retryLimit: Number(optionalEnv("LLM_PROVIDER_RETRY_LIMIT", "2"))
+    },
+    weather: {
+      provider: optionalEnv("WEATHER_PROVIDER", ""),
+      apiKey: optionalEnv("WEATHER_API_KEY", ""),
+      ttlSeconds: Number(optionalEnv("WEATHER_TTL_SECONDS", "600"))
     }
   };
 }

@@ -86,6 +86,10 @@
 - [x] 已将后端衣橱图片保存链路切换为优先持久化 `cloud://fileID`，不再强依赖 MySQL BLOB
 - [x] 已接通真实 LLM Gateway：上传单品时可同步提取服装属性，导入文本风格包时可同步提炼 summary/rules/promptProfile（已配置 provider 时）
 - [x] 已修复衣橱详情页底部操作按钮移动端布局问题
+- [x] 新增 `005_add_city_weather_cache.sql`，使用 MySQL 共享城市天气缓存，避免同城用户重复请求天气接口
+- [x] 新增 `GET /api/weather/current`，按当前登录用户已保存城市返回当前天气与温度
+- [x] 首页 / 我的 / 推荐页已接入天气数据，并支持把天气信息传入推荐生成请求
+- [x] 推荐服务在未显式传入天气时，也会尝试按用户城市自动补全天气上下文
 
 ### 当前阻塞 / 注意事项
 - [x] 已完成 DB driver 与 migration runner 从 Postgres/`pg` 到 MySQL/`mysql2` 的切换
@@ -100,3 +104,4 @@
 2. 让应用运行时默认读取 MySQL `DATABASE_URL` 并验证真实读写链路
 3. 评估是否保留 `test_closet_backend` 作为开发库，或切换到用户指定的新专用库名
 4. 下一条垂直切片优先补充腾讯云文件读取/权限策略说明，并决定是否完全移除遗留 MySQL BLOB 兼容链路
+5. 后续可把天气刷新从“按需懒更新”升级为后台定时任务主动刷新

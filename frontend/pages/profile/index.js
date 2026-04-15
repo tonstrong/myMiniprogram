@@ -1,4 +1,5 @@
 import api from '../../utils/api';
+import { getCurrentWeather } from '../../utils/weather';
 
 const LOCAL_AVATAR_KEY = 'profile:localAvatarUrl';
 const DEFAULT_AVATAR_URL = '';
@@ -22,6 +23,7 @@ Page({
       isLocating: false,
       lastSource: 'profile'
     },
+    weatherHint: '',
     menus: [
       { id: 'profile', icon: '👤', text: '编辑资料', url: '' },
       { id: 'style-pack', icon: '🧠', text: '风格包管理', url: '/pages/style-pack/index' },
@@ -68,6 +70,12 @@ Page({
           lastSource: 'profile'
         }
       });
+
+      if (nextCity) {
+        this.loadWeatherHint(false);
+      } else {
+        this.setData({ weatherHint: '' });
+      }
     } else {
       console.error('Fetch profile failed', profileResult.reason);
     }
@@ -216,6 +224,7 @@ Page({
         'cityUi.isSaving': false,
         'cityUi.lastSource': source
       });
+      this.loadWeatherHint(source === 'location');
       wx.showToast({ title: '城市已保存', icon: 'success' });
     } catch (error) {
       console.error('Save city failed', error);
@@ -288,6 +297,17 @@ Page({
       return;
     }
     wx.navigateTo({ url });
+  }
+
+  async loadWeatherHint(forceRefresh) {
+    try {
+      const weather = await getCurrentWeather({ forceRefresh });
+      this.setData({
+        weatherHint: `${weather.city} · ${weather.condition} ${Math.round(weather.temperature)}°C`
+      });
+    } catch (error) {
+      this.setData({ weatherHint: '' });
+    }
   }
 });
 

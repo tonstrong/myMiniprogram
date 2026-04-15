@@ -49,6 +49,11 @@ Important image upload settings:
 - `PUBLIC_BASE_URL` should be the externally reachable backend base URL used to build closet image URLs.
 - `MAX_UPLOAD_BYTES` limits base64 image uploads accepted by `/api/closet/items/upload`.
 
+Weather settings:
+- `WEATHER_PROVIDER=qweather` enables city-based weather refresh using the user's saved city.
+- `WEATHER_API_KEY` should be your QWeather API key.
+- `WEATHER_TTL_SECONDS` controls the shared city-level weather cache freshness window.
+
 ## Next Implementation Steps
 - Implement API layer controllers and request validation
 - Flesh out application services and domain rules

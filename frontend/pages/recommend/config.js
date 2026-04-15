@@ -1,10 +1,12 @@
 import api from '../../utils/api';
+import { getCurrentWeather } from '../../utils/weather';
 
 Page({
   data: {
     scenes: ['通勤', '约会', '休闲', '旅行', '居家'],
     activeScene: '通勤',
-    weather: '晴天 18°C',
+    weather: '未同步天气',
+    weatherPayload: null,
     stylePacks: [{ id: '', name: '无特定风格 (日常)' }],
     selectedPack: '',
     isGenerating: false
@@ -12,6 +14,7 @@ Page({
 
   onShow() {
     this.fetchStylePacks();
+    this.fetchWeather();
   },
 
   async fetchStylePacks() {
@@ -34,6 +37,24 @@ Page({
     }
   },
 
+  async fetchWeather() {
+    try {
+      const weather = await getCurrentWeather();
+      this.setData({
+        weather: `${weather.city} · ${weather.condition} ${Math.round(weather.temperature)}°C`,
+        weatherPayload: {
+          temperature: Math.round(weather.temperature),
+          condition: weather.condition
+        }
+      });
+    } catch (error) {
+      this.setData({
+        weather: '未设置城市或天气暂不可用',
+        weatherPayload: null
+      });
+    }
+  },
+
   selectScene(e) {
     this.setData({ activeScene: e.currentTarget.dataset.scene });
   },
@@ -50,7 +71,8 @@ Page({
         method: 'POST',
         data: {
           scene: this.data.activeScene,
-          stylePackId: this.data.selectedPack || undefined
+          stylePackId: this.data.selectedPack || undefined,
+          weather: this.data.weatherPayload || undefined
         }
       });
       this.setData({ isGenerating: false });

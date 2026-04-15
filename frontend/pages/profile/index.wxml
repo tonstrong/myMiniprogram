@@ -24,7 +24,10 @@
       <view class="city-entry-arrow">></view>
     </view>
     <view class="city-helper-row flex-row items-center justify-between">
-      <text class="lc-caption">点击所在城市，可选择定位或手动输入</text>
+      <view class="flex-col city-helper-copy">
+        <text class="lc-caption">点击所在城市，可选择定位或手动输入</text>
+        <text class="weather-hint" wx:if="{{weatherHint}}">当前天气：{{weatherHint}}</text>
+      </view>
       <text class="city-source" wx:if="{{cityUi.lastSource === 'location'}}">已通过定位更新</text>
       <text class="city-source" wx:elif="{{cityUi.lastSource === 'manual'}}">已手动更新</text>
       <text class="city-source" wx:else>来自资料</text>

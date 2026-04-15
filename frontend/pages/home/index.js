@@ -1,4 +1,5 @@
 import api from '../../utils/api';
+import { getCurrentWeather } from '../../utils/weather';
 
 const LOCAL_AVATAR_KEY = 'profile:localAvatarUrl';
 const DEFAULT_AVATAR_URL = '';
@@ -80,13 +81,15 @@ Page({
         });
       }
 
+      const weather = profile.city ? await getCurrentWeather().catch(() => null) : null;
+
       this.setData({
         userName: profile.nickname || '时尚体验官',
         avatarUrl: wx.getStorageSync(LOCAL_AVATAR_KEY) || profile.avatarUrl || DEFAULT_AVATAR_URL,
         closetCount: closetItems.length,
         stylePackCount: activeStylePackCount,
         tasks,
-        todayRecommend: buildRecommendCard(activeClosetCount, activeStylePackCount)
+        todayRecommend: buildRecommendCard(activeClosetCount, activeStylePackCount, weather)
       });
 
       this.maybeShowProfileGuide(profile);
@@ -148,12 +151,17 @@ Page({
   }
 });
 
-function buildRecommendCard(activeClosetCount, activeStylePackCount) {
+function buildRecommendCard(activeClosetCount, activeStylePackCount, weather) {
+  const weatherText = weather
+    ? `${weather.city} · ${weather.condition} ${Math.round(weather.temperature)}°C`
+    : `已入库 ${activeClosetCount} 件单品`;
   if (activeClosetCount < 2) {
     return {
       scene: '开始生成推荐',
-      weather: `已入库 ${activeClosetCount} 件单品`,
-      reason: '至少需要 2 件已入库单品，先去确认更多衣橱内容吧。',
+      weather: weatherText,
+      reason: weather
+        ? `当前${weather.condition} ${Math.round(weather.temperature)}°C，先补齐至少 2 件已入库单品，再生成天气适配搭配。`
+        : '至少需要 2 件已入库单品，先去确认更多衣橱内容吧。',
       image: ''
     };
   }
@@ -161,16 +169,20 @@ function buildRecommendCard(activeClosetCount, activeStylePackCount) {
   if (activeStylePackCount === 0) {
     return {
       scene: '开始生成推荐',
-      weather: `已入库 ${activeClosetCount} 件单品`,
-      reason: '你已经具备基础推荐条件，再激活一个风格包会让推荐结果更贴近你的偏好。',
+      weather: weatherText,
+      reason: weather
+        ? `当前${weather.condition} ${Math.round(weather.temperature)}°C，基础推荐条件已满足，再激活一个风格包会让建议更贴近你的偏好。`
+        : '你已经具备基础推荐条件，再激活一个风格包会让推荐结果更贴近你的偏好。',
       image: ''
     };
   }
 
   return {
     scene: '开始生成推荐',
-    weather: `已激活 ${activeStylePackCount} 个风格包`,
-    reason: '衣橱和风格包都已准备好，可以直接进入推荐页生成新的搭配方案。',
+    weather: weatherText,
+    reason: weather
+      ? `当前${weather.condition} ${Math.round(weather.temperature)}°C，衣橱和风格包都已准备好，可以直接生成更贴合天气的搭配方案。`
+      : '衣橱和风格包都已准备好，可以直接进入推荐页生成新的搭配方案。',
     image: ''
   };
 }
