@@ -100,7 +100,11 @@ async function fetchQWeather(cityName: string): Promise<{
   lookupUrl.searchParams.set("number", "1");
   lookupUrl.searchParams.set("key", config.apiKey);
 
-  const lookupRes = await fetch(lookupUrl.toString());
+  const lookupRes = await fetch(lookupUrl.toString(), {
+    headers: {
+      "X-QW-Api-Key": config.apiKey
+    }
+  });
   const lookupText = await lookupRes.text();
   if (!lookupRes.ok) {
     console.error("和风天气城市查询失败", {
