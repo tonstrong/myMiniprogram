@@ -102,21 +102,34 @@ async function fetchQWeather(cityName: string): Promise<{
 
   const lookupRes = await fetch(lookupUrl.toString());
   const lookupText = await lookupRes.text();
-
   if (!lookupRes.ok) {
     console.error("和风天气城市查询失败", {
       url: lookupUrl.toString(),
+      cityName,
       status: lookupRes.status,
       statusText: lookupRes.statusText,
+      headers: Object.fromEntries(lookupRes.headers.entries()),
       body: lookupText
     });
 
-    throw new AppError(
-      `天气城市查询失败: ${lookupRes.status} ${lookupRes.statusText} ${lookupText}`,
-      "UPSTREAM_ERROR",
-      502
-    );
+    throw new AppError("天气城市查询失败", "UPSTREAM_ERROR", 502);
   }
+
+  let lookupData;
+  try {
+    lookupData = JSON.parse(lookupText);
+  } catch (e) {
+    console.error("和风天气城市查询返回非 JSON", {
+      url: lookupUrl.toString(),
+      cityName,
+      status: lookupRes.status,
+      headers: Object.fromEntries(lookupRes.headers.entries()),
+      body: lookupText
+    });
+
+    throw new AppError("天气城市查询返回格式异常", "UPSTREAM_ERROR", 502);
+  }
+
   const lookupJson = (await lookupRes.json()) as { location?: Array<{ id: string; name: string }> };
   const location = lookupJson.location?.[0];
   if (!location?.id) {
