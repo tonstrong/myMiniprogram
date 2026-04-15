@@ -1,6 +1,7 @@
 import {
   createObjectValidator,
   optionalObjectField,
+  optionalNumber,
   optionalString,
   optionalStringArray,
   requiredNumber,
@@ -9,6 +10,7 @@ import {
 } from "../../../app/common/validation";
 import type {
   GenerateRecommendationRequestDTO,
+  RecommendationListQueryDTO,
   RecommendationFeedbackRequestDTO,
   RecommendationWeatherDTO
 } from "./dtos";
@@ -40,4 +42,11 @@ export const validateRecommendationFeedbackRequest =
 export const validateRecommendationIdParams =
   createObjectValidator<RecommendationIdParams>({
     recommendationId: requiredString({ minLength: 1 })
+  });
+
+export const validateRecommendationListQuery =
+  createObjectValidator<RecommendationListQueryDTO>({
+    savedOnly: optionalNumber({ integer: true, min: 0, max: 1 }),
+    pageNo: optionalNumber({ integer: true, min: 1 }),
+    pageSize: optionalNumber({ integer: true, min: 1, max: 200 })
   });

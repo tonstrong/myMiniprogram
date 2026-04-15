@@ -9,3 +9,8 @@ pm2 restart closet-backend
 
 日志：
 pm2 logs closet-backend
+
+
+.\venv\Scripts\python main.py "你的视频链接" ocr
+.\venv\Scripts\python main.py "你的视频链接" audio
+.\venv\Scripts\python main.py "你的视频链接" both

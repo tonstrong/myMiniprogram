@@ -2,6 +2,7 @@ import type {
   RecommendationExplainerRecord,
   RecommendationFeedbackRecord,
   RecommendationItemRecord,
+  RecommendationListRecord,
   RecommendationPlannerRecord,
   RecommendationRecord
 } from "./persistence";
@@ -14,6 +15,10 @@ export interface RecommendationRepository {
   findItemsByRecommendationId(
     recommendationId: string
   ): Promise<RecommendationItemRecord[]>;
+  listByUser(
+    userId: string,
+    query: { savedOnly?: boolean; pageNo: number; pageSize: number }
+  ): Promise<{ items: RecommendationListRecord[]; total: number }>;
   saveFeedback(record: RecommendationFeedbackRecord): Promise<void>;
   findById(id: string): Promise<RecommendationRecord | null>;
   savePlannerOutput(record: RecommendationPlannerRecord): Promise<void>;

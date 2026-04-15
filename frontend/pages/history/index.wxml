@@ -8,13 +8,47 @@
   </view>
 
   <view class="grid-wrap animate-fade-in" style="animation-delay: 0.1s;">
-    <view class="empty-state flex-col items-center justify-center glass-panel capability-panel">
+    <view wx:if="{{groupedRecords.length > 0}}">
+      <block wx:for="{{groupedRecords}}" wx:key="key">
+        <view class="group-section">
+          <view class="group-title">{{item.title}}</view>
+          <view class="grid-layout">
+            <block wx:for="{{item.items}}" wx:key="id" wx:for-item="record">
+              <view class="grid-card" bindtap="openRecommendation" data-id="{{record.id}}">
+                <image wx:if="{{record.coverImageUrl}}" class="g-img" src="{{record.coverImageUrl}}" mode="aspectFill"></image>
+                <view wx:else class="g-img g-placeholder">
+                  <text class="g-placeholder-text">{{record.scene}}</text>
+                </view>
+                <view class="overlay">
+                  <text class="g-date">{{record.date}}</text>
+                  <view class="flex-row justify-between items-center">
+                    <text class="g-scene">{{record.scene}}</text>
+                    <text class="star-icon" wx:if="{{record.isSaved}}">⭐</text>
+                  </view>
+                </view>
+              </view>
+            </block>
+          </view>
+        </view>
+      </block>
+    </view>
+
+    <view wx:if="{{groupedRecords.length > 0 && loading}}" class="list-status loading-text">正在加载更多...</view>
+    <view wx:if="{{groupedRecords.length > 0 && !loading && noMore}}" class="list-status done-text">已经到底了</view>
+
+    <view wx:elif="{{!backendReady}}" class="empty-state flex-col items-center justify-center glass-panel capability-panel">
+      <text class="text-h1 text-tertiary">📭</text>
+      <text class="text-body text-secondary mt-md">历史记录暂时不可用</text>
+      <text class="text-caption capability-copy">{{backendMessage}}</text>
+      <view class="status-pill error">后端未连通</view>
+      <button class="btn-primary mt-action" bindtap="goRecommend">去生成新搭配</button>
+    </view>
+
+    <view wx:else class="empty-state flex-col items-center justify-center glass-panel capability-panel">
       <text class="text-h1 text-tertiary">📭</text>
       <text class="text-body text-secondary mt-md">暂无可展示的历史记录</text>
-      <text class="text-caption capability-copy">{{backendMessage}}</text>
-      <view class="status-pill {{backendReady ? 'ready' : 'error'}}">
-        {{backendReady ? '后端已连通' : '后端未连通'}}
-      </view>
+      <text class="text-caption capability-copy">{{activeTab === 0 ? '收藏后的搭配会展示在这里。' : '生成过的搭配会展示在这里。'}}</text>
+      <view class="status-pill ready">后端已连通</view>
       <button class="btn-primary mt-action" bindtap="goRecommend">去生成新搭配</button>
     </view>
   </view>

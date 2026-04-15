@@ -38,6 +38,16 @@ export interface RecommendationFeedbackRecord extends CreatedAtRecord {
   comment?: string | null;
 }
 
+export interface RecommendationListRecord {
+  id: string;
+  userId: string;
+  scene: string;
+  status: RecommendationStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  coverImageUrl?: string | null;
+}
+
 export type RecommendationArtifactStatus = "generated" | "failed" | "pending";
 
 export interface RecommendationPlannerRecord

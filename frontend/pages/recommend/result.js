@@ -1,4 +1,5 @@
 import api from '../../utils/api';
+import { resolveImageUrl } from '../../utils/image-url';
 
 Page({
   data: {
@@ -99,14 +100,14 @@ async function mapRecommendationItem(itemId) {
       id: itemId,
       type: detail.attributes?.category || '单品',
       name: [detail.attributes?.category, detail.attributes?.subCategory].filter(Boolean).join(' / ') || itemId,
-      img: detail.imageOriginalUrl || 'https://dummyimage.com/300x400/E5E7EB/1C1C1E&text=Closet+Item'
+      img: await resolveImageUrl(detail.imageOriginalUrl)
     };
   } catch (error) {
     return {
       id: itemId,
       type: '单品',
       name: itemId,
-      img: 'https://dummyimage.com/300x400/E5E7EB/1C1C1E&text=Closet+Item'
+      img: ''
     };
   }
 }

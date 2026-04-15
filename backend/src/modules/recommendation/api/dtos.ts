@@ -36,6 +36,20 @@ export interface RecommendationDetailResponseDTO
   createdAt?: string;
 }
 
+export interface RecommendationListQueryDTO {
+  savedOnly?: number;
+  pageNo?: number;
+  pageSize?: number;
+}
+
+export interface RecommendationListItemDTO {
+  recommendationId: string;
+  scene: string;
+  status: "generated" | "validated" | "failed" | "saved";
+  createdAt: string;
+  coverImageUrl?: string;
+}
+
 export interface RecommendationFeedbackRequestDTO {
   action: "like" | "dislike" | "save";
   reasonTags?: string[];

@@ -57,6 +57,19 @@
   height: 100%;
 }
 
+.c-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+}
+
+.c-placeholder-text {
+  color: rgba(255,255,255,0.8);
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
 .c-label {
   position: absolute;
   bottom: 16rpx;

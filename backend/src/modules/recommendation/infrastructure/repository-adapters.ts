@@ -6,6 +6,7 @@ import type {
   RecommendationExplainerRecord,
   RecommendationFeedbackRecord,
   RecommendationItemRecord,
+  RecommendationListRecord,
   RecommendationPlannerRecord,
   RecommendationRecord
 } from "./persistence";
@@ -44,6 +45,29 @@ export class InMemoryRecommendationRepository
     recommendationId: string
   ): Promise<RecommendationItemRecord[]> {
     return this.items.filter((item) => item.recommendationId === recommendationId);
+  }
+
+  async listByUser(
+    userId: string,
+    query: { savedOnly?: boolean; pageNo: number; pageSize: number }
+  ): Promise<{ items: RecommendationListRecord[]; total: number }> {
+    const filtered = Array.from(this.recommendations.values())
+      .filter((item) => item.userId === userId)
+      .filter((item) => (query.savedOnly ? item.status === "saved" : true))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    const start = (query.pageNo - 1) * query.pageSize;
+    const pageItems = filtered.slice(start, start + query.pageSize).map((item) => ({
+      id: item.id,
+      userId: item.userId,
+      scene: item.scene,
+      status: item.status,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      coverImageUrl: undefined
+    }));
+
+    return { items: pageItems, total: filtered.length };
   }
 
   async saveFeedback(record: RecommendationFeedbackRecord): Promise<void> {
@@ -255,6 +279,68 @@ export class MySqlRecommendationRepository implements RecommendationRepository {
     });
   }
 
+  async listByUser(
+    userId: string,
+    query: { savedOnly?: boolean; pageNo: number; pageSize: number }
+  ): Promise<{ items: RecommendationListRecord[]; total: number }> {
+    return withClient(async (client) => {
+      const whereClauses = ["user_id = ?"];
+      const params: unknown[] = [userId];
+
+      if (query.savedOnly) {
+        whereClauses.push("status = 'saved'");
+      }
+
+      const where = whereClauses.join(" AND ");
+      const [countRows] = await client.query<RowDataPacket[]>(
+        `SELECT COUNT(*) AS total FROM recommendations WHERE ${where}`,
+        params
+      );
+      const total = Number(countRows[0]?.total ?? 0);
+
+      const offset = (query.pageNo - 1) * query.pageSize;
+      const [rows] = await client.query<RecommendationRow[]>(
+        `SELECT id, user_id, style_pack_id, scene, weather_json, provider, model_name, model_tier, retry_count,
+                validator_result, reason_text, status, created_at, updated_at
+         FROM recommendations
+         WHERE ${where}
+         ORDER BY created_at DESC
+         LIMIT ? OFFSET ?`,
+        [...params, query.pageSize, offset]
+      );
+
+      const items: RecommendationListRecord[] = [];
+      for (const row of rows) {
+        const [coverRows] = await client.query<RowDataPacket[]>(
+          `SELECT c.image_original_url AS cover_image_url
+           FROM recommendation_items ri
+           INNER JOIN clothing_items c ON c.id = ri.item_id
+           WHERE ri.recommendation_id = ?
+           ORDER BY ri.outfit_no ASC,
+                    CASE ri.role WHEN 'primary' THEN 0 WHEN 'secondary' THEN 1 ELSE 2 END ASC,
+                    ri.created_at ASC,
+                    ri.id ASC
+           LIMIT 1`,
+          [row.id]
+        );
+
+        items.push({
+          id: row.id,
+          userId: row.user_id,
+          scene: row.scene,
+          status: row.status,
+          createdAt: toDate(row.created_at),
+          updatedAt: toDate(row.updated_at),
+          coverImageUrl: sanitizeRecommendationImageUrl(
+            (coverRows[0]?.cover_image_url as string | undefined) ?? undefined
+          )
+        });
+      }
+
+      return { items, total };
+    });
+  }
+
   async saveFeedback(record: RecommendationFeedbackRecord): Promise<void> {
     await withClient(async (client) => {
       await client.query(
@@ -351,6 +437,9 @@ export const createNoopRecommendationRepository =
     async findItemsByRecommendationId() {
       return [];
     },
+    async listByUser() {
+      return { items: [], total: 0 };
+    },
     async saveFeedback() {
       return undefined;
     },
@@ -406,4 +495,14 @@ function toDate(value: Date | string): Date {
 
 function formatDateTime(value: Date): string {
   return value.toISOString().slice(0, 19).replace("T", " ");
+}
+
+function sanitizeRecommendationImageUrl(value?: string | null): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  if (value.startsWith("file://") || value.startsWith("wxfile://")) {
+    return undefined;
+  }
+  return value;
 }

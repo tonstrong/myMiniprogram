@@ -11,7 +11,10 @@
           <view class="collage-area flex-row">
             <block wx:for="{{item.items}}" wx:key="id" wx:for-item="cloth">
               <view class="cloth-item" style="flex: {{cloth.type === '下装' ? 1.5 : (cloth.type === '鞋履' ? 0.8 : 1)}}">
-                <image class="c-img" src="{{cloth.img}}" mode="aspectFill"></image>
+                <image wx:if="{{cloth.img}}" class="c-img" src="{{cloth.img}}" mode="aspectFill"></image>
+                <view wx:else class="c-img c-placeholder">
+                  <text class="c-placeholder-text">{{cloth.type}}</text>
+                </view>
                 <view class="c-label">{{cloth.type}}</view>
               </view>
             </block>

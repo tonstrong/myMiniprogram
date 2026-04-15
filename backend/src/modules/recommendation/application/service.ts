@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { AppError } from "../../../app/common/errors";
+import type { PaginatedResult } from "../../../app/common/types";
 import type { JsonValue } from "../../../app/common/persistence";
 import type { ProviderMeta } from "../../../app/common/types";
 import type { ClosetRepository } from "../../closet/infrastructure";
@@ -12,6 +13,8 @@ import {
 } from "../infrastructure";
 import type {
   GenerateRecommendationCommand,
+  RecommendationHistoryItem,
+  RecommendationListQuery,
   RecommendationFeedbackCommand,
   RecommendationOutfit,
   RecommendationResult,
@@ -33,6 +36,8 @@ import type {
 } from "./types";
 
 const MIN_CANDIDATE_COUNT = 2;
+const DEFAULT_PAGE_NO = 1;
+const DEFAULT_PAGE_SIZE = 20;
 
 export interface RecommendationServiceDependencies {
   closetRepository: ClosetRepository;
@@ -121,6 +126,32 @@ export class InMemoryRecommendationService implements RecommendationService {
     return result;
   }
 
+  async list(
+    userId: string,
+    query: RecommendationListQuery
+  ): Promise<PaginatedResult<RecommendationHistoryItem>> {
+    const pageNo = query.pageNo ?? DEFAULT_PAGE_NO;
+    const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
+    const result = await this.deps.recommendationRepository.listByUser(userId, {
+      savedOnly: query.savedOnly,
+      pageNo,
+      pageSize
+    });
+
+    return {
+      items: result.items.map((item) => ({
+        recommendationId: item.id,
+        scene: item.scene,
+        status: item.status,
+        createdAt: item.createdAt.toISOString(),
+        coverImageUrl: item.coverImageUrl ?? undefined
+      })),
+      pageNo,
+      pageSize,
+      total: result.total
+    };
+  }
+
   async getDetail(
     _userId: string,
     recommendationId: string
@@ -138,7 +169,12 @@ export class InMemoryRecommendationService implements RecommendationService {
   }
 
   async feedback(command: RecommendationFeedbackCommand): Promise<void> {
-    await this.ensureRecommendationExists(command.recommendationId);
+    const recommendation = await this.deps.recommendationRepository.findById(
+      command.recommendationId
+    );
+    if (!recommendation || recommendation.userId !== command.userId) {
+      throw new AppError("Recommendation not found", "NOT_FOUND", 404);
+    }
     await this.deps.recommendationRepository.saveFeedback({
       id: generateId(),
       recommendationId: command.recommendationId,

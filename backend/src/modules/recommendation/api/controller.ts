@@ -12,13 +12,16 @@ import type {
   GenerateRecommendationRequestDTO,
   GenerateRecommendationResponseDTO,
   RecommendationDetailResponseDTO,
-  RecommendationFeedbackRequestDTO
+  RecommendationFeedbackRequestDTO,
+  RecommendationListItemDTO,
+  RecommendationListQueryDTO
 } from "./dtos";
 import { RecommendationRoutes } from "./index";
 import {
   validateGenerateRecommendationRequest,
   validateRecommendationFeedbackRequest,
-  validateRecommendationIdParams
+  validateRecommendationIdParams,
+  validateRecommendationListQuery
 } from "./validators";
 
 export interface RecommendationControllerDependencies {
@@ -31,6 +34,31 @@ export interface RecommendationIdParams {
 
 export class RecommendationController {
   constructor(private readonly deps: RecommendationControllerDependencies) {}
+
+  async list(
+    request: ApiRequest<unknown, RecommendationListQueryDTO>
+  ): Promise<ApiResponse<{ items: RecommendationListItemDTO[]; pageNo: number; pageSize: number; total: number }>> {
+    const userId = request.context.userId;
+    if (!userId) {
+      return fail("UNAUTHORIZED", "Missing user id");
+    }
+
+    const validation = validateRequest(
+      request.query,
+      validateRecommendationListQuery
+    );
+    if (!validation.ok) {
+      return fail("INVALID_REQUEST", formatValidationErrors(validation.errors));
+    }
+
+    const result = await this.deps.recommendationService.list(userId, {
+      savedOnly: validation.value.savedOnly === 1,
+      pageNo: validation.value.pageNo,
+      pageSize: validation.value.pageSize
+    });
+
+    return ok(result);
+  }
 
   async generate(
     request: ApiRequest<GenerateRecommendationRequestDTO>
@@ -169,6 +197,11 @@ export function createRecommendationControllerRoutes(
   controller: RecommendationController
 ): ApiRouteDefinition[] {
   return [
+    {
+      ...parseRoute(RecommendationRoutes.list),
+      summary: "List recommendations",
+      handler: controller.list.bind(controller)
+    },
     {
       ...parseRoute(RecommendationRoutes.generate),
       summary: "Generate recommendation",

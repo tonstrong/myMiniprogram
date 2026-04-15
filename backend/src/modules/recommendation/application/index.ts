@@ -1,3 +1,4 @@
+import type { PaginatedResult } from "../../../app/common/types";
 import type { ProviderMeta } from "../../../app/common/types";
 import type { RecommendationWeather } from "./types";
 
@@ -29,6 +30,20 @@ export interface RecommendationResult {
   createdAt?: string;
 }
 
+export interface RecommendationHistoryItem {
+  recommendationId: string;
+  scene: string;
+  status: "generated" | "validated" | "failed" | "saved";
+  createdAt: string;
+  coverImageUrl?: string;
+}
+
+export interface RecommendationListQuery {
+  savedOnly?: boolean;
+  pageNo?: number;
+  pageSize?: number;
+}
+
 export interface RecommendationFeedbackCommand {
   userId: string;
   recommendationId: string;
@@ -39,6 +54,10 @@ export interface RecommendationFeedbackCommand {
 
 export interface RecommendationService {
   generate(command: GenerateRecommendationCommand): Promise<RecommendationResult>;
+  list(
+    userId: string,
+    query: RecommendationListQuery
+  ): Promise<PaginatedResult<RecommendationHistoryItem>>;
   getDetail(userId: string, recommendationId: string): Promise<RecommendationResult>;
   feedback(command: RecommendationFeedbackCommand): Promise<void>;
   save(userId: string, recommendationId: string): Promise<void>;
