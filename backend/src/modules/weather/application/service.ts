@@ -12,7 +12,7 @@ export class SharedWeatherService implements WeatherService {
       repository: WeatherCacheRepository;
       userProfileRepository: UserProfileRepository;
     }
-  ) {}
+  ) { }
 
   async getCurrentWeatherForUser(
     userId: string,
@@ -101,8 +101,21 @@ async function fetchQWeather(cityName: string): Promise<{
   lookupUrl.searchParams.set("key", config.apiKey);
 
   const lookupRes = await fetch(lookupUrl.toString());
+  const lookupText = await lookupRes.text();
+
   if (!lookupRes.ok) {
-    throw new AppError("天气城市查询失败", "UPSTREAM_ERROR", 502);
+    console.error("和风天气城市查询失败", {
+      url: lookupUrl.toString(),
+      status: lookupRes.status,
+      statusText: lookupRes.statusText,
+      body: lookupText
+    });
+
+    throw new AppError(
+      `天气城市查询失败: ${lookupRes.status} ${lookupRes.statusText} ${lookupText}`,
+      "UPSTREAM_ERROR",
+      502
+    );
   }
   const lookupJson = (await lookupRes.json()) as { location?: Array<{ id: string; name: string }> };
   const location = lookupJson.location?.[0];

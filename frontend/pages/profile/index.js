@@ -297,7 +297,7 @@ Page({
       return;
     }
     wx.navigateTo({ url });
-  }
+  },
 
   async loadWeatherHint(forceRefresh) {
     try {
