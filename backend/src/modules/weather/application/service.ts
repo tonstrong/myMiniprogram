@@ -104,7 +104,7 @@ async function fetchQWeather(cityName: string): Promise<{
     throw new AppError("天气服务尚未配置", "NOT_IMPLEMENTED", 501);
   }
 
-  const lookupUrl = new URL("https://geoapi.qweather.com/v2/city/lookup");
+  const lookupUrl = new URL("https://pm6cdprrpu.re.qweatherapi.com/geo/v2/city/lookup");
   lookupUrl.searchParams.set("location", cityName);
   lookupUrl.searchParams.set("range", "cn");
   lookupUrl.searchParams.set("number", "1");
@@ -164,7 +164,7 @@ async function fetchQWeather(cityName: string): Promise<{
     throw new AppError("未找到对应城市天气数据", "NOT_FOUND", 404);
   }
 
-  const weatherUrl = new URL("https://devapi.qweather.com/v7/weather/now");
+  const weatherUrl = new URL("https://pm6cdprrpu.re.qweatherapi.com/v7/weather/now");
   weatherUrl.searchParams.set("location", location.id);
   weatherUrl.searchParams.set("key", config.apiKey);
 
