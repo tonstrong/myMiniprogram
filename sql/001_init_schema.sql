@@ -28,6 +28,7 @@ CREATE TABLE clothing_items (
   id VARCHAR(64) PRIMARY KEY,
   user_id VARCHAR(64) NOT NULL,
   image_original_url VARCHAR(512) NOT NULL,
+  image_access_key VARCHAR(128) NULL,
   category VARCHAR(32) NULL,
   sub_category VARCHAR(64) NULL,
   colors JSON NULL,
@@ -53,6 +54,16 @@ CREATE TABLE clothing_items (
 
 CREATE INDEX idx_clothing_items_user_status ON clothing_items(user_id, status);
 CREATE INDEX idx_clothing_items_user_category ON clothing_items(user_id, category);
+
+CREATE TABLE clothing_item_images (
+  item_id VARCHAR(64) PRIMARY KEY,
+  content_type VARCHAR(64) NOT NULL,
+  byte_size INT NOT NULL,
+  bytes LONGBLOB NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  CONSTRAINT fk_clothing_item_images_item FOREIGN KEY (item_id) REFERENCES clothing_items(id)
+);
 
 CREATE TABLE clothing_item_attribute_history (
   id VARCHAR(64) PRIMARY KEY,

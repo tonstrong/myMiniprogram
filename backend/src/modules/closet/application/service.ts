@@ -316,16 +316,16 @@ function normalizeExtractedAttributes(
   parsed: Record<string, unknown>
 ): Partial<ClothingAttributes> {
   return {
-    category: normalizeCategory(asOptionalString(parsed.category)),
+    category: normalizeCategoryValue(asOptionalString(parsed.category)),
     subCategory: normalizeLabel(asOptionalString(parsed.subCategory)),
-    colors: normalizeArray(asOptionalStringArray(parsed.colors), normalizeColor),
+    colors: normalizeArray(asOptionalStringArray(parsed.colors), normalizeColorValue),
     pattern: normalizeLabel(asOptionalString(parsed.pattern)),
     material: normalizeLabel(asOptionalString(parsed.material)),
-    fit: normalizeArray(asOptionalStringArray(parsed.fit), normalizeFit),
+    fit: normalizeArray(asOptionalStringArray(parsed.fit), normalizeFitValue),
     length: normalizeLabel(asOptionalString(parsed.length)),
-    seasons: normalizeArray(asOptionalStringArray(parsed.seasons), normalizeSeason),
-    tags: normalizeArray(asOptionalStringArray(parsed.tags), normalizeTag),
-    occasionTags: normalizeArray(asOptionalStringArray(parsed.occasionTags), normalizeTag),
+    seasons: normalizeArray(asOptionalStringArray(parsed.seasons), normalizeSeasonValue),
+    tags: normalizeArray(asOptionalStringArray(parsed.tags), normalizeTagValue),
+    occasionTags: normalizeArray(asOptionalStringArray(parsed.occasionTags), normalizeTagValue),
     confidence: asOptionalConfidence(parsed.confidence)
   };
 }
@@ -476,6 +476,235 @@ function toKey(value: string): string {
     .toLowerCase()
     .replace(/[_\s-]+/g, "")
     .replace(/[^a-z -]/g, "");
+}
+
+function normalizeCategoryValue(value?: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const mapping: Record<string, string> = {
+    top: "\u4e0a\u8863",
+    tops: "\u4e0a\u8863",
+    tshirt: "\u4e0a\u8863",
+    shirt: "\u4e0a\u8863",
+    blouse: "\u4e0a\u8863",
+    sweater: "\u4e0a\u8863",
+    knitwear: "\u4e0a\u8863",
+    "\u4e0a\u8863": "\u4e0a\u8863",
+    "\u4e0a\u88c5": "\u4e0a\u8863",
+    "\u6064\u886b": "\u4e0a\u8863",
+    "\u6bdb\u8863": "\u4e0a\u8863",
+    bottom: "\u4e0b\u88c5",
+    bottoms: "\u4e0b\u88c5",
+    pants: "\u4e0b\u88c5",
+    trousers: "\u4e0b\u88c5",
+    jeans: "\u4e0b\u88c5",
+    skirt: "\u4e0b\u88c5",
+    shorts: "\u4e0b\u88c5",
+    "\u4e0b\u88c5": "\u4e0b\u88c5",
+    "\u88e4\u5b50": "\u4e0b\u88c5",
+    "\u88d9\u5b50": "\u4e0b\u88c5",
+    "\u77ed\u88e4": "\u4e0b\u88c5",
+    "\u957f\u88e4": "\u4e0b\u88c5",
+    outerwear: "\u5916\u5957",
+    coat: "\u5916\u5957",
+    jacket: "\u5916\u5957",
+    blazer: "\u5916\u5957",
+    cardigan: "\u5916\u5957",
+    "\u5916\u5957": "\u5916\u5957",
+    "\u5927\u8863": "\u5916\u5957",
+    "\u5939\u514b": "\u5916\u5957",
+    "\u5f00\u886b": "\u5916\u5957",
+    dress: "\u8fde\u8863\u88d9",
+    dresses: "\u8fde\u8863\u88d9",
+    "\u8fde\u8863\u88d9": "\u8fde\u8863\u88d9",
+    "\u8fde\u8eab\u88d9": "\u8fde\u8863\u88d9",
+    "\u88d9\u88c5": "\u8fde\u8863\u88d9",
+    footwear: "\u978b\u5c65",
+    shoes: "\u978b\u5c65",
+    sneaker: "\u978b\u5c65",
+    sneakers: "\u978b\u5c65",
+    boots: "\u978b\u5c65",
+    sandals: "\u978b\u5c65",
+    "\u978b\u5c65": "\u978b\u5c65",
+    "\u978b\u5b50": "\u978b\u5c65",
+    "\u8fd0\u52a8\u978b": "\u978b\u5c65",
+    "\u9774\u5b50": "\u978b\u5c65",
+    "\u51c9\u978b": "\u978b\u5c65",
+    bag: "\u5305\u888b",
+    bags: "\u5305\u888b",
+    handbag: "\u5305\u888b",
+    backpack: "\u5305\u888b",
+    "\u5305\u888b": "\u5305\u888b",
+    "\u5305": "\u5305\u888b",
+    "\u624b\u63d0\u5305": "\u5305\u888b",
+    "\u53cc\u80a9\u5305": "\u5305\u888b",
+    accessory: "\u914d\u9970",
+    accessories: "\u914d\u9970",
+    jewelry: "\u914d\u9970",
+    hat: "\u914d\u9970",
+    scarf: "\u914d\u9970",
+    belt: "\u914d\u9970",
+    "\u914d\u9970": "\u914d\u9970",
+    "\u9970\u54c1": "\u914d\u9970",
+    "\u9996\u9970": "\u914d\u9970",
+    "\u5e3d\u5b50": "\u914d\u9970",
+    "\u56f4\u5dfe": "\u914d\u9970",
+    "\u76ae\u5e26": "\u914d\u9970"
+  };
+
+  return mapWithAliases(value, mapping);
+}
+
+function normalizeColorValue(value: string): string | undefined {
+  const mapping: Record<string, string> = {
+    white: "\u767d\u8272",
+    "\u767d": "\u767d\u8272",
+    "\u767d\u8272": "\u767d\u8272",
+    black: "\u9ed1\u8272",
+    "\u9ed1": "\u9ed1\u8272",
+    "\u9ed1\u8272": "\u9ed1\u8272",
+    gray: "\u7070\u8272",
+    grey: "\u7070\u8272",
+    "\u7070": "\u7070\u8272",
+    "\u7070\u8272": "\u7070\u8272",
+    blue: "\u84dd\u8272",
+    navy: "\u84dd\u8272",
+    "\u84dd": "\u84dd\u8272",
+    "\u84dd\u8272": "\u84dd\u8272",
+    "\u85cf\u84dd": "\u84dd\u8272",
+    "\u6df1\u84dd": "\u84dd\u8272",
+    beige: "\u7c73\u8272",
+    "\u7c73\u8272": "\u7c73\u8272",
+    "\u7c73\u767d\u8272": "\u7c73\u8272",
+    khaki: "\u5361\u5176\u8272",
+    "\u5361\u5176": "\u5361\u5176\u8272",
+    "\u5361\u5176\u8272": "\u5361\u5176\u8272",
+    brown: "\u68d5\u8272",
+    "\u68d5\u8272": "\u68d5\u8272",
+    "\u8910\u8272": "\u68d5\u8272",
+    green: "\u7eff\u8272",
+    "\u7eff": "\u7eff\u8272",
+    "\u7eff\u8272": "\u7eff\u8272",
+    red: "\u7ea2\u8272",
+    "\u7ea2": "\u7ea2\u8272",
+    "\u7ea2\u8272": "\u7ea2\u8272",
+    pink: "\u7c89\u8272",
+    "\u7c89": "\u7c89\u8272",
+    "\u7c89\u8272": "\u7c89\u8272",
+    purple: "\u7d2b\u8272",
+    "\u7d2b": "\u7d2b\u8272",
+    "\u7d2b\u8272": "\u7d2b\u8272",
+    yellow: "\u9ec4\u8272",
+    "\u9ec4": "\u9ec4\u8272",
+    "\u9ec4\u8272": "\u9ec4\u8272",
+    orange: "\u6a59\u8272",
+    "\u6a59": "\u6a59\u8272",
+    "\u6a59\u8272": "\u6a59\u8272",
+    multicolor: "\u591a\u8272",
+    multi: "\u591a\u8272",
+    "\u591a\u8272": "\u591a\u8272",
+    "\u62fc\u8272": "\u591a\u8272",
+    "\u5f69\u8272": "\u591a\u8272"
+  };
+
+  return mapWithAliases(value, mapping);
+}
+
+function normalizeSeasonValue(value: string): string | undefined {
+  const mapping: Record<string, string> = {
+    spring: "\u6625",
+    "\u6625": "\u6625",
+    "\u6625\u5b63": "\u6625",
+    summer: "\u590f",
+    "\u590f": "\u590f",
+    "\u590f\u5b63": "\u590f",
+    autumn: "\u79cb",
+    fall: "\u79cb",
+    "\u79cb": "\u79cb",
+    "\u79cb\u5b63": "\u79cb",
+    winter: "\u51ac",
+    "\u51ac": "\u51ac",
+    "\u51ac\u5b63": "\u51ac"
+  };
+
+  return mapWithAliases(value, mapping);
+}
+
+function normalizeFitValue(value: string): string | undefined {
+  const mapping: Record<string, string> = {
+    loose: "\u5bbd\u677e",
+    oversized: "\u5bbd\u677e",
+    relaxed: "\u5bbd\u677e",
+    "\u5bbd\u677e": "\u5bbd\u677e",
+    slim: "\u4fee\u8eab",
+    fitted: "\u4fee\u8eab",
+    "\u4fee\u8eab": "\u4fee\u8eab",
+    regular: "\u5e38\u89c4",
+    "\u5e38\u89c4": "\u5e38\u89c4",
+    straight: "\u76f4\u7b52",
+    "\u76f4\u7b52": "\u76f4\u7b52",
+    cropped: "\u77ed\u6b3e",
+    "\u77ed\u6b3e": "\u77ed\u6b3e",
+    long: "\u957f\u6b3e",
+    "\u957f\u6b3e": "\u957f\u6b3e",
+    "\u8d85\u957f": "\u957f\u6b3e"
+  };
+
+  return mapWithAliases(value, mapping);
+}
+
+function normalizeTagValue(value: string): string | undefined {
+  const mapping: Record<string, string> = {
+    minimal: "\u6781\u7b80",
+    minimalist: "\u6781\u7b80",
+    "\u6781\u7b80": "\u6781\u7b80",
+    commute: "\u901a\u52e4",
+    office: "\u901a\u52e4",
+    "\u901a\u52e4": "\u901a\u52e4",
+    basic: "\u57fa\u7840\u6b3e",
+    "\u57fa\u7840\u6b3e": "\u57fa\u7840\u6b3e",
+    casual: "\u4f11\u95f2",
+    "\u4f11\u95f2": "\u4f11\u95f2",
+    versatile: "\u767e\u642d",
+    "\u767e\u642d": "\u767e\u642d",
+    elegant: "\u4f18\u96c5",
+    "\u4f18\u96c5": "\u4f18\u96c5",
+    sporty: "\u8fd0\u52a8",
+    "\u8fd0\u52a8": "\u8fd0\u52a8",
+    vintage: "\u590d\u53e4",
+    "\u590d\u53e4": "\u590d\u53e4",
+    streetwear: "\u8857\u5934",
+    "\u8857\u5934": "\u8857\u5934",
+    chic: "\u65f6\u9ae6",
+    "\u65f6\u9ae6": "\u65f6\u9ae6"
+  };
+
+  return mapWithAliases(value, mapping);
+}
+
+function mapWithAliases(
+  value: string,
+  mapping: Record<string, string>
+): string | undefined {
+  const normalized = toLookupKey(value);
+  return mapping[normalized] ?? fallbackLabel(value);
+}
+
+function fallbackLabel(value?: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function toLookupKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_\-\/\\,，、.。:：;；()（）\[\]{}'"]+/g, "");
 }
 
 export function createInMemoryClosetService(

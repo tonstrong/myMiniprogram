@@ -134,8 +134,22 @@ async function fetchQWeather(cityName: string): Promise<{
     throw new AppError("天气城市查询返回格式异常", "UPSTREAM_ERROR", 502);
   }
 
-  const lookupJson = (await lookupRes.json()) as { location?: Array<{ id: string; name: string }> };
-  const location = lookupJson.location?.[0];
+  const lookupJson = lookupData as {
+    code?: string;
+    location?: Array<{
+      id?: string;
+      name?: string;
+      adm1?: string;
+      adm2?: string;
+      country?: string;
+      type?: string;
+      rank?: string;
+    }>;
+  };
+  if (lookupJson.code !== "200") {
+    throw new AppError("澶╂皵鍩庡競鏌ヨ澶辫触", "UPSTREAM_ERROR", 502);
+  }
+  const location = pickBestQWeatherLocation(cityName, lookupJson.location);
   if (!location?.id) {
     throw new AppError("未找到对应城市天气数据", "NOT_FOUND", 404);
   }
@@ -149,8 +163,12 @@ async function fetchQWeather(cityName: string): Promise<{
     throw new AppError("天气服务调用失败", "UPSTREAM_ERROR", 502);
   }
   const weatherJson = (await weatherRes.json()) as {
+    code?: string;
     now?: { temp?: string; text?: string };
   };
+  if (weatherJson.code && weatherJson.code !== "200") {
+    throw new AppError("澶╂皵鏈嶅姟璋冪敤澶辫触", "UPSTREAM_ERROR", 502);
+  }
 
   const temperature = Number(weatherJson.now?.temp ?? NaN);
   const condition = weatherJson.now?.text?.trim();
@@ -159,10 +177,13 @@ async function fetchQWeather(cityName: string): Promise<{
   }
 
   return {
-    cityName: location.name,
+    cityName: location.name ?? cityName,
     temperature,
     condition,
-    rawJson: weatherJson as Record<string, unknown>
+    rawJson: {
+      lookup: lookupJson as Record<string, unknown>,
+      weather: weatherJson as Record<string, unknown>
+    }
   };
 }
 
@@ -181,4 +202,93 @@ function mapRecordToSnapshot(
 
 function normalizeCityKey(city: string): string {
   return city.trim().toLowerCase();
+}
+
+function pickBestQWeatherLocation(
+  cityName: string,
+  locations?: Array<{
+    id?: string;
+    name?: string;
+    adm1?: string;
+    adm2?: string;
+    country?: string;
+    type?: string;
+    rank?: string;
+  }>
+) {
+  if (!locations?.length) {
+    return undefined;
+  }
+
+  const target = normalizeAdministrativeName(cityName);
+  const scored = locations
+    .filter((location) => location.id && location.name)
+    .map((location) => ({
+      location,
+      score: scoreQWeatherLocation(target, location)
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  return scored[0]?.location;
+}
+
+function scoreQWeatherLocation(
+  target: string,
+  location: {
+    name?: string;
+    adm1?: string;
+    adm2?: string;
+    country?: string;
+    type?: string;
+    rank?: string;
+  }
+): number {
+  const normalizedName = normalizeAdministrativeName(location.name);
+  const normalizedAdm1 = normalizeAdministrativeName(location.adm1);
+  const normalizedAdm2 = normalizeAdministrativeName(location.adm2);
+  const normalizedCountry = normalizeAdministrativeName(location.country);
+  let score = 0;
+
+  if (normalizedCountry === "中国") {
+    score += 5;
+  }
+  if (location.type === "city") {
+    score += 20;
+  }
+  if (normalizedName === target) {
+    score += 60;
+  }
+  if (normalizedAdm2 === target) {
+    score += 30;
+  }
+  if (normalizedAdm1 === target) {
+    score += 15;
+  }
+  if (normalizedName === normalizedAdm2) {
+    score += 40;
+  }
+  if (normalizedName && normalizedAdm2 && normalizedName !== normalizedAdm2) {
+    score -= 25;
+  }
+  if (location.rank) {
+    const rank = Number(location.rank);
+    if (!Number.isNaN(rank)) {
+      score -= rank;
+    }
+  }
+
+  return score;
+}
+
+function normalizeAdministrativeName(value?: string): string {
+  if (!value) {
+    return "";
+  }
+
+  return value
+    .trim()
+    .replace(/^(中国|中华人民共和国)/, "")
+    .replace(/(特别行政区|自治区|自治州|地区|盟|省|市|区|县|旗)$/g, "")
+    .trim()
+    .toLowerCase();
 }
