@@ -54,7 +54,7 @@ export class SharedWeatherService implements WeatherService {
   ): Promise<WeatherSnapshot> {
     try {
       const providerResult = await fetchQWeather(cityName);
-      const now = new Date();
+      const now = providerResult.fetchedAt;
       const record: CityWeatherCacheRecord = {
         cityKey,
         cityName: providerResult.cityName,
@@ -76,6 +76,15 @@ export class SharedWeatherService implements WeatherService {
   }
 }
 
+function parseQWeatherTimestamp(value?: string): Date | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
 export function createSharedWeatherService(deps: {
   repository: WeatherCacheRepository;
   userProfileRepository: UserProfileRepository;
@@ -88,6 +97,7 @@ async function fetchQWeather(cityName: string): Promise<{
   temperature: number;
   condition: string;
   rawJson: Record<string, unknown>;
+  fetchedAt: Date;
 }> {
   const config = loadConfig().weather;
   if (config.provider !== "qweather" || !config.apiKey) {
@@ -164,12 +174,15 @@ async function fetchQWeather(cityName: string): Promise<{
   }
   const weatherJson = (await weatherRes.json()) as {
     code?: string;
-    now?: { temp?: string; text?: string };
+    updateTime?: string;
+    now?: { obsTime?: string; temp?: string; text?: string };
   };
   if (weatherJson.code && weatherJson.code !== "200") {
     throw new AppError("澶╂皵鏈嶅姟璋冪敤澶辫触", "UPSTREAM_ERROR", 502);
   }
 
+  const observedAt = parseQWeatherTimestamp(weatherJson.now?.obsTime);
+  const updatedAt = parseQWeatherTimestamp(weatherJson.updateTime);
   const temperature = Number(weatherJson.now?.temp ?? NaN);
   const condition = weatherJson.now?.text?.trim();
   if (Number.isNaN(temperature) || !condition) {
@@ -180,6 +193,7 @@ async function fetchQWeather(cityName: string): Promise<{
     cityName: location.name ?? cityName,
     temperature,
     condition,
+    fetchedAt: observedAt ?? updatedAt ?? new Date(),
     rawJson: {
       lookup: lookupJson as Record<string, unknown>,
       weather: weatherJson as Record<string, unknown>
