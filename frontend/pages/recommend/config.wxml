@@ -2,7 +2,6 @@
   <view class="weather-bar flex-row items-center animate-fade-in">
     <text class="wx-icon">☁</text>
     <view class="flex-col ml-sm weather-copy">
-      <text class="text-caption text-secondary">{{hasCity ? '已同步你保存城市的天气' : '还没设置城市，也可以先跳过天气'}}</text>
       <text class="text-body font-medium">{{weather}}</text>
       <text wx:if="{{cityName}}" class="weather-city">当前城市：{{cityName}}</text>
     </view>

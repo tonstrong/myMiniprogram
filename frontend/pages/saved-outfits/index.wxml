@@ -3,7 +3,6 @@
     <view class="flex-row items-center justify-between">
       <view class="flex-col page-copy">
         <text class="text-h2">我的搭配</text>
-        <text class="text-caption page-subtitle">像搭配墙一样浏览你已经保存的 canvas Look</text>
       </view>
       <button class="btn-primary page-head-btn" bindtap="goCanvas">去搭配</button>
     </view>
@@ -59,7 +58,7 @@
       </view>
 
       <view wx:if="{{loading}}" class="list-status loading-text">正在加载更多...</view>
-      <view wx:elif="{{noMore}}" class="list-status done-text">已经展示完全部搭配</view>
+      <view wx:elif="{{noMore}}" class="list-status done-text">已经展示全部搭配</view>
     </block>
 
     <view wx:elif="{{!backendReady}}" class="empty-state glass-panel flex-col items-center justify-center">

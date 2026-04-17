@@ -40,6 +40,7 @@ import type {
 const MIN_CANDIDATE_COUNT = 2;
 const DEFAULT_PAGE_NO = 1;
 const DEFAULT_PAGE_SIZE = 20;
+const MAX_OUTFIT_ITEMS = 5;
 
 export interface RecommendationServiceDependencies {
   closetRepository: ClosetRepository;
@@ -289,11 +290,14 @@ export class InMemoryRecommendationService implements RecommendationService {
           };
         }
 
-        const selected = input.candidates.slice(0, MIN_CANDIDATE_COUNT);
-        const items = selected.map((candidate, index) => ({
-          itemId: candidate.itemId,
-          role: index === 0 ? "primary" : "secondary"
-        }));
+        const items = buildPlannedOutfitItems(input.candidates);
+        if (items.length < MIN_CANDIDATE_COUNT) {
+          return {
+            status: "insufficient_items",
+            reason: "Not enough compatible candidates to plan outfits.",
+            providerMeta: { provider: "mock" }
+          };
+        }
 
         return {
           status: "success",
@@ -315,17 +319,40 @@ export class InMemoryRecommendationService implements RecommendationService {
     return {
       validate: async (input) => {
         const candidateIds = new Set(input.candidates.map((candidate) => candidate.itemId));
+        const candidateMap = new Map(
+          input.candidates.map((candidate) => [candidate.itemId, candidate] as const)
+        );
         const errors = input.outfits
-          .flatMap((outfit) =>
-            outfit.items
+          .flatMap((outfit) => {
+            const missingItemErrors = outfit.items
               .filter((item) => !candidateIds.has(item.itemId))
               .map((item) => ({
                 code: "missing_item" as const,
                 message: "Outfit references an unavailable item.",
                 itemId: item.itemId,
                 outfitNo: outfit.outfitNo
-              }))
-          );
+              }));
+
+            const availableItems = outfit.items
+              .map((item) => candidateMap.get(item.itemId))
+              .filter(
+                (candidate): candidate is RecommendationCandidateItem =>
+                  Boolean(candidate)
+              );
+
+            const categoryCount = new Map<RecommendationCategoryBucket, number>();
+            availableItems.forEach((candidate) => {
+              const bucket = resolveCandidateBucket(candidate);
+              categoryCount.set(bucket, (categoryCount.get(bucket) ?? 0) + 1);
+            });
+
+            const ruleConflictErrors = validateCategoryConflicts(
+              categoryCount,
+              outfit.outfitNo
+            );
+
+            return [...missingItemErrors, ...ruleConflictErrors];
+          });
 
         if (errors.length > 0) {
           const result: RecommendationValidationResult = {
@@ -459,6 +486,209 @@ function buildExplainerReason(
 ): string {
   const styleHint = stylePack?.summary ? ` It reflects ${stylePack.summary}.` : "";
   return `Chosen to suit ${scene}.${styleHint}`;
+}
+
+type RecommendationCategoryBucket =
+  | "top"
+  | "bottom"
+  | "dress"
+  | "outer"
+  | "shoes"
+  | "bag"
+  | "accessory"
+  | "other";
+
+function buildPlannedOutfitItems(
+  candidates: RecommendationCandidateItem[]
+): Array<{ itemId: string; role: string }> {
+  const grouped = groupCandidatesByBucket(candidates);
+  const topBottomPlan = buildTopBottomPlan(grouped);
+  const dressPlan = buildDressPlan(grouped);
+
+  const selectedPlan =
+    scorePlannedCandidates(topBottomPlan) >= scorePlannedCandidates(dressPlan)
+      ? topBottomPlan
+      : dressPlan;
+  const resolvedPlan =
+    selectedPlan.length >= MIN_CANDIDATE_COUNT
+      ? selectedPlan
+      : buildFallbackPlan(candidates);
+
+  return resolvedPlan.slice(0, MAX_OUTFIT_ITEMS).map((candidate, index) => ({
+    itemId: candidate.itemId,
+    role: index === 0 ? "primary" : "secondary"
+  }));
+}
+
+function buildTopBottomPlan(
+  grouped: Map<RecommendationCategoryBucket, RecommendationCandidateItem[]>
+): RecommendationCandidateItem[] {
+  const top = grouped.get("top")?.[0];
+  const bottom = grouped.get("bottom")?.[0];
+  if (!top || !bottom) {
+    return [];
+  }
+
+  return compactCandidates([
+    top,
+    bottom,
+    grouped.get("outer")?.[0],
+    grouped.get("shoes")?.[0],
+    grouped.get("bag")?.[0]
+  ]);
+}
+
+function buildDressPlan(
+  grouped: Map<RecommendationCategoryBucket, RecommendationCandidateItem[]>
+): RecommendationCandidateItem[] {
+  const dress = grouped.get("dress")?.[0];
+  if (!dress) {
+    return [];
+  }
+
+  return compactCandidates([
+    dress,
+    grouped.get("outer")?.[0],
+    grouped.get("shoes")?.[0],
+    grouped.get("bag")?.[0],
+    grouped.get("accessory")?.[0]
+  ]);
+}
+
+function buildFallbackPlan(
+  candidates: RecommendationCandidateItem[]
+): RecommendationCandidateItem[] {
+  const selected: RecommendationCandidateItem[] = [];
+  const usedIds = new Set<string>();
+  const usedBuckets = new Set<RecommendationCategoryBucket>();
+
+  for (const candidate of candidates) {
+    const bucket = resolveCandidateBucket(candidate);
+    if (usedIds.has(candidate.itemId) || usedBuckets.has(bucket)) {
+      continue;
+    }
+    selected.push(candidate);
+    usedIds.add(candidate.itemId);
+    usedBuckets.add(bucket);
+    if (selected.length >= MAX_OUTFIT_ITEMS) {
+      return selected;
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (usedIds.has(candidate.itemId)) {
+      continue;
+    }
+    selected.push(candidate);
+    usedIds.add(candidate.itemId);
+    if (selected.length >= MIN_CANDIDATE_COUNT) {
+      break;
+    }
+  }
+
+  return selected;
+}
+
+function scorePlannedCandidates(candidates: RecommendationCandidateItem[]): number {
+  return candidates.reduce((score, candidate, index) => {
+    const bucket = resolveCandidateBucket(candidate);
+    const bucketWeight =
+      bucket === "top" || bucket === "bottom" || bucket === "dress"
+        ? 4
+        : bucket === "outer" || bucket === "shoes"
+          ? 2
+          : 1;
+    return score + bucketWeight + (index === 0 ? 1 : 0);
+  }, 0);
+}
+
+function groupCandidatesByBucket(
+  candidates: RecommendationCandidateItem[]
+): Map<RecommendationCategoryBucket, RecommendationCandidateItem[]> {
+  const grouped = new Map<RecommendationCategoryBucket, RecommendationCandidateItem[]>();
+  candidates.forEach((candidate) => {
+    const bucket = resolveCandidateBucket(candidate);
+    const bucketCandidates = grouped.get(bucket) ?? [];
+    bucketCandidates.push(candidate);
+    grouped.set(bucket, bucketCandidates);
+  });
+  return grouped;
+}
+
+function resolveCandidateBucket(
+  candidate: Pick<RecommendationCandidateItem, "category" | "subCategory">
+): RecommendationCategoryBucket {
+  const category = candidate.category?.trim();
+  const subCategory = candidate.subCategory?.trim();
+  const categoryHint = `${category ?? ""}${subCategory ?? ""}`;
+
+  if (category === "连衣裙" || categoryHint.includes("连衣裙")) {
+    return "dress";
+  }
+  if (category === "上衣") {
+    return "top";
+  }
+  if (category === "下装") {
+    return "bottom";
+  }
+  if (category === "外套") {
+    return "outer";
+  }
+  if (category === "鞋履") {
+    return "shoes";
+  }
+  if (category === "包袋") {
+    return "bag";
+  }
+  if (category === "配饰") {
+    return "accessory";
+  }
+  return "other";
+}
+
+function validateCategoryConflicts(
+  categoryCount: Map<RecommendationCategoryBucket, number>,
+  outfitNo: number
+) {
+  const errors: RecommendationValidationResult["errors"] = [];
+  const singleBuckets: RecommendationCategoryBucket[] = [
+    "top",
+    "bottom",
+    "dress",
+    "outer",
+    "shoes",
+    "bag"
+  ];
+
+  singleBuckets.forEach((bucket) => {
+    if ((categoryCount.get(bucket) ?? 0) > 1) {
+      errors?.push({
+        code: "rule_conflict",
+        message: `Outfit contains too many ${bucket} items.`,
+        outfitNo,
+        context: { bucket }
+      });
+    }
+  });
+
+  if ((categoryCount.get("dress") ?? 0) > 0 && (categoryCount.get("bottom") ?? 0) > 0) {
+    errors?.push({
+      code: "rule_conflict",
+      message: "Outfit should not combine a dress with a separate bottom.",
+      outfitNo,
+      context: { buckets: ["dress", "bottom"] }
+    });
+  }
+
+  return errors ?? [];
+}
+
+function compactCandidates(
+  candidates: Array<RecommendationCandidateItem | undefined>
+): RecommendationCandidateItem[] {
+  return candidates.filter(
+    (candidate): candidate is RecommendationCandidateItem => Boolean(candidate)
+  );
 }
 
 function generateId(): string {

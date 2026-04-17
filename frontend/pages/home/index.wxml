@@ -28,7 +28,6 @@
   <view class="recommend-section animate-fade-in" style="animation-delay: 0.3s;">
     <view class="section-header flex-row justify-between items-center">
       <text class="text-h2">今日推荐</text>
-      <text class="text-caption text-secondary">可直接落到画布</text>
     </view>
     <view class="recommend-card">
       <image wx:if="{{todayRecommend.image}}" class="rc-bg" src="{{todayRecommend.image}}" mode="aspectFill"></image>

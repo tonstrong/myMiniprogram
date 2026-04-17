@@ -1,0 +1,15 @@
+<view class="custom-tab-bar glass-panel">
+  <view 
+    class="tab-bar-item {{selected === index ? 'active' : ''}}" 
+    wx:for="{{list}}" 
+    wx:key="index" 
+    data-path="{{item.pagePath}}" 
+    data-index="{{index}}" 
+    bindtap="switchTab"
+  >
+    <view class="icon-container">
+      <view class="icon {{item.iconCls}}"></view>
+    </view>
+    <view class="text">{{item.text}}</view>
+  </view>
+</view>

@@ -43,8 +43,10 @@
   --radius-lg: 40rpx;
   --radius-max: 9999rpx;
   
-  /* 字体家族 (现代极简) */
-  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", sans-serif;
+  /* 字体家族 (现代极简, 增加系统级高端无衬线字体) */
+  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   
   background-color: var(--color-bg-primary);
   font-family: var(--font-family);
