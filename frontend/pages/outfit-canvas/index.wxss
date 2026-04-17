@@ -28,6 +28,39 @@
   font-size: 24rpx;
 }
 
+.saved-hint {
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  background: rgba(101, 116, 137, 0.08);
+  gap: var(--spacing-md);
+}
+
+.saved-hint-copy {
+  flex: 1;
+}
+
+.saved-hint-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.saved-hint-desc {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.saved-hint-btn {
+  min-height: auto;
+  line-height: 1.4;
+  padding: 14rpx 24rpx;
+  font-size: 24rpx;
+  flex-shrink: 0;
+}
+
 .slot-section {
   padding: var(--spacing-md);
   border-radius: var(--radius-md);

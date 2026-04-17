@@ -15,7 +15,7 @@ Page({
     stats: [
       { id: 'closet', value: '--', label: '单品' },
       { id: 'style-pack', value: '--', label: '风格包' },
-      { id: 'favorites', value: '--', label: '收藏搭配', hint: '暂未开放' }
+      { id: 'saved-outfits', value: '--', label: '我的搭配' }
     ],
     cityUi: {
       value: '',
@@ -27,6 +27,7 @@ Page({
     menus: [
       { id: 'profile', icon: '👤', text: '编辑资料', url: '' },
       { id: 'style-pack', icon: '🧠', text: '风格包管理', url: '/pages/style-pack/index' },
+      { id: 'saved-outfits', icon: '🎨', text: '我的搭配', url: '/pages/saved-outfits/index' },
       { id: 'history', icon: '🕘', text: '搭配历史', url: '/pages/history/index' }
     ]
   },
@@ -36,7 +37,7 @@ Page({
   },
 
   async loadProfilePage() {
-    const [profileResult, closetResult, stylePackResult] = await Promise.allSettled([
+    const [profileResult, closetResult, stylePackResult, savedOutfitResult] = await Promise.allSettled([
       api.request({
         url: '/api/users/profile',
         method: 'GET'
@@ -47,6 +48,10 @@ Page({
       }),
       api.request({
         url: '/api/style-packs?pageNo=1&pageSize=1',
+        method: 'GET'
+      }),
+      api.request({
+        url: '/api/saved-outfits?pageNo=1&pageSize=1',
         method: 'GET'
       })
     ]);
@@ -84,7 +89,7 @@ Page({
       stats: [
         { id: 'closet', value: getTotalCount(closetResult), label: '单品' },
         { id: 'style-pack', value: getTotalCount(stylePackResult), label: '风格包' },
-        { id: 'favorites', value: '--', label: '收藏搭配', hint: '暂未开放' }
+        { id: 'saved-outfits', value: getTotalCount(savedOutfitResult), label: '我的搭配' }
       ]
     });
   },

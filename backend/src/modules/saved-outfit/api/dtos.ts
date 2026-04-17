@@ -18,9 +18,22 @@ export interface SaveSavedOutfitResponseDTO {
   createdAt: string;
 }
 
+export interface DeleteSavedOutfitResponseDTO {
+  savedOutfitId: string;
+}
+
 export interface SavedOutfitListQueryDTO {
   pageNo?: number;
   pageSize?: number;
+}
+
+export interface SavedOutfitPreviewItemDTO {
+  itemId: string;
+  slotCode: string;
+  sortOrder: number;
+  imageUrl?: string;
+  category?: string;
+  subCategory?: string;
 }
 
 export interface SavedOutfitListItemDTO {
@@ -29,4 +42,5 @@ export interface SavedOutfitListItemDTO {
   createdAt: string;
   coverImageUrl?: string;
   itemCount: number;
+  previewItems: SavedOutfitPreviewItemDTO[];
 }

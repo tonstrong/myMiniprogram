@@ -59,17 +59,71 @@ export class PersistedSavedOutfitService implements SavedOutfitService {
       pageSize
     });
 
-    return {
-      items: result.items.map((item): SavedOutfitHistoryItem => ({
+    const items = await Promise.all(
+      result.items.map(async (item): Promise<SavedOutfitHistoryItem> => ({
         savedOutfitId: item.id,
         sourceType: item.sourceType,
         createdAt: item.createdAt.toISOString(),
         coverImageUrl: item.coverImageUrl ?? undefined,
-        itemCount: item.itemCount
-      })),
+        itemCount: item.itemCount,
+        previewItems: await Promise.all(
+          (item.previewItems || []).map((preview) =>
+            this.resolvePreviewItem(preview.itemId, {
+              slotCode: preview.slotCode,
+              sortOrder: preview.sortOrder,
+              imageUrl: preview.imageOriginalUrl ?? undefined,
+              category: preview.category ?? undefined,
+              subCategory: preview.subCategory ?? undefined
+            })
+          )
+        )
+      }))
+    );
+
+    return {
+      items,
       pageNo,
       pageSize,
       total: result.total
+    };
+  }
+
+  async delete(userId: string, savedOutfitId: string): Promise<void> {
+    const deleted = await this.deps.repository.deleteOutfit(userId, savedOutfitId);
+    if (!deleted) {
+      throw new AppError("Saved outfit not found", "NOT_FOUND", 404);
+    }
+  }
+
+  private async resolvePreviewItem(
+    itemId: string,
+    fallback: {
+      slotCode: string;
+      sortOrder: number;
+      imageUrl?: string;
+      category?: string;
+      subCategory?: string;
+    }
+  ) {
+    if (fallback.imageUrl && fallback.category) {
+      return {
+        itemId,
+        slotCode: fallback.slotCode,
+        sortOrder: fallback.sortOrder,
+        imageUrl: fallback.imageUrl,
+        category: fallback.category,
+        subCategory: fallback.subCategory
+      };
+    }
+
+    const item = await this.deps.closetRepository.findItemById(itemId);
+    return {
+      itemId,
+      slotCode: fallback.slotCode,
+      sortOrder: fallback.sortOrder,
+      imageUrl: fallback.imageUrl || item?.imageOriginalUrl || undefined,
+      category: fallback.category || item?.category || undefined,
+      subCategory: fallback.subCategory || item?.subCategory || undefined
     };
   }
 }

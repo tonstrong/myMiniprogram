@@ -14,6 +14,7 @@ export interface SavedOutfitListRecord {
   updatedAt: Date;
   coverImageUrl?: string | null;
   itemCount: number;
+  previewItems: SavedOutfitPreviewItemRecord[];
 }
 
 export interface SavedOutfitItemRecord extends CreatedAtRecord {
@@ -22,4 +23,13 @@ export interface SavedOutfitItemRecord extends CreatedAtRecord {
   itemId: string;
   slotCode: string;
   sortOrder: number;
+}
+
+export interface SavedOutfitPreviewItemRecord {
+  itemId: string;
+  slotCode: string;
+  sortOrder: number;
+  imageOriginalUrl?: string | null;
+  category?: string | null;
+  subCategory?: string | null;
 }

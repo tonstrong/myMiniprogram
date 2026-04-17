@@ -1,0 +1,78 @@
+<view class="container saved-page">
+  <view class="page-head animate-fade-in">
+    <view class="flex-row items-center justify-between">
+      <view class="flex-col page-copy">
+        <text class="text-h2">我的搭配</text>
+        <text class="text-caption page-subtitle">像搭配墙一样浏览你已经保存的 canvas Look</text>
+      </view>
+      <button class="btn-primary page-head-btn" bindtap="goCanvas">去搭配</button>
+    </view>
+    <text class="page-count">{{total || outfits.length}} 套已保存</text>
+  </view>
+
+  <view class="cards-wrap animate-fade-in" style="animation-delay: 0.08s;">
+    <block wx:if="{{outfits.length > 0}}">
+      <view class="cards-grid">
+        <block wx:for="{{outfits}}" wx:key="id" wx:for-item="outfit">
+          <view class="outfit-card" bindtap="openOutfit" data-id="{{outfit.id}}">
+            <view class="canvas-board">
+              <block wx:if="{{outfit.previewItems.length > 0}}">
+                <block wx:for="{{outfit.previewItems}}" wx:key="id" wx:for-item="piece">
+                  <image
+                    wx:if="{{piece.imageUrl}}"
+                    class="canvas-piece {{piece.className}}"
+                    src="{{piece.imageUrl}}"
+                    mode="aspectFit"
+                  ></image>
+                  <view wx:else class="canvas-piece canvas-fallback-piece {{piece.className}}">
+                    <text class="fallback-piece-text">{{piece.subCategory || piece.category || '单品'}}</text>
+                  </view>
+                </block>
+              </block>
+              <image wx:elif="{{outfit.coverImageUrl}}" class="canvas-fallback" src="{{outfit.coverImageUrl}}" mode="aspectFit"></image>
+              <view wx:else class="canvas-empty">
+                <text class="canvas-empty-text">等待搭配预览</text>
+              </view>
+            </view>
+
+            <view class="card-body">
+              <view class="card-top flex-row items-center justify-between">
+                <text class="card-title">{{outfit.sourceTypeText}}</text>
+                <text class="card-time">{{outfit.createdTimeText}}</text>
+              </view>
+              <view class="card-bottom flex-row items-center justify-between">
+                <text class="card-date">{{outfit.createdAt ? outfit.createdAt.slice(0, 10) : outfit.createdDateText}}</text>
+                <view class="card-actions flex-row items-center">
+                  <text class="card-count">共 {{outfit.itemCount}} 件</text>
+                  <button
+                    class="delete-btn"
+                    catchtap="deleteOutfit"
+                    data-id="{{outfit.id}}"
+                    loading="{{deletingId === outfit.id}}"
+                  >删除</button>
+                </view>
+              </view>
+            </view>
+          </view>
+        </block>
+      </view>
+
+      <view wx:if="{{loading}}" class="list-status loading-text">正在加载更多...</view>
+      <view wx:elif="{{noMore}}" class="list-status done-text">已经展示完全部搭配</view>
+    </block>
+
+    <view wx:elif="{{!backendReady}}" class="empty-state glass-panel flex-col items-center justify-center">
+      <text class="text-h1">📭</text>
+      <text class="text-body empty-title">我的搭配暂时不可用</text>
+      <text class="text-caption empty-copy">{{backendMessage}}</text>
+      <button class="btn-primary empty-btn" bindtap="goCanvas">先去保存一套</button>
+    </view>
+
+    <view wx:else class="empty-state glass-panel flex-col items-center justify-center">
+      <text class="text-h1">🎨</text>
+      <text class="text-body empty-title">还没有保存的搭配</text>
+      <text class="text-caption empty-copy">去手动画布拼一套 Look，保存后就会出现在这里。</text>
+      <button class="btn-primary empty-btn" bindtap="goCanvas">去搭配</button>
+    </view>
+  </view>
+</view>

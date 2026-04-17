@@ -23,12 +23,22 @@ export interface SaveSavedOutfitResult {
   createdAt: string;
 }
 
+export interface SavedOutfitPreviewItem {
+  itemId: string;
+  slotCode: string;
+  sortOrder: number;
+  imageUrl?: string;
+  category?: string;
+  subCategory?: string;
+}
+
 export interface SavedOutfitHistoryItem {
   savedOutfitId: string;
   sourceType: string;
   createdAt: string;
   coverImageUrl?: string;
   itemCount: number;
+  previewItems: SavedOutfitPreviewItem[];
 }
 
 export interface SavedOutfitListQuery {
@@ -42,6 +52,7 @@ export interface SavedOutfitService {
     userId: string,
     query: SavedOutfitListQuery
   ): Promise<PaginatedResult<SavedOutfitHistoryItem>>;
+  delete(userId: string, savedOutfitId: string): Promise<void>;
 }
 
 export interface SavedOutfitServiceDependencies {

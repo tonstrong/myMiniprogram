@@ -4,6 +4,7 @@ import {
   optionalNumber,
   optionalString,
   optionalStringArray,
+  requiredString,
   requiredStringEnum
 } from "../../../app/common/validation";
 import type {
@@ -34,3 +35,7 @@ export const validateSavedOutfitListQuery =
     pageNo: optionalNumber({ integer: true, min: 1 }),
     pageSize: optionalNumber({ integer: true, min: 1, max: 200 })
   });
+
+export const validateSavedOutfitIdParams = createObjectValidator<{ savedOutfitId: string }>({
+  savedOutfitId: requiredString({ minLength: 1 })
+});

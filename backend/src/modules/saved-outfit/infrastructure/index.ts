@@ -10,6 +10,7 @@ export interface SavedOutfitRepository {
     userId: string,
     query: { pageNo: number; pageSize: number }
   ): Promise<{ items: SavedOutfitListRecord[]; total: number }>;
+  deleteOutfit(userId: string, savedOutfitId: string): Promise<boolean>;
 }
 
 export * from "./persistence";

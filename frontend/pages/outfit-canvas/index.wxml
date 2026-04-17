@@ -14,6 +14,14 @@
       </view>
     </view>
 
+    <view wx:if="{{lastSavedOutfitId}}" class="saved-hint flex-row items-center justify-between">
+      <view class="flex-col saved-hint-copy">
+        <text class="saved-hint-title">最近这套搭配已经入库</text>
+        <text class="saved-hint-desc">可以去“我的搭配”里统一查看已保存的 canvas 搭配</text>
+      </view>
+      <button class="btn-secondary saved-hint-btn" bindtap="openSavedOutfits">查看我的搭配</button>
+    </view>
+
     <block wx:for="{{boardSlots}}" wx:key="slot">
       <view class="slot-section {{activeSlot === item.slot ? 'active' : ''}}" bindtap="selectSlot" data-slot="{{item.slot}}">
         <view class="slot-header flex-row items-center justify-between">

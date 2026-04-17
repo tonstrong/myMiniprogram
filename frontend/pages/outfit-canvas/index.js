@@ -2,6 +2,7 @@ import api from '../../utils/api';
 import { resolveImageUrl } from '../../utils/image-url';
 
 const DRAFT_KEY = 'outfit-canvas:draft';
+const IMPORT_KEY = 'outfit-canvas:import';
 const SLOT_ORDER = ['top', 'bottom', 'dress', 'outer', 'shoes', 'bag', 'accessories'];
 const SLOT_META = {
   top: { title: '上衣位', accept: ['上衣'] },
@@ -32,7 +33,9 @@ Page({
   },
 
   onLoad() {
-    this.restoreDraft();
+    if (!this.restoreImportedOutfit()) {
+      this.restoreDraft();
+    }
   },
 
   onShow() {
@@ -56,6 +59,22 @@ Page({
       activeSlot: draft.activeSlot || 'top',
       activeSlotTitle: SLOT_META[draft.activeSlot || 'top']?.title || SLOT_META.top.title
     });
+  },
+
+  restoreImportedOutfit() {
+    const imported = wx.getStorageSync(IMPORT_KEY);
+    if (!imported || typeof imported !== 'object' || !imported.slots) {
+      return false;
+    }
+
+    this.pendingImportSlots = imported.slots;
+    this.setData({
+      activeSlot: 'top',
+      activeSlotTitle: SLOT_META.top.title,
+      lastSavedOutfitId: ''
+    });
+    wx.removeStorageSync(IMPORT_KEY);
+    return true;
   },
 
   persistDraft(nextState = {}) {
@@ -82,6 +101,10 @@ Page({
         imageUrl: await resolveImageUrl(item.imageOriginalUrl)
       })));
       this.setData({ closetItems, loading: false });
+      if (this.pendingImportSlots) {
+        this.applyImportedSlots(this.pendingImportSlots, closetItems);
+        this.pendingImportSlots = null;
+      }
     } catch (error) {
       console.error('Fetch canvas closet items failed', error);
       this.setData({ loading: false });
@@ -194,6 +217,25 @@ Page({
       this.setData({ savingRemote: false });
       wx.showToast({ title: '保存正式搭配失败', icon: 'none' });
     }
+  },
+
+  openSavedOutfits() {
+    wx.navigateTo({ url: '/pages/saved-outfits/index' });
+  },
+
+  applyImportedSlots(slotIds, closetItems = this.data.closetItems) {
+    const nextSlots = buildSlotsFromItemIds(slotIds, closetItems);
+    this.setData({
+      slots: nextSlots,
+      boardSlots: buildBoardSlots(nextSlots),
+      activeSlot: pickFirstFilledSlot(nextSlots) || 'top',
+      activeSlotTitle: SLOT_META[pickFirstFilledSlot(nextSlots) || 'top']?.title || SLOT_META.top.title
+    });
+    this.persistDraft({
+      slots: nextSlots,
+      activeSlot: pickFirstFilledSlot(nextSlots) || 'top'
+    });
+    wx.showToast({ title: '已载入这套搭配', icon: 'success' });
   }
 });
 
@@ -255,4 +297,28 @@ function serializeSlots(slots) {
 
 function isCanvasEmpty(slots) {
   return !slots.top && !slots.bottom && !slots.dress && !slots.outer && !slots.shoes && !slots.bag && (!slots.accessories || slots.accessories.length === 0);
+}
+
+function buildSlotsFromItemIds(slotIds, closetItems) {
+  const itemMap = new Map((closetItems || []).map((item) => [item.id, item]));
+  return {
+    top: itemMap.get(slotIds?.top) || null,
+    bottom: itemMap.get(slotIds?.bottom) || null,
+    dress: itemMap.get(slotIds?.dress) || null,
+    outer: itemMap.get(slotIds?.outer) || null,
+    shoes: itemMap.get(slotIds?.shoes) || null,
+    bag: itemMap.get(slotIds?.bag) || null,
+    accessories: (slotIds?.accessories || []).map((id) => itemMap.get(id)).filter(Boolean)
+  };
+}
+
+function pickFirstFilledSlot(slots) {
+  if (slots.top) return 'top';
+  if (slots.dress) return 'dress';
+  if (slots.bottom) return 'bottom';
+  if (slots.outer) return 'outer';
+  if (slots.shoes) return 'shoes';
+  if (slots.bag) return 'bag';
+  if (slots.accessories?.length) return 'accessories';
+  return '';
 }

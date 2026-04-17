@@ -9,6 +9,7 @@ import type { ApiRequest, ApiRouteDefinition } from "../../../app/common";
 import type { ApiResponse } from "../../../app/common/response";
 import type { SavedOutfitService } from "../application";
 import type {
+  DeleteSavedOutfitResponseDTO,
   SaveSavedOutfitRequestDTO,
   SaveSavedOutfitResponseDTO,
   SavedOutfitListItemDTO,
@@ -17,11 +18,16 @@ import type {
 import { SavedOutfitRoutes } from "./index";
 import {
   validateSaveSavedOutfitRequest,
+  validateSavedOutfitIdParams,
   validateSavedOutfitListQuery
 } from "./validators";
 
 export interface SavedOutfitControllerDependencies {
   savedOutfitService: SavedOutfitService;
+}
+
+export interface SavedOutfitIdParams {
+  savedOutfitId: string;
 }
 
 export class SavedOutfitController {
@@ -69,6 +75,23 @@ export class SavedOutfitController {
 
     return ok(result);
   }
+
+  async delete(
+    request: ApiRequest<unknown, unknown, SavedOutfitIdParams>
+  ): Promise<ApiResponse<DeleteSavedOutfitResponseDTO>> {
+    const userId = request.context.userId;
+    if (!userId) {
+      return fail("UNAUTHORIZED", "Missing user id");
+    }
+
+    const paramValidation = validateRequest(request.params, validateSavedOutfitIdParams);
+    if (!paramValidation.ok) {
+      return fail("INVALID_REQUEST", formatValidationErrors(paramValidation.errors));
+    }
+
+    await this.deps.savedOutfitService.delete(userId, paramValidation.value.savedOutfitId);
+    return ok({ savedOutfitId: paramValidation.value.savedOutfitId });
+  }
 }
 
 export function createSavedOutfitControllerRoutes(
@@ -84,6 +107,11 @@ export function createSavedOutfitControllerRoutes(
       ...parseRoute(SavedOutfitRoutes.save),
       summary: "Save outfit canvas as formal outfit record",
       handler: controller.save.bind(controller)
+    },
+    {
+      ...parseRoute(SavedOutfitRoutes.delete),
+      summary: "Delete saved outfit",
+      handler: controller.delete.bind(controller)
     }
   ];
 }

@@ -3,9 +3,10 @@ import type { SavedOutfitRepository } from "./index";
 import type {
   SavedOutfitItemRecord,
   SavedOutfitListRecord,
+  SavedOutfitPreviewItemRecord,
   SavedOutfitRecord
 } from "./persistence";
-import type { RowDataPacket } from "mysql2/promise";
+import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 
 export class InMemorySavedOutfitRepository implements SavedOutfitRepository {
   private outfits = new Map<string, SavedOutfitRecord>();
@@ -32,13 +33,28 @@ export class InMemorySavedOutfitRepository implements SavedOutfitRepository {
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
       coverImageUrl: undefined,
-      itemCount: this.items.get(item.id)?.length || 0
+      itemCount: this.items.get(item.id)?.length || 0,
+      previewItems: (this.items.get(item.id) || []).map((savedItem) => ({
+        itemId: savedItem.itemId,
+        slotCode: savedItem.slotCode,
+        sortOrder: savedItem.sortOrder
+      }))
     }));
 
     return {
       items: page,
       total: outfits.length
     };
+  }
+
+  async deleteOutfit(userId: string, savedOutfitId: string): Promise<boolean> {
+    const record = this.outfits.get(savedOutfitId);
+    if (!record || record.userId !== userId) {
+      return false;
+    }
+    this.outfits.delete(savedOutfitId);
+    this.items.delete(savedOutfitId);
+    return true;
   }
 }
 
@@ -127,6 +143,8 @@ export class MySqlSavedOutfitRepository implements SavedOutfitRepository {
          LIMIT ? OFFSET ?`,
         [userId, query.pageSize, offset]
       );
+      const outfitIds = rows.map((row) => String(row.id));
+      const previewMap = await this.fetchPreviewItems(client, outfitIds);
 
       return {
         items: rows.map((row) => ({
@@ -136,11 +154,87 @@ export class MySqlSavedOutfitRepository implements SavedOutfitRepository {
           createdAt: toDate(row.created_at as Date | string),
           updatedAt: toDate(row.updated_at as Date | string),
           coverImageUrl: sanitizeImageUrl((row.cover_image_url as string | null) ?? null),
-          itemCount: Number(row.item_count ?? 0)
+          itemCount: Number(row.item_count ?? 0),
+          previewItems: previewMap.get(String(row.id)) || []
         })),
         total
       };
     });
+  }
+
+  async deleteOutfit(userId: string, savedOutfitId: string): Promise<boolean> {
+    return withClient(async (client) => {
+      await client.query("START TRANSACTION");
+      try {
+        const [rows] = await client.query<RowDataPacket[]>(
+          `SELECT id FROM saved_outfits WHERE id = ? AND user_id = ? LIMIT 1`,
+          [savedOutfitId, userId]
+        );
+        if (rows.length === 0) {
+          await client.query("ROLLBACK");
+          return false;
+        }
+
+        await client.query(
+          `DELETE FROM saved_outfit_items WHERE saved_outfit_id = ?`,
+          [savedOutfitId]
+        );
+        const [result] = await client.query<ResultSetHeader>(
+          `DELETE FROM saved_outfits WHERE id = ? AND user_id = ?`,
+          [savedOutfitId, userId]
+        );
+        await client.query("COMMIT");
+        return Number(result.affectedRows || 0) > 0;
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      }
+    });
+  }
+
+  private async fetchPreviewItems(
+    client: Parameters<typeof withClient>[0] extends (client: infer T) => Promise<unknown> ? T : never,
+    outfitIds: string[]
+  ): Promise<Map<string, SavedOutfitPreviewItemRecord[]>> {
+    const grouped = new Map<string, SavedOutfitPreviewItemRecord[]>();
+    if (outfitIds.length === 0) {
+      return grouped;
+    }
+
+    const placeholders = outfitIds.map(() => "?").join(", ");
+    const [previewRows] = await client.query<RowDataPacket[]>(
+      `SELECT soi.saved_outfit_id,
+              soi.item_id,
+              soi.slot_code,
+              soi.sort_order,
+              ci.image_original_url,
+              ci.category,
+              ci.sub_category
+       FROM saved_outfit_items soi
+       LEFT JOIN clothing_items ci ON ci.id = soi.item_id
+       WHERE soi.saved_outfit_id IN (${placeholders})`,
+      outfitIds
+    );
+
+    previewRows.forEach((row) => {
+      const savedOutfitId = String(row.saved_outfit_id);
+      const current = grouped.get(savedOutfitId) || [];
+      current.push({
+        itemId: String(row.item_id),
+        slotCode: String(row.slot_code),
+        sortOrder: Number(row.sort_order ?? 0),
+        imageOriginalUrl: sanitizeImageUrl((row.image_original_url as string | null) ?? null),
+        category: row.category ? String(row.category) : undefined,
+        subCategory: row.sub_category ? String(row.sub_category) : undefined
+      });
+      grouped.set(savedOutfitId, current);
+    });
+
+    grouped.forEach((items, key) => {
+      grouped.set(key, sortPreviewItems(items));
+    });
+
+    return grouped;
   }
 }
 
@@ -163,4 +257,24 @@ function sanitizeImageUrl(value?: string | null): string | undefined {
     return undefined;
   }
   return value;
+}
+
+function sortPreviewItems(items: SavedOutfitPreviewItemRecord[]): SavedOutfitPreviewItemRecord[] {
+  const slotPriority: Record<string, number> = {
+    outer: 1,
+    dress: 2,
+    top: 3,
+    bottom: 4,
+    shoes: 5,
+    bag: 6,
+    accessories: 7
+  };
+
+  return [...items].sort((a, b) => {
+    const slotDiff = (slotPriority[a.slotCode] || 99) - (slotPriority[b.slotCode] || 99);
+    if (slotDiff !== 0) {
+      return slotDiff;
+    }
+    return a.sortOrder - b.sortOrder;
+  });
 }
