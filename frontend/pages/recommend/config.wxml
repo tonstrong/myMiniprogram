@@ -1,18 +1,24 @@
 <view class="container no-pad flex-col h-full">
-
-  <!-- 天气同步栏 -->
   <view class="weather-bar flex-row items-center animate-fade-in">
-    <text class="wx-icon">🌤</text>
-    <view class="flex-col ml-sm">
-      <text class="text-caption text-secondary">已同步你保存城市的天气</text>
+    <text class="wx-icon">☁</text>
+    <view class="flex-col ml-sm weather-copy">
+      <text class="text-caption text-secondary">{{hasCity ? '已同步你保存城市的天气' : '还没设置城市，也可以先跳过天气'}}</text>
       <text class="text-body font-medium">{{weather}}</text>
+      <text wx:if="{{cityName}}" class="weather-city">当前城市：{{cityName}}</text>
     </view>
+    <button
+      wx:if="{{!hasCity || cityBusy}}"
+      class="btn-secondary weather-guide-btn"
+      bindtap="openCityGuide"
+      loading="{{cityBusy}}"
+    >
+      {{cityBusy ? '定位中' : '设置城市'}}
+    </button>
   </view>
 
   <view class="config-content flex-col animate-fade-in" style="animation-delay: 0.1s;">
-    <!-- 场景选择 -->
     <view class="c-group">
-      <text class="c-title">前往何种场景？</text>
+      <text class="c-title">前往什么场景？</text>
       <view class="c-options flex-row mt-md">
         <block wx:for="{{scenes}}" wx:key="*this">
           <view class="c-chip {{activeScene === item ? 'active' : ''}}" bindtap="selectScene" data-scene="{{item}}">
@@ -22,10 +28,9 @@
       </view>
     </view>
 
-    <!-- 风格包选择 -->
     <view class="c-group mt-xl">
-      <text class="c-title">想要应用的风格逻辑？</text>
-      <text class="text-caption text-tertiary mt-xs">AI 将依据该风格提取的经验进行搭配</text>
+      <text class="c-title">想套用哪种风格逻辑？</text>
+      <text class="text-caption text-tertiary mt-xs">AI 会参考风格包里的搭配偏好来生成推荐。</text>
       <view class="c-list mt-md">
         <block wx:for="{{stylePacks}}" wx:key="id">
           <view class="pack-row flex-row items-center justify-between {{selectedPack === item.id ? 'active' : ''}}" bindtap="selectPack" data-id="{{item.id}}">
@@ -37,7 +42,6 @@
     </view>
   </view>
 
-  <!-- 底部生成按钮 -->
   <view class="action-fixed">
     <block wx:if="{{!isGenerating}}">
       <button class="btn-primary w-full shadow-glow" bindtap="generateLook">开始生成灵感图集</button>
@@ -45,9 +49,8 @@
     <block wx:else>
       <button class="btn-primary w-full disabled flex-row items-center justify-center">
         <view class="spinner mini mr-sm inline"></view>
-        LLM 正在规划中...
+        正在生成搭配...
       </button>
     </block>
   </view>
-
 </view>

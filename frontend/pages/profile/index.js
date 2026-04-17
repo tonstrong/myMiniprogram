@@ -1,5 +1,6 @@
 import api from '../../utils/api';
 import { getCurrentWeather } from '../../utils/weather';
+import { cacheProfile } from '../../utils/profile-cache';
 
 const LOCAL_AVATAR_KEY = 'profile:localAvatarUrl';
 const DEFAULT_AVATAR_URL = '';
@@ -75,6 +76,7 @@ Page({
           lastSource: 'profile'
         }
       });
+      cacheProfile(profile);
 
       if (nextCity) {
         this.loadWeatherHint(false);
@@ -187,6 +189,7 @@ Page({
         'userInfo.nickName': nextProfile.nickname || nextNickname,
         'userInfo.signature': buildSignature(nextProfile)
       });
+      cacheProfile(nextProfile);
       const app = getApp();
       if (app?.globalData) {
         app.globalData.userInfo = {
@@ -229,6 +232,7 @@ Page({
         'cityUi.isSaving': false,
         'cityUi.lastSource': source
       });
+      cacheProfile(nextProfile);
       this.loadWeatherHint(source === 'location');
       wx.showToast({ title: '城市已保存', icon: 'success' });
     } catch (error) {

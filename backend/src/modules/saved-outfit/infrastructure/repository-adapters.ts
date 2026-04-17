@@ -17,6 +17,19 @@ export class InMemorySavedOutfitRepository implements SavedOutfitRepository {
     this.items.set(record.id, items);
   }
 
+  async updateOutfit(record: SavedOutfitRecord, items: SavedOutfitItemRecord[]): Promise<void> {
+    this.outfits.set(record.id, record);
+    this.items.set(record.id, items);
+  }
+
+  async findOutfitById(userId: string, savedOutfitId: string): Promise<SavedOutfitRecord | null> {
+    const record = this.outfits.get(savedOutfitId);
+    if (!record || record.userId !== userId) {
+      return null;
+    }
+    return record;
+  }
+
   async listByUser(
     userId: string,
     query: { pageNo: number; pageSize: number }
@@ -126,6 +139,92 @@ export class MySqlSavedOutfitRepository implements SavedOutfitRepository {
         await client.query("ROLLBACK");
         throw error;
       }
+    });
+  }
+
+  async updateOutfit(record: SavedOutfitRecord, items: SavedOutfitItemRecord[]): Promise<void> {
+    await withClient(async (client) => {
+      await client.query("START TRANSACTION");
+      try {
+        await client.query(
+          `UPDATE saved_outfits
+           SET source_type = ?, cover_item_id = ?, updated_at = ?
+           WHERE id = ? AND user_id = ?`,
+          [
+            record.sourceType,
+            record.coverItemId ?? null,
+            formatDateTime(record.updatedAt),
+            record.id,
+            record.userId
+          ]
+        );
+
+        await client.query(
+          `DELETE FROM saved_outfit_items WHERE saved_outfit_id = ?`,
+          [record.id]
+        );
+
+        for (const item of items) {
+          await client.query(
+            `INSERT INTO saved_outfit_items (
+              id,
+              saved_outfit_id,
+              item_id,
+              slot_code,
+              sort_order,
+              layout_x,
+              layout_y,
+              layout_w,
+              layout_h,
+              layer_index,
+              created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+            [
+              item.id,
+              item.savedOutfitId,
+              item.itemId,
+              item.slotCode,
+              item.sortOrder,
+              item.layoutX ?? null,
+              item.layoutY ?? null,
+              item.layoutW ?? null,
+              item.layoutH ?? null,
+              item.layerIndex,
+              formatDateTime(item.createdAt)
+            ]
+          );
+        }
+
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      }
+    });
+  }
+
+  async findOutfitById(userId: string, savedOutfitId: string): Promise<SavedOutfitRecord | null> {
+    return withClient(async (client) => {
+      const [rows] = await client.query<RowDataPacket[]>(
+        `SELECT id, user_id, source_type, cover_item_id, created_at, updated_at
+         FROM saved_outfits
+         WHERE id = ? AND user_id = ?
+         LIMIT 1`,
+        [savedOutfitId, userId]
+      );
+      const row = rows[0];
+      if (!row) {
+        return null;
+      }
+
+      return {
+        id: String(row.id),
+        userId: String(row.user_id),
+        sourceType: String(row.source_type),
+        coverItemId: row.cover_item_id ? String(row.cover_item_id) : null,
+        createdAt: toDate(row.created_at as Date | string),
+        updatedAt: toDate(row.updated_at as Date | string)
+      };
     });
   }
 
@@ -304,6 +403,13 @@ function sortPreviewItems(items: SavedOutfitPreviewItemRecord[]): SavedOutfitPre
   };
 
   return [...items].sort((a, b) => {
+    if (
+      typeof a.layerIndex === "number" &&
+      typeof b.layerIndex === "number" &&
+      a.layerIndex !== b.layerIndex
+    ) {
+      return a.layerIndex - b.layerIndex;
+    }
     const slotDiff = (slotPriority[a.slotCode] || 99) - (slotPriority[b.slotCode] || 99);
     if (slotDiff !== 0) {
       return slotDiff;

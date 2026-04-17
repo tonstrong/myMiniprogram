@@ -65,7 +65,7 @@ Page({
           y: toOptionalNumber(previewItem.y),
           w: toOptionalNumber(previewItem.w),
           h: toOptionalNumber(previewItem.h),
-          layerIndex: toOptionalNumber(previewItem.layerIndex) || index,
+          layerIndex: toOptionalNumber(previewItem.layerIndex) ?? index,
           imageUrl: await resolveImageUrl(previewItem.imageUrl),
           category: previewItem.category || '',
           subCategory: previewItem.subCategory || '',
@@ -272,7 +272,7 @@ function buildPreviewStyle(previewItem, index) {
     return '';
   }
 
-  const layerIndex = toOptionalNumber(previewItem.layerIndex) || index;
+  const layerIndex = toOptionalNumber(previewItem.layerIndex) ?? index;
   return `left:${x * 100}%;top:${y * 100}%;width:${w * 100}%;height:${h * 100}%;z-index:${layerIndex + 1};`;
 }
 

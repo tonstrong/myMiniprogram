@@ -3,7 +3,8 @@ import { resolveImageUrl } from '../../utils/image-url';
 
 const DRAFT_KEY = 'outfit-canvas:draft';
 const IMPORT_KEY = 'outfit-canvas:import';
-const MAX_CANVAS_ITEMS = 8;
+const MAX_CANVAS_ITEMS = 15;
+const MIN_CANVAS_ITEM_SIZE = 0.08;
 
 Page({
   data: {
@@ -15,13 +16,17 @@ Page({
     loading: false,
     savingRemote: false,
     lastSavedOutfitId: '',
+    pickerVisible: false,
     maxCanvasItems: MAX_CANVAS_ITEMS,
     boardWidth: 0,
     boardHeight: 0,
-    boardReady: false
+    boardReady: false,
+    resizingCanvasItemId: '',
+    pinchingCanvasItemId: ''
   },
 
   onLoad() {
+    this.pendingMoveMap = {};
     if (!this.restoreImportedOutfit()) {
       this.restoreDraft();
     }
@@ -34,6 +39,7 @@ Page({
   onShow() {
     this.measureBoard();
     this.fetchClosetItems();
+    this.pendingMoveMap = {};
   },
 
   restoreDraft() {
@@ -60,6 +66,8 @@ Page({
       return false;
     }
 
+    this.pendingImportedSavedOutfitId = imported.savedOutfitId || '';
+
     if (Array.isArray(imported.layoutItems)) {
       this.pendingImportLayoutItems = imported.layoutItems;
     } else if (imported.slots) {
@@ -72,7 +80,10 @@ Page({
     return true;
   },
 
-  persistDraft(nextCanvasItems = this.getNormalizedCanvasItems(), selectedCanvasItemId = this.data.selectedCanvasItemId) {
+  persistDraft(
+    nextCanvasItems = this.getNormalizedCanvasItems(),
+    selectedCanvasItemId = this.data.selectedCanvasItemId
+  ) {
     wx.setStorageSync(DRAFT_KEY, {
       canvasItems: nextCanvasItems,
       selectedCanvasItemId,
@@ -87,14 +98,16 @@ Page({
         url: '/api/closet/items?status=active&pageNo=1&pageSize=100',
         method: 'GET'
       });
-      const closetItems = await Promise.all((res.items || []).map(async (item) => ({
-        id: item.itemId,
-        category: item.category,
-        subCategory: item.subCategory || '',
-        title: [item.category, item.subCategory].filter(Boolean).join(' / ') || '未命名单品',
-        imageUrl: await resolveImageUrl(item.imageOriginalUrl),
-        addedToCanvas: false
-      })));
+      const closetItems = await Promise.all(
+        (res.items || []).map(async (item) => ({
+          id: item.itemId,
+          category: item.category,
+          subCategory: item.subCategory || '',
+          title: [item.category, item.subCategory].filter(Boolean).join(' / ') || '未命名单品',
+          imageUrl: await resolveImageUrl(item.imageOriginalUrl),
+          addedToCanvas: false
+        }))
+      );
       this.setData({ closetItems, loading: false });
       this.tryHydratePendingState();
     } catch (error) {
@@ -110,6 +123,7 @@ Page({
       if (!rect || !rect.width || !rect.height) {
         return;
       }
+
       this.setData({
         boardWidth: rect.width,
         boardHeight: rect.height,
@@ -144,8 +158,13 @@ Page({
 
     if (this.pendingImportLayoutItems) {
       const importedItems = buildCanvasItemsFromLayout(this.pendingImportLayoutItems, this.data.closetItems);
+      const lastSavedOutfitId = this.pendingImportedSavedOutfitId || '';
       this.pendingImportLayoutItems = null;
+      this.pendingImportedSavedOutfitId = '';
       this.syncCanvasItems(importedItems, importedItems[0]?.id || '');
+      if (lastSavedOutfitId) {
+        this.setData({ lastSavedOutfitId });
+      }
       this.persistDraft(importedItems, importedItems[0]?.id || '');
       wx.showToast({ title: '已载入这套搭配', icon: 'success' });
       return;
@@ -153,12 +172,27 @@ Page({
 
     if (this.pendingImportSlots) {
       const importedItems = buildCanvasItemsFromSlots(this.pendingImportSlots, this.data.closetItems);
+      const lastSavedOutfitId = this.pendingImportedSavedOutfitId || '';
       this.pendingImportSlots = null;
+      this.pendingImportedSavedOutfitId = '';
       this.syncCanvasItems(importedItems, importedItems[0]?.id || '');
+      if (lastSavedOutfitId) {
+        this.setData({ lastSavedOutfitId });
+      }
       this.persistDraft(importedItems, importedItems[0]?.id || '');
       wx.showToast({ title: '已载入这套搭配', icon: 'success' });
     }
   },
+
+  openClosetPicker() {
+    this.setData({ pickerVisible: true });
+  },
+
+  closeClosetPicker() {
+    this.setData({ pickerVisible: false });
+  },
+
+  noop() {},
 
   addClosetItem(e) {
     const itemId = e.currentTarget.dataset.id;
@@ -172,7 +206,7 @@ Page({
       if (existing) {
         this.selectCanvasItemById(existing.id);
       }
-      wx.showToast({ title: '这件单品已在画布里', icon: 'none' });
+      wx.showToast({ title: '这件单品已在画布中', icon: 'none' });
       return;
     }
 
@@ -191,21 +225,21 @@ Page({
   },
 
   selectCanvasItem(e) {
-    const canvasId = e.currentTarget.dataset.id;
-    this.selectCanvasItemById(canvasId);
+    this.selectCanvasItemById(e.currentTarget.dataset.id);
   },
 
   selectCanvasItemById(canvasId) {
     if (!canvasId) {
       return;
     }
-    const nextItems = bringCanvasItemToFront(this.getNormalizedCanvasItems(), canvasId);
+
+    const nextItems = this.getNormalizedCanvasItems();
     this.syncCanvasItems(nextItems, canvasId);
     this.persistDraft(nextItems, canvasId);
   },
 
   onPieceMove(e) {
-    if (!this.data.boardWidth || !this.data.boardHeight) {
+    if (!this.data.boardWidth || !this.data.boardHeight || this.pinchSession) {
       return;
     }
 
@@ -222,13 +256,231 @@ Page({
     const nextX = clamp((e.detail.x || 0) / this.data.boardWidth, 0, maxX / this.data.boardWidth);
     const nextY = clamp((e.detail.y || 0) / this.data.boardHeight, 0, maxY / this.data.boardHeight);
 
-    currentItems[targetIndex] = {
-      ...target,
-      x: nextX,
-      y: nextY
+    this.pendingMoveMap = {
+      ...(this.pendingMoveMap || {}),
+      [canvasId]: {
+        x: nextX,
+        y: nextY
+      }
     };
-    this.syncCanvasItems(currentItems, canvasId);
-    this.persistDraft(currentItems, canvasId);
+  },
+
+  onPieceTouchStart(e) {
+    const touches = e.touches || [];
+    if (touches.length < 2 || !this.data.boardWidth || !this.data.boardHeight || this.resizeSession) {
+      return;
+    }
+
+    const canvasId = e.currentTarget.dataset.id;
+    const currentItems = this.getNormalizedCanvasItems();
+    const target = currentItems.find((item) => item.id === canvasId);
+    if (!canvasId || !target) {
+      return;
+    }
+
+    this.selectCanvasItemById(canvasId);
+    this.pinchSession = {
+      id: canvasId,
+      startDistance: getTouchDistance(touches[0], touches[1]),
+      startW: target.w,
+      startH: target.h,
+      centerX: target.x + target.w / 2,
+      centerY: target.y + target.h / 2
+    };
+    this.setData({ pinchingCanvasItemId: canvasId });
+  },
+
+  onPieceTouchMove(e) {
+    const touches = e.touches || [];
+    const session = this.pinchSession;
+    if (!session || touches.length < 2 || !this.data.boardWidth || !this.data.boardHeight || this.resizeSession) {
+      return;
+    }
+
+    const currentDistance = getTouchDistance(touches[0], touches[1]);
+    if (!currentDistance || !session.startDistance) {
+      return;
+    }
+
+    const scaleRatio = currentDistance / session.startDistance;
+    const currentItems = this.getNormalizedCanvasItems();
+    const targetIndex = currentItems.findIndex((item) => item.id === session.id);
+    if (targetIndex < 0) {
+      return;
+    }
+
+    const nextW = clampSize(session.startW * scaleRatio, session.startW);
+    const nextH = clampSize(session.startH * scaleRatio, session.startH);
+    const safeW = clamp(nextW, MIN_CANVAS_ITEM_SIZE, 1);
+    const safeH = clamp(nextH, MIN_CANVAS_ITEM_SIZE, 1);
+    const nextX = clampPosition(session.centerX - safeW / 2, safeW);
+    const nextY = clampPosition(session.centerY - safeH / 2, safeH);
+
+    currentItems[targetIndex] = {
+      ...currentItems[targetIndex],
+      x: nextX,
+      y: nextY,
+      w: safeW,
+      h: safeH
+    };
+    this.syncCanvasItems(currentItems, session.id);
+  },
+
+  onPieceTouchEnd(e) {
+    this.commitPendingMove(e.currentTarget.dataset.id);
+
+    if (!this.pinchSession) {
+      return;
+    }
+
+    if ((e.touches || []).length >= 2) {
+      return;
+    }
+
+    const selectedCanvasItemId = this.pinchSession.id;
+    this.pinchSession = null;
+    this.setData({ pinchingCanvasItemId: '' });
+    this.persistDraft(this.getNormalizedCanvasItems(), selectedCanvasItemId);
+  },
+
+  startResize(e) {
+    if (!this.data.boardWidth || !this.data.boardHeight) {
+      return;
+    }
+
+    this.pinchSession = null;
+    this.setData({ pinchingCanvasItemId: '' });
+
+    const canvasId = e.currentTarget.dataset.id;
+    const touch = e.touches?.[0];
+    const target = this.getNormalizedCanvasItems().find((item) => item.id === canvasId);
+    if (!canvasId || !touch || !target) {
+      return;
+    }
+
+    this.selectCanvasItemById(canvasId);
+    this.resizeSession = {
+      id: canvasId,
+      startClientX: touch.clientX,
+      startClientY: touch.clientY,
+      startW: target.w,
+      startH: target.h,
+      startX: target.x,
+      startY: target.y,
+      aspectRatio: target.h > 0 ? target.w / target.h : 1
+    };
+    this.setData({ resizingCanvasItemId: canvasId });
+  },
+
+  onResizeMove(e) {
+    const session = this.resizeSession;
+    const touch = e.touches?.[0];
+    if (!session || !touch || !this.data.boardWidth || !this.data.boardHeight) {
+      return;
+    }
+
+    const currentItems = this.getNormalizedCanvasItems();
+    const targetIndex = currentItems.findIndex((item) => item.id === session.id);
+    if (targetIndex < 0) {
+      return;
+    }
+
+    const deltaX = (touch.clientX - session.startClientX) / this.data.boardWidth;
+    const deltaY = (touch.clientY - session.startClientY) / this.data.boardHeight;
+    const delta = (deltaX + deltaY) / 2;
+    const aspectRatio = Math.max(session.aspectRatio, 0.2);
+
+    let nextW = clampSize(session.startW + delta, session.startW);
+    let nextH = clampSize(nextW / aspectRatio, session.startH);
+
+    const maxW = Math.max(1 - session.startX, MIN_CANVAS_ITEM_SIZE);
+    const maxH = Math.max(1 - session.startY, MIN_CANVAS_ITEM_SIZE);
+
+    if (nextW > maxW) {
+      nextW = maxW;
+      nextH = nextW / aspectRatio;
+    }
+    if (nextH > maxH) {
+      nextH = maxH;
+      nextW = nextH * aspectRatio;
+    }
+
+    currentItems[targetIndex] = {
+      ...currentItems[targetIndex],
+      w: clamp(nextW, MIN_CANVAS_ITEM_SIZE, maxW),
+      h: clamp(nextH, MIN_CANVAS_ITEM_SIZE, maxH)
+    };
+    this.syncCanvasItems(currentItems, session.id);
+  },
+
+  endResize() {
+    if (!this.resizeSession) {
+      return;
+    }
+
+    const selectedCanvasItemId = this.resizeSession.id;
+    this.resizeSession = null;
+    this.setData({ resizingCanvasItemId: '' });
+    this.persistDraft(this.getNormalizedCanvasItems(), selectedCanvasItemId);
+  },
+
+  commitPendingMove(canvasId) {
+    if (!canvasId || !this.pendingMoveMap?.[canvasId]) {
+      return;
+    }
+
+    const currentItems = this.getNormalizedCanvasItems();
+    const targetIndex = currentItems.findIndex((item) => item.id === canvasId);
+    if (targetIndex < 0) {
+      delete this.pendingMoveMap[canvasId];
+      return;
+    }
+
+    const nextPosition = this.pendingMoveMap[canvasId];
+    currentItems[targetIndex] = {
+      ...currentItems[targetIndex],
+      x: nextPosition.x,
+      y: nextPosition.y
+    };
+    delete this.pendingMoveMap[canvasId];
+    this.syncCanvasItems(currentItems, this.data.selectedCanvasItemId || canvasId);
+    this.persistDraft(currentItems, this.data.selectedCanvasItemId || canvasId);
+  },
+
+  bringSelectedToFront() {
+    this.updateSelectedLayer((items, selectedCanvasItemId) =>
+      moveCanvasItemToIndex(items, selectedCanvasItemId, items.length - 1)
+    );
+  },
+
+  bringSelectedForward() {
+    this.updateSelectedLayer((items, selectedCanvasItemId) =>
+      moveCanvasItemByOffset(items, selectedCanvasItemId, 1)
+    );
+  },
+
+  sendSelectedBackward() {
+    this.updateSelectedLayer((items, selectedCanvasItemId) =>
+      moveCanvasItemByOffset(items, selectedCanvasItemId, -1)
+    );
+  },
+
+  sendSelectedToBack() {
+    this.updateSelectedLayer((items, selectedCanvasItemId) =>
+      moveCanvasItemToIndex(items, selectedCanvasItemId, 0)
+    );
+  },
+
+  updateSelectedLayer(transformer) {
+    const selectedCanvasItemId = this.data.selectedCanvasItemId;
+    if (!selectedCanvasItemId) {
+      wx.showToast({ title: '请先选中一个单品', icon: 'none' });
+      return;
+    }
+
+    const nextItems = transformer(this.getNormalizedCanvasItems(), selectedCanvasItemId);
+    this.syncCanvasItems(nextItems, selectedCanvasItemId);
+    this.persistDraft(nextItems, selectedCanvasItemId);
   },
 
   removeSelectedItem() {
@@ -247,6 +499,7 @@ Page({
   clearCanvas() {
     this.syncCanvasItems([], '');
     this.persistDraft([], '');
+    this.setData({ lastSavedOutfitId: '' });
     wx.showToast({ title: '已清空画布', icon: 'success' });
   },
 
@@ -275,21 +528,27 @@ Page({
 
     this.setData({ savingRemote: true });
     try {
-      const result = await api.request({
+      await api.request({
         url: '/api/saved-outfits',
         method: 'POST',
         data: {
           sourceType: 'canvas',
+          savedOutfitId: this.data.lastSavedOutfitId || undefined,
           layoutItems
         }
       });
 
-      this.persistDraft();
+      wx.removeStorageSync(DRAFT_KEY);
+      wx.removeStorageSync(IMPORT_KEY);
+      this.syncCanvasItems([], '');
       this.setData({
         savingRemote: false,
-        lastSavedOutfitId: result.savedOutfitId
+        lastSavedOutfitId: ''
       });
-      wx.showToast({ title: '正式搭配已保存', icon: 'success' });
+      wx.showToast({ title: '已保存并返回首页', icon: 'success' });
+      setTimeout(() => {
+        wx.switchTab({ url: '/pages/home/index' });
+      }, 500);
     } catch (error) {
       console.error('Save outfit canvas record failed', error);
       this.setData({ savingRemote: false });
@@ -306,8 +565,13 @@ Page({
   },
 
   syncCanvasItems(items, selectedCanvasItemId = '') {
-    const decoratedItems = decorateCanvasItems(items, this.data.boardWidth, this.data.boardHeight);
-    const selectedItem = decoratedItems.find((item) => item.id === selectedCanvasItemId) || decoratedItems[decoratedItems.length - 1] || null;
+    const normalizedItems = normalizeLayerIndexes(items);
+    const decoratedItems = decorateCanvasItems(normalizedItems, this.data.boardWidth, this.data.boardHeight);
+    const selectedItem =
+      decoratedItems.find((item) => item.id === selectedCanvasItemId) ||
+      decoratedItems[decoratedItems.length - 1] ||
+      null;
+
     this.setData({
       canvasItems: decoratedItems,
       canvasItemIds: decoratedItems.map((item) => item.itemId),
@@ -332,19 +596,23 @@ function decorateCanvasItems(items, boardWidth, boardHeight) {
 }
 
 function sanitizeCanvasItems(items) {
-  return (items || []).slice(0, MAX_CANVAS_ITEMS).map((item, index) => ({
-    id: item.id || `canvas-${item.itemId}-${index}`,
-    itemId: item.itemId,
-    category: item.category || '',
-    subCategory: item.subCategory || '',
-    title: item.title || [item.category, item.subCategory].filter(Boolean).join(' / ') || '未命名单品',
-    imageUrl: item.imageUrl || '',
-    x: clamp(Number(item.x), 0, 0.88),
-    y: clamp(Number(item.y), 0, 0.88),
-    w: clampSize(Number(item.w), 0.24),
-    h: clampSize(Number(item.h), 0.24),
-    layerIndex: Number.isFinite(item.layerIndex) ? Number(item.layerIndex) : index
-  }));
+  return (items || []).slice(0, MAX_CANVAS_ITEMS).map((item, index) => {
+    const w = clampSize(Number(item.w), 0.24);
+    const h = clampSize(Number(item.h), 0.24);
+    return {
+      id: item.id || `canvas-${item.itemId}-${index}`,
+      itemId: item.itemId,
+      category: item.category || '',
+      subCategory: item.subCategory || '',
+      title: item.title || [item.category, item.subCategory].filter(Boolean).join(' / ') || '未命名单品',
+      imageUrl: item.imageUrl || '',
+      x: clampPosition(Number(item.x), w),
+      y: clampPosition(Number(item.y), h),
+      w,
+      h,
+      layerIndex: Number.isFinite(item.layerIndex) ? Number(item.layerIndex) : index
+    };
+  });
 }
 
 function buildCanvasItemFromCloset(item, index) {
@@ -357,8 +625,8 @@ function buildCanvasItemFromCloset(item, index) {
     subCategory: item.subCategory || '',
     title: item.title,
     imageUrl: item.imageUrl || '',
-    x: clamp(0.36 - size.w / 2 + offset, 0, 1 - size.w),
-    y: clamp(0.22 + offset, 0, 1 - size.h),
+    x: clampPosition(0.36 - size.w / 2 + offset, size.w),
+    y: clampPosition(0.22 + offset, size.h),
     w: size.w,
     h: size.h,
     layerIndex: index
@@ -372,6 +640,11 @@ function buildCanvasItemsFromLayout(layoutItems, closetItems) {
     if (!closetItem) {
       return null;
     }
+
+    const fallbackSize = getDefaultCanvasSize(closetItem.category);
+    const width = clampSize(Number(layoutItem.w), fallbackSize.w);
+    const height = clampSize(Number(layoutItem.h), fallbackSize.h);
+
     return {
       id: `canvas-${layoutItem.itemId}-${index}`,
       itemId: layoutItem.itemId,
@@ -379,10 +652,10 @@ function buildCanvasItemsFromLayout(layoutItems, closetItems) {
       subCategory: closetItem.subCategory || '',
       title: closetItem.title,
       imageUrl: closetItem.imageUrl || '',
-      x: clamp(Number(layoutItem.x), 0, 0.95),
-      y: clamp(Number(layoutItem.y), 0, 0.95),
-      w: clampSize(Number(layoutItem.w), getDefaultCanvasSize(closetItem.category).w),
-      h: clampSize(Number(layoutItem.h), getDefaultCanvasSize(closetItem.category).h),
+      x: clampPosition(Number(layoutItem.x), width),
+      y: clampPosition(Number(layoutItem.y), height),
+      w: width,
+      h: height,
       layerIndex: Number.isFinite(layoutItem.layerIndex) ? Number(layoutItem.layerIndex) : index
     };
   }).filter(Boolean);
@@ -404,10 +677,12 @@ function buildCanvasItemsFromSlots(slots, closetItems) {
     if (!itemId) {
       return null;
     }
+
     const closetItem = closetMap.get(itemId);
     if (!closetItem) {
       return null;
     }
+
     return {
       id: `canvas-${itemId}-${layout.key}`,
       itemId,
@@ -428,6 +703,7 @@ function buildCanvasItemsFromSlots(slots, closetItems) {
     if (!closetItem) {
       return;
     }
+
     items.push({
       id: `canvas-${itemId}-accessories-${index}`,
       itemId,
@@ -444,11 +720,6 @@ function buildCanvasItemsFromSlots(slots, closetItems) {
   });
 
   return items;
-}
-
-function bringCanvasItemToFront(items, canvasId) {
-  const maxLayerIndex = items.reduce((maxValue, item) => Math.max(maxValue, item.layerIndex || 0), 0);
-  return items.map((item) => item.id === canvasId ? { ...item, layerIndex: maxLayerIndex + 1 } : item);
 }
 
 function stripCanvasMetrics(item) {
@@ -478,6 +749,7 @@ function getDefaultCanvasSize(category) {
     case '下装':
       return { w: 0.28, h: 0.4 };
     case '鞋履':
+    case '鞋靴':
       return { w: 0.22, h: 0.12 };
     case '包袋':
       return { w: 0.18, h: 0.18 };
@@ -499,6 +771,7 @@ function inferSlotFromCategory(category) {
     case '外套':
       return 'outer';
     case '鞋履':
+    case '鞋靴':
       return 'shoes';
     case '包袋':
       return 'bag';
@@ -507,6 +780,55 @@ function inferSlotFromCategory(category) {
     default:
       return 'free';
   }
+}
+
+function normalizeLayerIndexes(items) {
+  return sanitizeCanvasItems(items)
+    .sort((a, b) => a.layerIndex - b.layerIndex)
+    .map((item, index) => ({
+      ...item,
+      layerIndex: index
+    }));
+}
+
+function moveCanvasItemByOffset(items, canvasId, offset) {
+  const orderedItems = normalizeLayerIndexes(items);
+  const currentIndex = orderedItems.findIndex((item) => item.id === canvasId);
+  if (currentIndex < 0) {
+    return orderedItems;
+  }
+  return moveCanvasItemToIndex(orderedItems, canvasId, currentIndex + offset);
+}
+
+function moveCanvasItemToIndex(items, canvasId, nextIndex) {
+  const orderedItems = normalizeLayerIndexes(items);
+  const currentIndex = orderedItems.findIndex((item) => item.id === canvasId);
+  if (currentIndex < 0) {
+    return orderedItems;
+  }
+
+  const targetIndex = clamp(Math.round(nextIndex), 0, Math.max(orderedItems.length - 1, 0));
+  if (currentIndex === targetIndex) {
+    return orderedItems;
+  }
+
+  const nextItems = [...orderedItems];
+  const [targetItem] = nextItems.splice(currentIndex, 1);
+  nextItems.splice(targetIndex, 0, targetItem);
+  return nextItems.map((item, index) => ({
+    ...item,
+    layerIndex: index
+  }));
+}
+
+function getTouchDistance(firstTouch, secondTouch) {
+  if (!firstTouch || !secondTouch) {
+    return 0;
+  }
+
+  const deltaX = firstTouch.clientX - secondTouch.clientX;
+  const deltaY = firstTouch.clientY - secondTouch.clientY;
+  return Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 }
 
 function clamp(value, min, max) {
@@ -520,7 +842,11 @@ function clampSize(value, fallback) {
   if (!Number.isFinite(value)) {
     return fallback;
   }
-  return Math.min(0.8, Math.max(0.08, value));
+  return Math.min(0.8, Math.max(MIN_CANVAS_ITEM_SIZE, value));
+}
+
+function clampPosition(value, size) {
+  return clamp(value, 0, Math.max(1 - size, 0));
 }
 
 function roundLayoutValue(value) {

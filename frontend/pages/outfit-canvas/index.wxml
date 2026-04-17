@@ -1,86 +1,120 @@
-<scroll-view class="container canvas-page" scroll-y>
-  <view class="canvas-header animate-fade-in">
-    <text class="text-h2">自由搭配画布</text>
-    <text class="text-caption">先从下方衣橱加入单品，再在画布里拖拽摆放。最多 {{maxCanvasItems}} 件。</text>
-  </view>
-
-  <view class="canvas-shell glass-panel animate-fade-in" style="animation-delay: 0.05s;">
-    <view class="board-summary flex-row justify-between items-center">
-      <view class="flex-col board-copy">
-        <text class="board-title">搭配区</text>
-        <text class="text-caption">已放入 {{canvasItems.length}} / {{maxCanvasItems}} 件</text>
-      </view>
-      <view class="flex-row board-buttons">
-        <button class="btn-secondary canvas-mini-btn" bindtap="removeSelectedItem" disabled="{{!selectedCanvasItemId}}">删选中</button>
-        <button class="btn-secondary canvas-mini-btn" bindtap="clearCanvas">清空</button>
-        <button class="btn-primary canvas-mini-btn" bindtap="saveCanvasDraft">存草稿</button>
-        <button class="btn-primary canvas-mini-btn" bindtap="saveCanvasRecord" loading="{{savingRemote}}">保存搭配</button>
-      </view>
+<view class="canvas-page-shell">
+  <view class="container canvas-page">
+    <view class="canvas-header animate-fade-in">
+      <text class="text-h2">自由搭配画布</text>
+      <text class="text-caption">先点按钮把衣服加进画布，再拖拽摆放；选中单品后可双指缩放，也能拖右下角微调大小，最多 {{maxCanvasItems}} 件。</text>
     </view>
 
-    <view wx:if="{{lastSavedOutfitId}}" class="saved-hint flex-row items-center justify-between">
-      <view class="flex-col saved-hint-copy">
-        <text class="saved-hint-title">最近这套搭配已经入库</text>
-        <text class="saved-hint-desc">可以去“我的搭配”里统一查看已保存的自由画布搭配</text>
-      </view>
-      <button class="btn-secondary saved-hint-btn" bindtap="openSavedOutfits">查看我的搭配</button>
-    </view>
-
-    <movable-area id="free-canvas-stage" class="free-canvas-stage">
-      <view wx:if="{{canvasItems.length === 0}}" class="stage-empty">
-        <text class="stage-empty-title">画布还是空的</text>
-        <text class="stage-empty-desc">从下方衣橱点选单品加入，然后直接拖拽摆放位置</text>
-      </view>
-
-      <block wx:for="{{canvasItems}}" wx:key="id">
-        <movable-view
-          class="canvas-piece {{selectedCanvasItemId === item.id ? 'selected' : ''}}"
-          data-id="{{item.id}}"
-          x="{{item.xPx}}"
-          y="{{item.yPx}}"
-          direction="all"
-          inertia="{{false}}"
-          bindtap="selectCanvasItem"
-          bindchange="onPieceMove"
-          style="width: {{item.widthPx}}px; height: {{item.heightPx}}px; z-index: {{item.layerIndex + 1}};"
-        >
-          <image wx:if="{{item.imageUrl}}" class="canvas-piece-image" src="{{item.imageUrl}}" mode="aspectFit"></image>
-          <view wx:else class="canvas-piece-image mini-placeholder">{{item.category}}</view>
-          <view wx:if="{{selectedCanvasItemId === item.id}}" class="piece-label">{{item.subCategory || item.category}}</view>
-        </movable-view>
-      </block>
-    </movable-area>
-
-    <view wx:if="{{selectedCanvasItemId}}" class="selected-bar">
-      <text class="selected-text">当前选中：{{selectedCanvasTitle}}</text>
-    </view>
-  </view>
-
-  <view class="tray-section animate-fade-in" style="animation-delay: 0.1s;">
-    <view class="tray-header flex-row justify-between items-center">
-      <view class="flex-col tray-copy">
-        <text class="text-h2">衣橱单品</text>
-        <text class="text-caption">点击加入画布，重复单品不会重复添加</text>
-      </view>
-      <text class="tray-count">{{canvasItems.length}} / {{maxCanvasItems}}</text>
-    </view>
-
-    <view wx:if="{{loading}}" class="tray-empty glass-panel">正在加载衣橱...</view>
-    <view wx:elif="{{closetItems.length === 0}}" class="tray-empty glass-panel">暂无已入库单品，先去确认单品吧。</view>
-    <view wx:else class="tray-grid">
-      <block wx:for="{{closetItems}}" wx:key="id">
-        <view class="tray-card glass-panel {{item.addedToCanvas ? 'tray-card-active' : ''}}" bindtap="addClosetItem" data-id="{{item.id}}">
-          <image wx:if="{{item.imageUrl}}" class="tray-image" src="{{item.imageUrl}}" mode="aspectFill"></image>
-          <view wx:else class="tray-image mini-placeholder">{{item.category}}</view>
-          <view class="tray-meta">
-            <view class="flex-row justify-between items-center">
-              <text class="tray-title">{{item.title}}</text>
-              <text class="tray-badge" wx:if="{{item.addedToCanvas}}">已加入</text>
-            </view>
-            <text class="tray-sub">{{item.category}}</text>
-          </view>
+    <view class="canvas-shell glass-panel animate-fade-in" style="animation-delay: 0.05s;">
+      <view class="board-summary">
+        <view class="flex-col board-copy">
+          <text class="board-title">我的搭配区</text>
+          <text class="text-caption">已放入 {{canvasItems.length}} / {{maxCanvasItems}} 件</text>
         </view>
-      </block>
+        <view class="board-meter">{{canvasItems.length}} / {{maxCanvasItems}}</view>
+      </view>
+
+      <view wx:if="{{lastSavedOutfitId}}" class="saved-hint">
+        <view class="flex-col saved-hint-copy">
+          <text class="saved-hint-title">这套搭配已经保存成功</text>
+          <text class="saved-hint-desc">可以去“我的搭配”继续查看、删除，或者重新导入画布再调整。</text>
+        </view>
+        <button class="btn-secondary saved-hint-btn" bindtap="openSavedOutfits">查看我的搭配</button>
+      </view>
+
+      <movable-area id="free-canvas-stage" class="free-canvas-stage">
+        <view wx:if="{{canvasItems.length === 0}}" class="stage-empty">
+          <text class="stage-empty-title">画布还是空的</text>
+          <text class="stage-empty-desc">点下方“添加衣服”后，就能把单品拖进你的搭配里。</text>
+          <button class="btn-primary stage-empty-btn" bindtap="openClosetPicker">添加第一件</button>
+        </view>
+
+        <block wx:for="{{canvasItems}}" wx:key="id">
+          <movable-view
+            class="canvas-piece {{selectedCanvasItemId === item.id ? 'selected' : ''}}"
+            data-id="{{item.id}}"
+            x="{{item.xPx}}"
+            y="{{item.yPx}}"
+            direction="all"
+            inertia="{{false}}"
+            animation="{{false}}"
+            bindtap="selectCanvasItem"
+            bindchange="onPieceMove"
+            bindtouchstart="onPieceTouchStart"
+            bindtouchmove="onPieceTouchMove"
+            bindtouchend="onPieceTouchEnd"
+            bindtouchcancel="onPieceTouchEnd"
+            style="width: {{item.widthPx}}px; height: {{item.heightPx}}px; z-index: {{item.layerIndex + 1}};"
+          >
+            <image wx:if="{{item.imageUrl}}" class="canvas-piece-image" src="{{item.imageUrl}}" mode="aspectFit"></image>
+            <view wx:else class="canvas-piece-image mini-placeholder">{{item.category}}</view>
+            <view wx:if="{{selectedCanvasItemId === item.id}}" class="piece-label">{{item.subCategory || item.category}}</view>
+            <view
+              wx:if="{{selectedCanvasItemId === item.id}}"
+              class="resize-handle {{resizingCanvasItemId === item.id ? 'active' : ''}} {{pinchingCanvasItemId === item.id ? 'hidden' : ''}}"
+              data-id="{{item.id}}"
+              catchtouchstart="startResize"
+              catchtouchmove="onResizeMove"
+              catchtouchend="endResize"
+              catchtouchcancel="endResize"
+            >
+              <text class="resize-handle-icon">+</text>
+            </view>
+          </movable-view>
+        </block>
+      </movable-area>
+
+      <view wx:if="{{selectedCanvasItemId}}" class="selected-bar">
+        <text class="selected-text">当前选中：{{selectedCanvasTitle}}。单指拖拽，双指缩放，也可以拖右下角做细调。</text>
+        <text wx:if="{{pinchingCanvasItemId === selectedCanvasItemId}}" class="selected-state">正在双指缩放</text>
+        <text wx:elif="{{resizingCanvasItemId === selectedCanvasItemId}}" class="selected-state">正在拖拽缩放手柄</text>
+        <view class="selected-tools">
+          <button class="btn-secondary tool-btn" bindtap="sendSelectedToBack">置底</button>
+          <button class="btn-secondary tool-btn" bindtap="sendSelectedBackward">后移一层</button>
+          <button class="btn-secondary tool-btn" bindtap="bringSelectedForward">前移一层</button>
+          <button class="btn-secondary tool-btn" bindtap="bringSelectedToFront">置顶</button>
+        </view>
+      </view>
+
+      <view class="canvas-actions">
+        <button class="btn-primary canvas-action-btn" bindtap="openClosetPicker">添加衣服</button>
+        <button class="btn-secondary canvas-action-btn" bindtap="removeSelectedItem" disabled="{{!selectedCanvasItemId}}">删除选中</button>
+        <button class="btn-secondary canvas-action-btn" bindtap="clearCanvas">清空画布</button>
+        <button class="btn-secondary canvas-action-btn" bindtap="saveCanvasDraft">保存草稿</button>
+        <button class="btn-primary canvas-action-btn" bindtap="saveCanvasRecord" loading="{{savingRemote}}">保存搭配</button>
+      </view>
     </view>
   </view>
-</scroll-view>
+
+  <view wx:if="{{pickerVisible}}" class="picker-mask" bindtap="closeClosetPicker">
+    <view class="picker-panel" catchtap="noop">
+      <view class="picker-header">
+        <view class="flex-col picker-copy">
+          <text class="picker-title">添加衣服到画布</text>
+          <text class="text-caption">还可以再添加 {{maxCanvasItems - canvasItems.length}} 件，已加入的单品会自动高亮。</text>
+        </view>
+        <button class="btn-secondary picker-close-btn" bindtap="closeClosetPicker">完成</button>
+      </view>
+
+      <scroll-view class="picker-scroll" scroll-y>
+        <view wx:if="{{loading}}" class="tray-empty glass-panel">正在加载衣橱...</view>
+        <view wx:elif="{{closetItems.length === 0}}" class="tray-empty glass-panel">暂无已入库单品，先去上传衣服吧。</view>
+        <view wx:else class="tray-grid">
+          <block wx:for="{{closetItems}}" wx:key="id">
+            <view class="tray-card glass-panel {{item.addedToCanvas ? 'tray-card-active' : ''}}" bindtap="addClosetItem" data-id="{{item.id}}">
+              <image wx:if="{{item.imageUrl}}" class="tray-image" src="{{item.imageUrl}}" mode="aspectFill"></image>
+              <view wx:else class="tray-image mini-placeholder">{{item.category}}</view>
+              <view class="tray-meta">
+                <view class="flex-row justify-between items-center">
+                  <text class="tray-title">{{item.title}}</text>
+                  <text class="tray-badge" wx:if="{{item.addedToCanvas}}">已在画布</text>
+                </view>
+                <text class="tray-sub">{{item.category}}</text>
+              </view>
+            </view>
+          </block>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

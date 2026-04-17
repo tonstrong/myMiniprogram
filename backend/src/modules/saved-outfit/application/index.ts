@@ -25,6 +25,7 @@ export interface SaveSavedOutfitLayoutItem {
 export interface SaveSavedOutfitCommand {
   userId: string;
   sourceType: "canvas";
+  savedOutfitId?: string;
   slots?: SaveSavedOutfitSlots;
   layoutItems?: SaveSavedOutfitLayoutItem[];
 }

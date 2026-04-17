@@ -20,6 +20,7 @@ export interface SaveSavedOutfitLayoutItemDTO {
 
 export interface SaveSavedOutfitRequestDTO {
   sourceType: "canvas";
+  savedOutfitId?: string;
   slots?: SaveSavedOutfitSlotsDTO;
   layoutItems?: SaveSavedOutfitLayoutItemDTO[];
 }

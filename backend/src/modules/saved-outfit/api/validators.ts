@@ -48,8 +48,8 @@ const validateLayoutItemsField: FieldValidator = (value, path) => {
   if (value.length === 0) {
     return [{ path, message: "Must contain at least 1 item", code: "value" }];
   }
-  if (value.length > 8) {
-    return [{ path, message: "Must contain at most 8 items", code: "value" }];
+  if (value.length > 15) {
+    return [{ path, message: "Must contain at most 15 items", code: "value" }];
   }
 
   const errors: ValidationIssue[] = [];
@@ -71,6 +71,7 @@ const validateLayoutItemsField: FieldValidator = (value, path) => {
 const baseSaveSavedOutfitRequestValidator =
   createObjectValidator<SaveSavedOutfitRequestDTO>({
     sourceType: requiredStringEnum(["canvas"]),
+    savedOutfitId: optionalString({ minLength: 1 }),
     slots: optionalObjectField(validateSaveSavedOutfitSlots),
     layoutItems: validateLayoutItemsField
   });

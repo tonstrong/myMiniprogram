@@ -13,7 +13,7 @@ import type {
 
 const DEFAULT_PAGE_NO = 1;
 const DEFAULT_PAGE_SIZE = 20;
-const MAX_LAYOUT_ITEMS = 8;
+const MAX_LAYOUT_ITEMS = 15;
 
 export class PersistedSavedOutfitService implements SavedOutfitService {
   constructor(private readonly deps: SavedOutfitServiceDependencies) {}
@@ -37,18 +37,25 @@ export class PersistedSavedOutfitService implements SavedOutfitService {
     await ensureItemsOwnedByUser(this.deps, command.userId, allItemIds);
 
     const now = new Date();
-    const savedOutfitId = generateId();
+    const existingRecord = command.savedOutfitId
+      ? await this.deps.repository.findOutfitById(command.userId, command.savedOutfitId)
+      : null;
+    const savedOutfitId = existingRecord?.id || command.savedOutfitId || generateId();
     const outfitRecord: SavedOutfitRecord = {
       id: savedOutfitId,
       userId: command.userId,
       sourceType: command.sourceType,
       coverItemId: pickCoverItemId(normalizedLayoutItems),
-      createdAt: now,
+      createdAt: existingRecord?.createdAt || now,
       updatedAt: now
     };
     const itemRecords = buildItemRecords(savedOutfitId, normalizedLayoutItems, now);
 
-    await this.deps.repository.saveOutfit(outfitRecord, itemRecords);
+    if (existingRecord) {
+      await this.deps.repository.updateOutfit(outfitRecord, itemRecords);
+    } else {
+      await this.deps.repository.saveOutfit(outfitRecord, itemRecords);
+    }
 
     return {
       savedOutfitId,
@@ -141,14 +148,14 @@ export class PersistedSavedOutfitService implements SavedOutfitService {
       itemId,
       slotCode: fallback.slotCode,
       sortOrder: fallback.sortOrder,
-              imageUrl: fallback.imageUrl || item?.imageOriginalUrl || undefined,
-              category: fallback.category || item?.category || undefined,
-              subCategory: fallback.subCategory || item?.subCategory || undefined,
-              x: fallback.x,
-              y: fallback.y,
-              w: fallback.w,
-              h: fallback.h,
-              layerIndex: fallback.layerIndex
+      imageUrl: fallback.imageUrl || item?.imageOriginalUrl || undefined,
+      category: fallback.category || item?.category || undefined,
+      subCategory: fallback.subCategory || item?.subCategory || undefined,
+      x: fallback.x,
+      y: fallback.y,
+      w: fallback.w,
+      h: fallback.h,
+      layerIndex: fallback.layerIndex
     };
   }
 }
@@ -206,18 +213,18 @@ function buildItemRecords(
   now: Date
 ): SavedOutfitItemRecord[] {
   return layoutItems.map((item, index) => ({
-      id: generateId(),
-      savedOutfitId,
-      itemId: item.itemId,
-      slotCode: item.slotCode,
-      sortOrder: index,
-      layoutX: item.x,
-      layoutY: item.y,
-      layoutW: item.w,
-      layoutH: item.h,
-      layerIndex: item.layerIndex,
-      createdAt: now
-    }));
+    id: generateId(),
+    savedOutfitId,
+    itemId: item.itemId,
+    slotCode: item.slotCode,
+    sortOrder: index,
+    layoutX: item.x,
+    layoutY: item.y,
+    layoutW: item.w,
+    layoutH: item.h,
+    layerIndex: item.layerIndex,
+    createdAt: now
+  }));
 }
 
 function pickCoverItemId(layoutItems: Array<Required<SaveSavedOutfitLayoutItem>>) {

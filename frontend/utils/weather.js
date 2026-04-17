@@ -1,4 +1,5 @@
 import api from './api';
+import { getCachedCity } from './profile-cache';
 
 const WEATHER_CACHE_KEY = 'weather:current';
 const WEATHER_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -6,8 +7,18 @@ let inflightPromise = null;
 
 export async function getCurrentWeather(options = {}) {
   const forceRefresh = !!options.forceRefresh;
+  const city = getCachedCity();
+  if (!city) {
+    throw createMissingCityError();
+  }
+
   const cached = readWeatherCache();
-  if (!forceRefresh && cached && Date.now() - cached.cachedAt < WEATHER_CACHE_TTL_MS) {
+  if (
+    !forceRefresh &&
+    cached &&
+    cached.forCity === city &&
+    Date.now() - cached.cachedAt < WEATHER_CACHE_TTL_MS
+  ) {
     return cached.payload;
   }
 
@@ -21,6 +32,7 @@ export async function getCurrentWeather(options = {}) {
   }).then((payload) => {
     wx.setStorageSync(WEATHER_CACHE_KEY, {
       cachedAt: Date.now(),
+      forCity: city,
       payload
     });
     return payload;
@@ -37,4 +49,10 @@ function readWeatherCache() {
   } catch (error) {
     return null;
   }
+}
+
+function createMissingCityError() {
+  const error = new Error('请先设置所在城市');
+  error.code = 'CITY_NOT_SET';
+  return error;
 }
