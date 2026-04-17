@@ -25,6 +25,12 @@ export class InMemoryUserProfileRepository implements UserProfileRepository {
   ): Promise<UserPreferenceRecord | null> {
     return this.preferences.get(userId) ?? null;
   }
+
+  async listActiveUserIds(): Promise<string[]> {
+    return Array.from(this.users.values())
+      .filter((user) => user.status === "active")
+      .map((user) => user.id);
+  }
 }
 
 export const createInMemoryUserProfileRepository = (): UserProfileRepository =>
@@ -172,6 +178,20 @@ export class MySqlUserProfileRepository implements UserProfileRepository {
         : null;
     });
   }
+
+  async listActiveUserIds(): Promise<string[]> {
+    return withClient(async (client) => {
+      const [rows] = await client.query<RowDataPacket[]>(
+        `SELECT id
+         FROM users
+         WHERE status = 'active'
+         ORDER BY created_at ASC`
+      );
+      return rows
+        .map((row) => (typeof row.id === "string" ? row.id : ""))
+        .filter((id) => id.length > 0);
+    });
+  }
 }
 
 export const createMySqlUserProfileRepository = (): UserProfileRepository =>
@@ -189,6 +209,9 @@ export const createNoopUserProfileRepository = (): UserProfileRepository => ({
   },
   async findPreferencesByUserId() {
     return null;
+  },
+  async listActiveUserIds() {
+    return [];
   }
 });
 

@@ -88,7 +88,12 @@ export const mapRecommendationRecordsToResult = (
     recommendationId: recommendation.id,
     outfits,
     providerMeta: buildProviderMeta(recommendation),
-    status: recommendation.status === "failed" ? "failed" : "completed",
+    status:
+      recommendation.status === "failed"
+        ? "failed"
+        : recommendation.status === "processing"
+          ? "processing"
+          : "completed",
     createdAt: recommendation.createdAt?.toISOString()
   };
 };

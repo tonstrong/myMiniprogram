@@ -5,6 +5,7 @@ export * from "./validators";
 export const RecommendationRoutes = {
   list: "GET /api/recommendations",
   generate: "POST /api/recommendations/generate",
+  homeDaily: "GET /api/recommendations/home-daily",
   getDetail: "GET /api/recommendations/:recommendationId",
   feedback: "POST /api/recommendations/:recommendationId/feedback",
   save: "POST /api/recommendations/:recommendationId/save"

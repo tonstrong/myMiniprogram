@@ -1,7 +1,6 @@
 import api from '../../utils/api';
 import { getCurrentWeather } from '../../utils/weather';
 import { cacheProfile } from '../../utils/profile-cache';
-import { buildCanvasLayoutFromItems, saveCanvasImportPayload } from '../../utils/canvas-import';
 
 const LOCAL_AVATAR_KEY = 'profile:localAvatarUrl';
 const DEFAULT_AVATAR_URL = '';
@@ -17,16 +16,11 @@ Page({
     closetCount: 0,
     stylePackCount: 0,
     generatingTodayCanvas: false,
-    todayRecommend: {
-      title: '今日推荐',
-      scene: '通勤',
-      weather: '以当前衣橱为准',
-      reason: '先补齐衣橱与风格包，AI 才能生成更准确的推荐。',
-      image: '',
-      canGenerate: false,
-      weatherPayload: null,
-      stylePackId: ''
-    }
+    todayRecommend: buildFallbackRecommendCard({
+      activeClosetCount: 0,
+      activeStylePacks: [],
+      weather: null
+    })
   },
 
   onLoad() {
@@ -60,10 +54,11 @@ Page({
 
   async loadDashboard() {
     try {
-      const [profile, closetRes, stylePackRes] = await Promise.all([
+      const [profile, closetRes, stylePackRes, homeDailyRecommend] = await Promise.all([
         api.request({ url: '/api/users/profile', method: 'GET' }),
         api.request({ url: '/api/closet/items?pageNo=1&pageSize=50', method: 'GET' }),
-        api.request({ url: '/api/style-packs?pageNo=1&pageSize=50', method: 'GET' })
+        api.request({ url: '/api/style-packs?pageNo=1&pageSize=50', method: 'GET' }),
+        api.request({ url: '/api/recommendations/home-daily', method: 'GET' }).catch(() => null)
       ]);
 
       cacheProfile(profile);
@@ -85,7 +80,8 @@ Page({
         todayRecommend: buildRecommendCard({
           activeClosetCount,
           activeStylePacks,
-          weather
+          weather,
+          homeDailyRecommend
         })
       });
 
@@ -113,7 +109,7 @@ Page({
     wx.setStorageSync(PROFILE_GUIDE_SHOWN_KEY, 'shown');
     wx.showModal({
       title: '完善头像和昵称',
-      content: '为了让首页问候和“我的”页面展示更完整，建议先去完善头像和昵称。',
+      content: '为了让首页问候和“我的”页展示更完整，建议先去完善头像和昵称。',
       confirmText: '去完善',
       cancelText: '稍后',
       success: ({ confirm }) => {
@@ -151,7 +147,27 @@ Page({
     wx.navigateTo({ url: '/pages/outfit-canvas/index' });
   },
 
-  async generateTodayLookToCanvas() {
+  handleTodaySecondaryAction() {
+    const todayRecommend = this.data.todayRecommend || {};
+    if (todayRecommend.secondaryAction === 'detail' && todayRecommend.recommendationId) {
+      wx.navigateTo({
+        url: `/pages/recommend/result?id=${todayRecommend.recommendationId}`
+      });
+      return;
+    }
+    this.goRecommend();
+  },
+
+  handleTodayPrimaryAction() {
+    const todayRecommend = this.data.todayRecommend || {};
+    if (todayRecommend.primaryAction === 'recommend') {
+      this.goRecommend();
+      return;
+    }
+    this.generateTodayRecommendation();
+  },
+
+  async generateTodayRecommendation() {
     const todayRecommend = this.data.todayRecommend || {};
     if (!todayRecommend.canGenerate) {
       wx.showToast({ title: '先准备至少 2 件已入库单品', icon: 'none' });
@@ -170,48 +186,15 @@ Page({
         }
       });
 
-      const detail = await api.request({
-        url: `/api/recommendations/${generateResult.recommendationId}`,
-        method: 'GET'
-      });
-
-      const outfit = detail.outfits?.[0];
-      if (!outfit?.items?.length) {
-        throw new Error('未生成可用搭配');
-      }
-
-      const closetItems = (await Promise.all(
-        outfit.items.map((itemId) => fetchClosetCanvasItem(itemId))
-      )).filter(Boolean);
-
-      if (!closetItems.length) {
-        throw new Error('推荐单品读取失败');
-      }
-
-      const layoutItems = buildCanvasLayoutFromItems(closetItems);
-      const savedOutfit = await api.request({
-        url: '/api/saved-outfits',
-        method: 'POST',
-        data: {
-          sourceType: 'canvas',
-          layoutItems
-        }
-      });
-
-      saveCanvasImportPayload({
-        layoutItems,
-        recommendationId: generateResult.recommendationId,
-        sourceType: 'daily-recommend',
-        savedOutfitId: savedOutfit.savedOutfitId
-      });
-
       this.setData({ generatingTodayCanvas: false });
-      wx.navigateTo({ url: '/pages/outfit-canvas/index' });
+      wx.navigateTo({
+        url: `/pages/recommend/result?id=${generateResult.recommendationId}`
+      });
     } catch (error) {
-      console.error('Generate daily look to canvas failed', error);
+      console.error('Generate daily recommendation failed', error);
       this.setData({ generatingTodayCanvas: false });
       wx.showToast({
-        title: mapDailyCanvasError(error),
+        title: mapDailyRecommendationError(error),
         icon: 'none'
       });
     }
@@ -239,7 +222,62 @@ function buildTasks(pendingClosetCount, pendingStylePackCount) {
   return tasks;
 }
 
-function buildRecommendCard({ activeClosetCount, activeStylePacks, weather }) {
+function buildRecommendCard({
+  activeClosetCount,
+  activeStylePacks,
+  weather,
+  homeDailyRecommend
+}) {
+  if (homeDailyRecommend && homeDailyRecommend.status && homeDailyRecommend.status !== 'empty') {
+    return buildHomeDailyRecommendCard({
+      weather,
+      stylePackId: activeStylePacks[0]?.stylePackId || '',
+      homeDailyRecommend
+    });
+  }
+
+  return buildFallbackRecommendCard({
+    activeClosetCount,
+    activeStylePacks,
+    weather
+  });
+}
+
+function buildHomeDailyRecommendCard({ weather, stylePackId, homeDailyRecommend }) {
+  const weatherPayload = weather
+    ? {
+        temperature: Math.round(weather.temperature),
+        condition: weather.condition
+      }
+    : null;
+  const weatherText = weather
+    ? `${weather.city} · ${weather.condition} ${Math.round(weather.temperature)}°C`
+    : '根据你的喜欢与收藏生成';
+  const isProcessing = homeDailyRecommend.status === 'processing';
+
+  return {
+    title: '今日推荐',
+    scene: homeDailyRecommend.scene || '通勤',
+    weather: weatherText,
+    reason:
+      homeDailyRecommend.reason ||
+      (isProcessing
+        ? '正在根据你最近喜欢和收藏的搭配生成今日推荐。'
+        : '这是根据你最近喜欢和收藏整理出的今日搭配。'),
+    image: homeDailyRecommend.coverImageUrl || '',
+    canGenerate: false,
+    weatherPayload,
+    stylePackId,
+    recommendationId: homeDailyRecommend.recommendationId || '',
+    mode: 'homeDaily',
+    secondaryAction: homeDailyRecommend.recommendationId ? 'detail' : 'recommend',
+    secondaryLabel: homeDailyRecommend.recommendationId ? '查看今日推荐' : '查看推荐页',
+    primaryAction: 'recommend',
+    primaryLabel: '不喜欢，去推荐页'
+  };
+}
+
+function buildFallbackRecommendCard({ activeClosetCount, activeStylePacks, weather }) {
   const weekday = new Date().getDay();
   const scene = weekday === 0 || weekday === 6 ? '休闲' : '通勤';
   const weatherPayload = weather
@@ -261,7 +299,13 @@ function buildRecommendCard({ activeClosetCount, activeStylePacks, weather }) {
       image: '',
       canGenerate: false,
       weatherPayload,
-      stylePackId: activeStylePacks[0]?.stylePackId || ''
+      stylePackId: activeStylePacks[0]?.stylePackId || '',
+      recommendationId: '',
+      mode: 'fallback',
+      secondaryAction: 'recommend',
+      secondaryLabel: '查看推荐页',
+      primaryAction: 'generate',
+      primaryLabel: '先补齐衣橱'
     };
   }
 
@@ -276,7 +320,13 @@ function buildRecommendCard({ activeClosetCount, activeStylePacks, weather }) {
       image: '',
       canGenerate: true,
       weatherPayload,
-      stylePackId: ''
+      stylePackId: '',
+      recommendationId: '',
+      mode: 'fallback',
+      secondaryAction: 'recommend',
+      secondaryLabel: '查看推荐页',
+      primaryAction: 'generate',
+      primaryLabel: '生成推荐结果'
     };
   }
 
@@ -285,37 +335,31 @@ function buildRecommendCard({ activeClosetCount, activeStylePacks, weather }) {
     scene,
     weather: weatherText,
     reason: weather
-      ? `当前 ${weather.condition} ${Math.round(weather.temperature)}°C，衣橱和风格包都已准备好，可以一键生成并落到画布继续编辑。`
-      : '衣橱和风格包都已准备好，可以一键生成今日搭配并落到画布继续编辑。',
+      ? `当前 ${weather.condition} ${Math.round(weather.temperature)}°C，衣橱和风格包都已准备好，可以先生成推荐结果再决定要不要同步到画布。`
+      : '衣橱和风格包都已准备好，可以先生成推荐结果再决定要不要同步到画布。',
     image: '',
     canGenerate: true,
     weatherPayload,
-    stylePackId: activeStylePacks[0]?.stylePackId || ''
+    stylePackId: activeStylePacks[0]?.stylePackId || '',
+    recommendationId: '',
+    mode: 'fallback',
+    secondaryAction: 'recommend',
+    secondaryLabel: '查看推荐页',
+    primaryAction: 'generate',
+    primaryLabel: '生成推荐结果'
   };
 }
 
-async function fetchClosetCanvasItem(itemId) {
-  try {
-    const detail = await api.request({
-      url: `/api/closet/items/${itemId}`,
-      method: 'GET'
-    });
-    return {
-      itemId,
-      category: detail.attributes?.category || ''
-    };
-  } catch (error) {
-    return null;
-  }
-}
-
-function mapDailyCanvasError(error) {
+function mapDailyRecommendationError(error) {
   const message = error?.error?.message || error?.message || '';
   if (!message) {
-    return '生成到画布失败';
+    return '生成推荐失败';
   }
   if (message.includes('No available wardrobe candidates were found')) {
     return '先确认并入库至少 2 件单品';
+  }
+  if (message.includes('每天最多 3 次') || message.includes('今日灵感图集生成次数已用完')) {
+    return '今日生成次数已用完，明天再来试试';
   }
   return message;
 }

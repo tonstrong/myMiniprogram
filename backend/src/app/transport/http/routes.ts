@@ -117,6 +117,7 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
     recommendationService: createInMemoryRecommendationService({
       closetRepository,
       stylePackRepository,
+      taskCenterService,
       llmGatewayService,
       weatherService: createSharedWeatherService({
         repository: weatherRepository,

@@ -22,7 +22,7 @@
         <button class="btn-secondary saved-hint-btn" bindtap="openSavedOutfits">查看我的搭配</button>
       </view>
 
-      <movable-area id="free-canvas-stage" class="free-canvas-stage">
+      <movable-area id="free-canvas-stage" class="free-canvas-stage" bindtap="clearCanvasSelection">
         <view wx:if="{{canvasItems.length === 0}}" class="stage-empty">
           <text class="stage-empty-title">画布还是空的</text>
           <text class="stage-empty-desc">点下方“添加衣服”后，就能把单品拖进你的搭配里。</text>
@@ -38,7 +38,7 @@
             direction="all"
             inertia="{{false}}"
             animation="{{false}}"
-            bindtap="selectCanvasItem"
+            catchtap="selectCanvasItem"
             bindchange="onPieceMove"
             bindtouchstart="onPieceTouchStart"
             bindtouchmove="onPieceTouchMove"

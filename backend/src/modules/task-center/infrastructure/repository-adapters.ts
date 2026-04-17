@@ -30,6 +30,43 @@ export class InMemoryTaskRepository implements TaskRepository {
     }
     return task;
   }
+
+  async claimNextReadyTask(input: {
+    workerId: string;
+    taskTypes: string[];
+    leaseMs: number;
+  }): Promise<AsyncTaskRecord | null> {
+    const now = new Date();
+    const readyTask = Array.from(this.tasks.values())
+      .filter((task) => input.taskTypes.includes(task.taskType))
+      .filter((task) => (task.availableAt ?? now) <= now)
+      .filter((task) => task.attemptCount < task.maxAttempts)
+      .filter(
+        (task) =>
+          task.status === "uploaded" ||
+          (task.status === "processing" &&
+            !!task.lockedAt &&
+            task.lockedAt.getTime() <= now.getTime() - input.leaseMs)
+      )
+      .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())[0];
+
+    if (!readyTask) {
+      return null;
+    }
+
+    const claimedTask: AsyncTaskRecord = {
+      ...readyTask,
+      status: "processing",
+      lockedAt: now,
+      lockedBy: input.workerId,
+      attemptCount: readyTask.attemptCount + 1,
+      updatedAt: now,
+      errorCode: null,
+      errorMessage: null
+    };
+    this.tasks.set(claimedTask.id, claimedTask);
+    return claimedTask;
+  }
 }
 
 export const createInMemoryTaskRepository = (): TaskRepository =>
@@ -41,15 +78,23 @@ interface AsyncTaskRow extends RowDataPacket {
   task_type: string;
   biz_type: string;
   biz_id: string | null;
+  payload_json: string | JsonValue | null;
   status: string;
   progress: number;
   result_summary: string | null;
+  result_json: string | JsonValue | null;
+  idempotency_key: string | null;
   provider_meta: string | Record<string, JsonValue> | null;
   error_code: string | null;
   error_message: string | null;
   created_at: Date | string;
   updated_at: Date | string;
   finished_at: Date | string | null;
+  available_at: Date | string | null;
+  locked_at: Date | string | null;
+  locked_by: string | null;
+  attempt_count: number;
+  max_attempts: number;
 }
 
 export class MySqlTaskRepository implements TaskRepository {
@@ -63,31 +108,47 @@ export class MySqlTaskRepository implements TaskRepository {
           task_type,
           biz_type,
           biz_id,
+          payload_json,
           status,
           progress,
           result_summary,
+          result_json,
+          idempotency_key,
           provider_meta,
           error_code,
           error_message,
           created_at,
           updated_at,
-          finished_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          finished_at,
+          available_at,
+          locked_at,
+          locked_by,
+          attempt_count,
+          max_attempts
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           task.id,
           task.userId,
           task.taskType,
           task.bizType,
           task.bizId ?? null,
+          encodeJson(task.payloadJson),
           task.status,
           task.progress,
           task.resultSummary ?? null,
+          encodeJson(task.resultJson),
+          task.idempotencyKey ?? null,
           encodeJson(task.providerMeta),
           task.errorCode ?? null,
           task.errorMessage ?? null,
           formatDateTime(task.createdAt),
           formatDateTime(task.updatedAt),
-          formatOptionalDateTime(task.finishedAt)
+          formatOptionalDateTime(task.finishedAt),
+          formatOptionalDateTime(task.availableAt) ?? formatDateTime(task.createdAt),
+          formatOptionalDateTime(task.lockedAt),
+          task.lockedBy ?? null,
+          task.attemptCount,
+          task.maxAttempts
         ]
       );
     });
@@ -109,6 +170,14 @@ export class MySqlTaskRepository implements TaskRepository {
       assignments.push("result_summary = ?");
       values.push(patch.resultSummary ?? null);
     }
+    if (patch.resultJson !== undefined) {
+      assignments.push("result_json = ?");
+      values.push(encodeJson(patch.resultJson));
+    }
+    if (patch.idempotencyKey !== undefined) {
+      assignments.push("idempotency_key = ?");
+      values.push(patch.idempotencyKey ?? null);
+    }
     if (patch.providerMeta !== undefined) {
       assignments.push("provider_meta = ?");
       values.push(encodeJson(patch.providerMeta));
@@ -128,6 +197,26 @@ export class MySqlTaskRepository implements TaskRepository {
     if (patch.finishedAt !== undefined) {
       assignments.push("finished_at = ?");
       values.push(formatOptionalDateTime(patch.finishedAt));
+    }
+    if (patch.availableAt !== undefined) {
+      assignments.push("available_at = ?");
+      values.push(formatOptionalDateTime(patch.availableAt));
+    }
+    if (patch.lockedAt !== undefined) {
+      assignments.push("locked_at = ?");
+      values.push(formatOptionalDateTime(patch.lockedAt));
+    }
+    if (patch.lockedBy !== undefined) {
+      assignments.push("locked_by = ?");
+      values.push(patch.lockedBy ?? null);
+    }
+    if (patch.attemptCount !== undefined) {
+      assignments.push("attempt_count = ?");
+      values.push(patch.attemptCount);
+    }
+    if (patch.maxAttempts !== undefined) {
+      assignments.push("max_attempts = ?");
+      values.push(patch.maxAttempts);
     }
 
     if (assignments.length === 0) {
@@ -152,15 +241,23 @@ export class MySqlTaskRepository implements TaskRepository {
           task_type,
           biz_type,
           biz_id,
+          payload_json,
           status,
           progress,
           result_summary,
+          result_json,
+          idempotency_key,
           provider_meta,
           error_code,
           error_message,
           created_at,
           updated_at,
-          finished_at
+          finished_at,
+          available_at,
+          locked_at,
+          locked_by,
+          attempt_count,
+          max_attempts
         FROM async_tasks
         WHERE id = ?
         LIMIT 1`,
@@ -185,15 +282,23 @@ export class MySqlTaskRepository implements TaskRepository {
           task_type,
           biz_type,
           biz_id,
+          payload_json,
           status,
           progress,
           result_summary,
+          result_json,
+          idempotency_key,
           provider_meta,
           error_code,
           error_message,
           created_at,
           updated_at,
-          finished_at
+          finished_at,
+          available_at,
+          locked_at,
+          locked_by,
+          attempt_count,
+          max_attempts
         FROM async_tasks
         WHERE id = ? AND user_id = ?
         LIMIT 1`,
@@ -206,6 +311,95 @@ export class MySqlTaskRepository implements TaskRepository {
       }
 
       return mapAsyncTaskRowToRecord(row);
+    });
+  }
+
+  async claimNextReadyTask(input: {
+    workerId: string;
+    taskTypes: string[];
+    leaseMs: number;
+  }): Promise<AsyncTaskRecord | null> {
+    return withClient(async (client) => {
+      await client.beginTransaction();
+
+      try {
+        const now = new Date();
+        const expiredAt = new Date(now.getTime() - input.leaseMs);
+        const taskTypePlaceholders = input.taskTypes.map(() => "?").join(", ");
+        const [rows] = await client.query<AsyncTaskRow[]>(
+          `SELECT
+             id,
+             user_id,
+             task_type,
+             biz_type,
+             biz_id,
+             payload_json,
+             status,
+             progress,
+             result_summary,
+             result_json,
+             idempotency_key,
+             provider_meta,
+             error_code,
+             error_message,
+             created_at,
+             updated_at,
+             finished_at,
+             available_at,
+             locked_at,
+             locked_by,
+             attempt_count,
+             max_attempts
+           FROM async_tasks
+           WHERE task_type IN (${taskTypePlaceholders})
+             AND available_at <= ?
+             AND attempt_count < max_attempts
+             AND (
+               status = 'uploaded'
+               OR (status = 'processing' AND locked_at IS NOT NULL AND locked_at <= ?)
+             )
+           ORDER BY available_at ASC, created_at ASC
+           LIMIT 1
+           FOR UPDATE`,
+          [...input.taskTypes, formatDateTime(now), formatDateTime(expiredAt)]
+        );
+
+        const row = rows[0];
+        if (!row) {
+          await client.commit();
+          return null;
+        }
+
+        const attemptCount = Number(row.attempt_count ?? 0) + 1;
+        await client.query(
+          `UPDATE async_tasks
+           SET status = ?, locked_at = ?, locked_by = ?, updated_at = ?, attempt_count = ?, error_code = NULL, error_message = NULL
+           WHERE id = ?`,
+          [
+            "processing",
+            formatDateTime(now),
+            input.workerId,
+            formatDateTime(now),
+            attemptCount,
+            row.id
+          ]
+        );
+
+        await client.commit();
+        return {
+          ...mapAsyncTaskRowToRecord(row),
+          status: "processing",
+          lockedAt: now,
+          lockedBy: input.workerId,
+          attemptCount,
+          updatedAt: now,
+          errorCode: null,
+          errorMessage: null
+        };
+      } catch (error) {
+        await client.rollback();
+        throw error;
+      }
     });
   }
 }
@@ -224,6 +418,9 @@ export const createNoopTaskRepository = (): TaskRepository => ({
     return null;
   },
   async findByIdForUser() {
+    return null;
+  },
+  async claimNextReadyTask() {
     return null;
   }
 });
@@ -257,15 +454,23 @@ function mapAsyncTaskRowToRecord(row: AsyncTaskRow): AsyncTaskRecord {
     taskType: row.task_type as AsyncTaskRecord["taskType"],
     bizType: row.biz_type,
     bizId: row.biz_id,
+    payloadJson: decodeJson(row.payload_json),
     status: row.status as AsyncTaskRecord["status"],
     progress: row.progress,
     resultSummary: row.result_summary,
+    resultJson: decodeJson(row.result_json),
+    idempotencyKey: row.idempotency_key,
     providerMeta: decodeJson(row.provider_meta),
     errorCode: row.error_code,
     errorMessage: row.error_message,
     createdAt: toDate(row.created_at),
     updatedAt: toDate(row.updated_at),
-    finishedAt: row.finished_at ? toDate(row.finished_at) : null
+    finishedAt: row.finished_at ? toDate(row.finished_at) : null,
+    availableAt: row.available_at ? toDate(row.available_at) : null,
+    lockedAt: row.locked_at ? toDate(row.locked_at) : null,
+    lockedBy: row.locked_by,
+    attemptCount: Number(row.attempt_count ?? 0),
+    maxAttempts: Number(row.max_attempts ?? 3)
   };
 }
 
@@ -276,16 +481,14 @@ function encodeJson(value?: JsonValue | null): string | null {
   return JSON.stringify(value);
 }
 
-function decodeJson(
-  value: string | Record<string, JsonValue> | null
-): JsonValue | null {
-  if (value === null) {
+function decodeJson(value: unknown): JsonValue | null {
+  if (value === undefined || value === null) {
     return null;
   }
   if (typeof value === "string") {
     return JSON.parse(value) as JsonValue;
   }
-  return value;
+  return value as JsonValue;
 }
 
 function toDate(value: Date | string): Date {

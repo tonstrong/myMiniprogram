@@ -32,6 +32,12 @@ export interface AppConfig {
     apiKey: string;
     ttlSeconds: number;
   };
+  worker: {
+    pollIntervalMs: number;
+    leaseMs: number;
+    dailyHomeSweepIntervalMs: number;
+    timeZone: string;
+  };
 }
 
 function requireEnv(key: string): string {
@@ -118,6 +124,14 @@ export function loadConfig(): AppConfig {
       provider: optionalEnv("WEATHER_PROVIDER", ""),
       apiKey: optionalEnv("WEATHER_API_KEY", ""),
       ttlSeconds: Number(optionalEnv("WEATHER_TTL_SECONDS", "600"))
+    },
+    worker: {
+      pollIntervalMs: Number(optionalEnv("WORKER_POLL_INTERVAL_MS", "1500")),
+      leaseMs: Number(optionalEnv("WORKER_LEASE_MS", "90000")),
+      dailyHomeSweepIntervalMs: Number(
+        optionalEnv("WORKER_DAILY_HOME_SWEEP_INTERVAL_MS", "600000")
+      ),
+      timeZone: optionalEnv("WORKER_TIME_ZONE", "Asia/Shanghai")
     }
   };
 }

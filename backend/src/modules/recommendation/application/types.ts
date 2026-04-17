@@ -55,6 +55,7 @@ export interface RecommendationPlannerInput {
   stylePack?: RecommendationStylePackContext;
   userProfile?: RecommendationUserProfile;
   preferenceTags?: string[];
+  preferredItemIds?: string[];
   candidates: RecommendationCandidateItem[];
 }
 

@@ -28,12 +28,24 @@ export interface GenerateRecommendationResponseDTO {
   recommendationId: string;
   outfits: RecommendationOutfitDTO[];
   providerMeta?: ProviderMeta;
+  status?: "completed" | "failed" | "processing";
+  createdAt?: string;
 }
 
 export interface RecommendationDetailResponseDTO
   extends GenerateRecommendationResponseDTO {
   status?: "completed" | "failed" | "processing";
   createdAt?: string;
+}
+
+export interface HomeRecommendationResponseDTO {
+  recommendationId?: string;
+  scene?: string;
+  reason?: string;
+  coverImageUrl?: string;
+  status: "completed" | "failed" | "processing" | "empty";
+  createdAt?: string;
+  displayDate?: string;
 }
 
 export interface RecommendationListQueryDTO {
@@ -45,7 +57,7 @@ export interface RecommendationListQueryDTO {
 export interface RecommendationListItemDTO {
   recommendationId: string;
   scene: string;
-  status: "generated" | "validated" | "failed" | "saved";
+  status: "processing" | "generated" | "validated" | "failed" | "saved";
   createdAt: string;
   coverImageUrl?: string;
 }

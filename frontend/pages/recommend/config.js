@@ -23,10 +23,7 @@ Page({
   },
 
   async initializePage() {
-    await Promise.all([
-      this.fetchStylePacks(),
-      this.prepareWeatherState()
-    ]);
+    await Promise.all([this.fetchStylePacks(), this.prepareWeatherState()]);
   },
 
   async fetchStylePacks() {
@@ -69,7 +66,7 @@ Page({
       this.setData({
         hasCity: false,
         cityName: '',
-        weather: '未设置城市，可先直接生成不带天气的搭配',
+        weather: '未设置城市，可先生成不带天气的搭配',
         weatherPayload: null
       });
       this.promptCityGuide();
@@ -86,7 +83,7 @@ Page({
   async fetchWeather(forceRefresh = false) {
     if (!this.data.hasCity) {
       this.setData({
-        weather: '未设置城市，可先直接生成不带天气的搭配',
+        weather: '未设置城市，可先生成不带天气的搭配',
         weatherPayload: null
       });
       return;
@@ -103,10 +100,13 @@ Page({
       });
     } catch (error) {
       const rawMessage = error?.error?.message || error?.message || '';
-      const missingCity = error?.code === 'CITY_NOT_SET' || rawMessage.includes('设置所在城市');
+      const missingCity =
+        error?.code === 'CITY_NOT_SET' || rawMessage.includes('设置所在城市');
       this.setData({
         hasCity: !missingCity && this.data.hasCity,
-        weather: missingCity ? '未设置城市，可先直接生成不带天气的搭配' : '天气暂不可用，仍可继续生成搭配',
+        weather: missingCity
+          ? '未设置城市，可先生成不带天气的搭配'
+          : '天气暂不可用，仍可继续生成搭配',
         weatherPayload: null
       });
       if (missingCity) {
@@ -123,7 +123,8 @@ Page({
     this.cityGuideShown = true;
     wx.showModal({
       title: '先设置所在城市',
-      content: '设置后可以自动同步天气和温度，让推荐更贴合当天穿搭。现在也可以先跳过，直接生成不带天气的搭配。',
+      content:
+        '设置后可以自动同步天气和温度，让推荐更贴合当天穿搭。现在也可以先跳过，直接生成不带天气的搭配。',
       confirmText: '去设置',
       cancelText: '先跳过',
       success: ({ confirm }) => {
@@ -154,7 +155,10 @@ Page({
       const city = extractCityFromAddress(location.address || location.name || '');
       if (!city) {
         this.setData({ cityBusy: false });
-        wx.showToast({ title: '未识别到城市，请去“我的”里手动设置', icon: 'none' });
+        wx.showToast({
+          title: '未识别到城市，请去“我的”里手动设置',
+          icon: 'none'
+        });
         return;
       }
 
@@ -190,6 +194,10 @@ Page({
   },
 
   async generateLook() {
+    if (this.data.isGenerating) {
+      return;
+    }
+
     this.setData({ isGenerating: true });
     try {
       const result = await api.request({
@@ -201,14 +209,20 @@ Page({
           weather: this.data.weatherPayload || undefined
         }
       });
+
       this.setData({ isGenerating: false });
-      wx.navigateTo({ url: `/pages/recommend/result?id=${result.recommendationId}` });
+      wx.showToast({ title: '已开始生成', icon: 'success' });
+      wx.navigateTo({
+        url: `/pages/recommend/result?id=${result.recommendationId}`
+      });
     } catch (error) {
       this.setData({ isGenerating: false });
       console.error('Generate recommendation failed', error);
       const rawMessage = error?.error?.message || error?.message || '';
-      const message = mapRecommendationErrorMessage(rawMessage);
-      wx.showToast({ title: message, icon: 'none' });
+      wx.showToast({
+        title: mapRecommendationErrorMessage(rawMessage),
+        icon: 'none'
+      });
     }
   }
 });
@@ -223,6 +237,10 @@ function mapRecommendationErrorMessage(message) {
     message.includes('当前衣橱里还没有可用于推荐的单品')
   ) {
     return '先确认并入库至少 2 件单品，再来生成推荐';
+  }
+
+  if (message.includes('每天最多 3 次') || message.includes('今日灵感图集生成次数已用完')) {
+    return '今日生成次数已用完，明天再来试试';
   }
 
   return message;

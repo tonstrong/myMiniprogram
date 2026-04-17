@@ -8,6 +8,9 @@ export interface GenerateRecommendationCommand {
   weather?: RecommendationWeather;
   stylePackId?: string;
   preferenceTags?: string[];
+  preferredItemIds?: string[];
+  sourceType?: "manual" | "daily_home";
+  displayDate?: string;
 }
 
 export interface RecommendationAlternative {
@@ -30,10 +33,26 @@ export interface RecommendationResult {
   createdAt?: string;
 }
 
+export interface HomeRecommendationSnapshot {
+  recommendationId: string;
+  scene: string;
+  reason?: string;
+  coverImageUrl?: string;
+  status: "completed" | "failed" | "processing" | "empty";
+  createdAt?: string;
+  displayDate?: string;
+}
+
+export interface RecommendationGenerationTaskPayload {
+  recommendationId: string;
+  userId: string;
+  preferredItemIds?: string[];
+}
+
 export interface RecommendationHistoryItem {
   recommendationId: string;
   scene: string;
-  status: "generated" | "validated" | "failed" | "saved";
+  status: "processing" | "generated" | "validated" | "failed" | "saved";
   createdAt: string;
   coverImageUrl?: string;
 }
@@ -59,6 +78,14 @@ export interface RecommendationService {
     query: RecommendationListQuery
   ): Promise<PaginatedResult<RecommendationHistoryItem>>;
   getDetail(userId: string, recommendationId: string): Promise<RecommendationResult>;
+  getHomeDaily(userId: string): Promise<HomeRecommendationSnapshot | null>;
+  ensureDailyHomeRecommendation(
+    userId: string,
+    displayDate?: string
+  ): Promise<HomeRecommendationSnapshot | null>;
+  processQueuedRecommendationTask(
+    payload: RecommendationGenerationTaskPayload
+  ): Promise<void>;
   feedback(command: RecommendationFeedbackCommand): Promise<void>;
   save(userId: string, recommendationId: string): Promise<void>;
 }

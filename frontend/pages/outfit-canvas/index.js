@@ -228,6 +228,16 @@ Page({
     this.selectCanvasItemById(e.currentTarget.dataset.id);
   },
 
+  clearCanvasSelection() {
+    if (!this.data.selectedCanvasItemId) {
+      return;
+    }
+
+    const nextItems = this.getNormalizedCanvasItems();
+    this.syncCanvasItems(nextItems, '');
+    this.persistDraft(nextItems, '');
+  },
+
   selectCanvasItemById(canvasId) {
     if (!canvasId) {
       return;
@@ -567,10 +577,9 @@ Page({
   syncCanvasItems(items, selectedCanvasItemId = '') {
     const normalizedItems = normalizeLayerIndexes(items);
     const decoratedItems = decorateCanvasItems(normalizedItems, this.data.boardWidth, this.data.boardHeight);
-    const selectedItem =
-      decoratedItems.find((item) => item.id === selectedCanvasItemId) ||
-      decoratedItems[decoratedItems.length - 1] ||
-      null;
+    const selectedItem = selectedCanvasItemId
+      ? decoratedItems.find((item) => item.id === selectedCanvasItemId) || null
+      : null;
 
     this.setData({
       canvasItems: decoratedItems,

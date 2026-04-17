@@ -10,15 +10,18 @@ import { mapStylePackRecordToDetail } from "../../style-pack/infrastructure";
 import type { RecommendationRepository } from "../infrastructure";
 import type { WeatherService } from "../../weather";
 import type { UserProfileRepository } from "../../user-profile/infrastructure";
+import type { TaskCenterService } from "../../task-center";
 import {
   createInMemoryRecommendationRepository,
   mapRecommendationRecordsToResult
 } from "../infrastructure";
 import type {
   GenerateRecommendationCommand,
+  HomeRecommendationSnapshot,
   RecommendationHistoryItem,
   RecommendationListQuery,
   RecommendationFeedbackCommand,
+  RecommendationGenerationTaskPayload,
   RecommendationOutfit,
   RecommendationResult,
   RecommendationService
@@ -43,12 +46,19 @@ import type {
 const MIN_CANDIDATE_COUNT = 2;
 const DEFAULT_PAGE_NO = 1;
 const DEFAULT_PAGE_SIZE = 20;
+const DAILY_RECOMMENDATION_LIMIT = 3;
+const MAX_LLM_CANDIDATES = 12;
+const MAX_LLM_COLORS = 2;
+const MAX_LLM_TAGS = 3;
+const MAX_OUTFIT_COUNT = 1;
 const MAX_OUTFIT_ITEMS = 5;
+const RECOMMENDATION_TIME_ZONE = "Asia/Shanghai";
 
 export interface RecommendationServiceDependencies {
   closetRepository: ClosetRepository;
   stylePackRepository: StylePackRepository;
   recommendationRepository: RecommendationRepository;
+  taskCenterService?: TaskCenterService;
   llmGatewayService?: LlmGatewayService;
   weatherService?: WeatherService;
   userProfileRepository?: UserProfileRepository;
@@ -60,84 +70,12 @@ export class InMemoryRecommendationService implements RecommendationService {
   async generate(
     command: GenerateRecommendationCommand
   ): Promise<RecommendationResult> {
-    const effectiveWeather = await this.resolveWeather(command);
-    const stylePackContext = await this.loadStylePackContext(
-      command.userId,
-      command.stylePackId
-    );
-    const userProfileContext = await this.loadUserProfileContext(command.userId);
-    const candidateProvider = this.buildCandidateProvider();
-    const candidateFilter = this.buildCandidateFilter();
-    const planner = this.buildPlanner(stylePackContext, userProfileContext);
-    const validator = this.buildValidator();
-    const explainer = this.buildExplainer(stylePackContext, userProfileContext);
-
-    const orchestrator = new RecommendationOrchestrator({
-      candidateProvider,
-      candidateFilter,
-      planner,
-      validator,
-      explainer
-    });
-
-    const orchestration = await orchestrator.execute({
-      ...command,
-      weather: effectiveWeather
-    });
-    if (orchestration.status !== "completed" || !orchestration.outfits) {
-      throw new AppError(
-        orchestration.reason ?? "Unable to generate recommendation",
-        "INVALID_REQUEST",
-        400
-      );
-    }
-
-    const recommendationId = generateId();
-    const createdAt = new Date().toISOString();
-    const providerMeta = resolveProviderMeta(orchestration.providerMeta);
-    const outfits = mapPlansToOutfits(orchestration.outfits);
     const createdAtDate = new Date();
-
-    const result: RecommendationResult = {
-      recommendationId,
-      outfits,
-      providerMeta,
-      status: "completed",
-      createdAt
-    };
-
-    await this.deps.recommendationRepository.saveRecommendation({
-      id: recommendationId,
-      userId: command.userId,
-      stylePackId: command.stylePackId ?? null,
-      scene: command.scene,
-      weatherJson: effectiveWeather as unknown as JsonValue,
-      provider: providerMeta?.provider ?? null,
-      modelName: providerMeta?.modelName ?? null,
-      modelTier: providerMeta?.modelTier ?? null,
-      retryCount: providerMeta?.retryCount ?? null,
-      validatorResult: orchestration.validation as unknown as JsonValue,
-      reasonText: outfits[0]?.reason ?? null,
-      status: "generated",
-      createdAt: createdAtDate,
-      updatedAt: createdAtDate
+    await this.ensureDailyGenerationQuota(command.userId, createdAtDate);
+    return this.queueRecommendationGeneration({
+      ...command,
+      sourceType: "manual"
     });
-    await this.deps.recommendationRepository.saveRecommendationItems(
-      orchestration.outfits.flatMap((outfit) =>
-        outfit.items.map((item) => ({
-          id: generateId(),
-          recommendationId,
-          outfitNo: outfit.outfitNo,
-          itemId: item.itemId,
-          role: item.role,
-          reasonText: outfit.reason ?? null,
-          alternativeJson: outfit.alternatives as unknown as JsonValue,
-          createdAt: createdAtDate
-        }))
-      )
-    );
-
-    return result;
   }
 
   async list(
@@ -182,6 +120,114 @@ export class InMemoryRecommendationService implements RecommendationService {
     return mapRecommendationRecordsToResult(recommendation, items);
   }
 
+  async getHomeDaily(userId: string): Promise<HomeRecommendationSnapshot | null> {
+    const displayDate = getDateStringInTimeZone(new Date(), RECOMMENDATION_TIME_ZONE);
+    const existing =
+      await this.deps.recommendationRepository.findDailyHomeByUserAndDate(
+        userId,
+        displayDate
+      );
+    if (existing) {
+      return mapHomeRecommendationRecord(existing);
+    }
+
+    return this.ensureDailyHomeRecommendation(userId, displayDate);
+  }
+
+  async ensureDailyHomeRecommendation(
+    userId: string,
+    displayDate = getDateStringInTimeZone(new Date(), RECOMMENDATION_TIME_ZONE)
+  ): Promise<HomeRecommendationSnapshot | null> {
+    const existing =
+      await this.deps.recommendationRepository.findDailyHomeByUserAndDate(
+        userId,
+        displayDate
+      );
+    if (existing) {
+      return mapHomeRecommendationRecord(existing);
+    }
+
+    const preferredItemIds =
+      await this.deps.recommendationRepository.listPreferredItemIds(
+        userId,
+        MAX_LLM_CANDIDATES
+      );
+    if (preferredItemIds.length === 0) {
+      return null;
+    }
+
+    const recommendation = await this.queueRecommendationGeneration({
+      userId,
+      scene: inferSceneForDate(displayDate),
+      preferredItemIds,
+      sourceType: "daily_home",
+      displayDate
+    });
+
+    return {
+      recommendationId: recommendation.recommendationId,
+      scene: inferSceneForDate(displayDate),
+      reason: "根据你最近喜欢和收藏的搭配生成中",
+      status: "processing",
+      createdAt: recommendation.createdAt,
+      displayDate
+    };
+  }
+
+  async processQueuedRecommendationTask(
+    payload: RecommendationGenerationTaskPayload
+  ): Promise<void> {
+    const recommendation = await this.deps.recommendationRepository.findById(
+      payload.recommendationId
+    );
+    if (!recommendation) {
+      throw new AppError("Recommendation not found", "NOT_FOUND", 404);
+    }
+
+    if (recommendation.status === "generated" || recommendation.status === "saved") {
+      return;
+    }
+
+    const effectiveWeather =
+      coerceWeatherFromJson(recommendation.weatherJson) ??
+      (await this.resolveWeather({
+        userId: recommendation.userId,
+        scene: recommendation.scene,
+        stylePackId: recommendation.stylePackId ?? undefined
+      }));
+    const stylePackContext = await this.loadStylePackContext(
+      recommendation.userId,
+      recommendation.stylePackId ?? undefined
+    );
+    const userProfileContext = await this.loadUserProfileContext(recommendation.userId);
+
+    const outcome = await this.processRecommendationGeneration({
+      recommendationId: recommendation.id,
+      command: {
+        userId: recommendation.userId,
+        scene: recommendation.scene,
+        weather: effectiveWeather,
+        stylePackId: recommendation.stylePackId ?? undefined,
+        preferredItemIds: payload.preferredItemIds,
+        sourceType: recommendation.sourceType,
+        displayDate: recommendation.displayDate ?? undefined
+      },
+      effectiveWeather,
+      stylePackContext,
+      userProfileContext
+    });
+
+    if (outcome.status === "failed") {
+      await this.markRecommendationFailed(
+        recommendation.id,
+        outcome.message,
+        outcome.providerMeta,
+        outcome.validation
+      );
+      throw new AppError(outcome.message, "INVALID_REQUEST", 400);
+    }
+  }
+
   async feedback(command: RecommendationFeedbackCommand): Promise<void> {
     const recommendation = await this.deps.recommendationRepository.findById(
       command.recommendationId
@@ -209,6 +255,230 @@ export class InMemoryRecommendationService implements RecommendationService {
     }
     await this.deps.recommendationRepository.updateRecommendation(recommendationId, {
       status: "saved",
+      updatedAt: new Date()
+    });
+  }
+
+  private async queueRecommendationGeneration(
+    command: GenerateRecommendationCommand
+  ): Promise<RecommendationResult> {
+    const createdAtDate = new Date();
+    const effectiveWeather = await this.resolveWeather(command);
+    const recommendationId = generateId();
+    try {
+      await this.deps.recommendationRepository.saveRecommendation({
+        id: recommendationId,
+        userId: command.userId,
+        stylePackId: command.stylePackId ?? null,
+        scene: command.scene,
+        sourceType: command.sourceType ?? "manual",
+        displayDate: command.displayDate ?? null,
+        weatherJson: effectiveWeather as unknown as JsonValue,
+        provider: null,
+        modelName: null,
+        modelTier: null,
+        retryCount: null,
+        validatorResult: null,
+        reasonText: null,
+        status: "processing",
+        createdAt: createdAtDate,
+        updatedAt: createdAtDate
+      });
+    } catch (error) {
+      if (command.sourceType === "daily_home" && command.displayDate) {
+        const existing =
+          await this.deps.recommendationRepository.findDailyHomeByUserAndDate(
+            command.userId,
+            command.displayDate
+          );
+        if (existing) {
+          return {
+            recommendationId: existing.id,
+            outfits: [],
+            status:
+              existing.status === "failed"
+                ? "failed"
+                : existing.status === "processing"
+                  ? "processing"
+                  : "completed",
+            createdAt: existing.createdAt.toISOString()
+          };
+        }
+      }
+      throw error;
+    }
+
+    const payload: RecommendationGenerationTaskPayload = {
+      recommendationId,
+      userId: command.userId,
+      preferredItemIds: command.preferredItemIds
+    };
+
+    if (this.deps.taskCenterService) {
+      await this.deps.taskCenterService.createTask({
+        taskType:
+          command.sourceType === "daily_home"
+            ? "generate_daily_home_recommendation"
+            : "generate_outfit_recommendations",
+        payload: {
+          recommendationId: payload.recommendationId,
+          userId: payload.userId,
+          preferredItemIds: payload.preferredItemIds ?? []
+        },
+        requesterId: command.userId,
+        bizType: "recommendation",
+        bizId: recommendationId,
+        maxAttempts: 4
+      });
+    } else {
+      try {
+        await this.processQueuedRecommendationTask(payload);
+      } catch (error) {
+        await this.markRecommendationFailed(
+          recommendationId,
+          error instanceof Error ? error.message : "Recommendation generation failed"
+        );
+      }
+    }
+
+    return {
+      recommendationId,
+      outfits: [],
+      status: "processing",
+      createdAt: createdAtDate.toISOString()
+    };
+  }
+
+  private async ensureDailyGenerationQuota(
+    userId: string,
+    now: Date
+  ): Promise<void> {
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const todayCount =
+      await this.deps.recommendationRepository.countCreatedByUserSince(
+        userId,
+        startOfDay
+      );
+
+    if (todayCount >= DAILY_RECOMMENDATION_LIMIT) {
+      throw new AppError(
+        `今日灵感图集生成次数已用完，每天最多 ${DAILY_RECOMMENDATION_LIMIT} 次。`,
+        "INVALID_REQUEST",
+        400
+      );
+    }
+  }
+
+  private async processRecommendationGeneration(input: {
+    recommendationId: string;
+    command: GenerateRecommendationCommand;
+    effectiveWeather?: GenerateRecommendationCommand["weather"];
+    stylePackContext?: RecommendationStylePackContext;
+    userProfileContext?: RecommendationUserProfile;
+  }): Promise<
+    | {
+        status: "completed";
+      }
+    | {
+        status: "failed";
+        message: string;
+        providerMeta?: {
+          planner?: ProviderMeta;
+          explainer?: ProviderMeta;
+        };
+        validation?: RecommendationValidationResult;
+      }
+  > {
+    const candidateProvider = this.buildCandidateProvider();
+    const candidateFilter = this.buildCandidateFilter();
+    const planner = this.buildPlanner(
+      input.stylePackContext,
+      input.userProfileContext
+    );
+    const validator = this.buildValidator();
+    const explainer = this.buildExplainer(
+      input.stylePackContext,
+      input.userProfileContext
+    );
+
+    const orchestrator = new RecommendationOrchestrator({
+      candidateProvider,
+      candidateFilter,
+      planner,
+      validator,
+      explainer
+    });
+
+    const orchestration = await orchestrator.execute({
+      ...input.command,
+      weather: input.effectiveWeather
+    });
+
+    if (orchestration.status !== "completed" || !orchestration.outfits) {
+      return {
+        status: "failed",
+        message: orchestration.reason ?? "Unable to generate recommendation",
+        providerMeta: orchestration.providerMeta,
+        validation: orchestration.validation
+      };
+    }
+
+    const providerMeta = resolveProviderMeta(orchestration.providerMeta);
+    const outfits = mapPlansToOutfits(orchestration.outfits);
+    const updatedAt = new Date();
+
+    await this.deps.recommendationRepository.replaceRecommendationItems(
+      input.recommendationId,
+      orchestration.outfits.flatMap((outfit) =>
+        outfit.items.map((item) => ({
+          id: generateId(),
+          recommendationId: input.recommendationId,
+          outfitNo: outfit.outfitNo,
+          itemId: item.itemId,
+          role: item.role,
+          reasonText: outfit.reason ?? null,
+          alternativeJson: outfit.alternatives as unknown as JsonValue,
+          createdAt: updatedAt
+        }))
+      )
+    );
+
+    await this.deps.recommendationRepository.updateRecommendation(
+      input.recommendationId,
+      {
+        provider: providerMeta?.provider ?? null,
+        modelName: providerMeta?.modelName ?? null,
+        modelTier: providerMeta?.modelTier ?? null,
+        retryCount: providerMeta?.retryCount ?? null,
+        validatorResult: orchestration.validation as unknown as JsonValue,
+        reasonText: outfits[0]?.reason ?? null,
+        status: "generated",
+        updatedAt
+      }
+    );
+
+    return { status: "completed" };
+  }
+
+  private async markRecommendationFailed(
+    recommendationId: string,
+    message: string,
+    providerMeta?: {
+      planner?: ProviderMeta;
+      explainer?: ProviderMeta;
+    },
+    validation?: RecommendationValidationResult
+  ): Promise<void> {
+    const resolvedProviderMeta = resolveProviderMeta(providerMeta);
+    await this.deps.recommendationRepository.updateRecommendation(recommendationId, {
+      provider: resolvedProviderMeta?.provider ?? null,
+      modelName: resolvedProviderMeta?.modelName ?? null,
+      modelTier: resolvedProviderMeta?.modelTier ?? null,
+      retryCount: resolvedProviderMeta?.retryCount ?? null,
+      validatorResult: validation as unknown as JsonValue,
+      reasonText: message,
+      status: "failed",
       updatedAt: new Date()
     });
   }
@@ -302,6 +572,7 @@ export class InMemoryRecommendationService implements RecommendationService {
           stylePackContext,
           userProfileContext,
           preferenceTags: input.preferenceTags,
+          preferredItemIds: input.preferredItemIds,
           candidates: input.candidates
         });
         if (llmPlanned?.outfits.length) {
@@ -313,7 +584,10 @@ export class InMemoryRecommendationService implements RecommendationService {
           };
         }
 
-        const items = buildPlannedOutfitItems(input.candidates);
+        const items = buildPlannedOutfitItems(
+          input.candidates,
+          input.preferredItemIds
+        );
         if (items.length < MIN_CANDIDATE_COUNT) {
           return {
             status: "insufficient_items",
@@ -485,6 +759,7 @@ export class InMemoryRecommendationService implements RecommendationService {
     stylePackContext?: RecommendationStylePackContext;
     userProfileContext?: RecommendationUserProfile;
     preferenceTags?: string[];
+    preferredItemIds?: string[];
     candidates: RecommendationCandidateItem[];
   }): Promise<
     | {
@@ -497,7 +772,10 @@ export class InMemoryRecommendationService implements RecommendationService {
       return undefined;
     }
 
-    const shortlistedCandidates = buildPlannerCandidateShortlist(input.candidates);
+    const shortlistedCandidates = buildPlannerCandidateShortlist(
+      input.candidates,
+      input.preferredItemIds
+    );
     if (shortlistedCandidates.length < MIN_CANDIDATE_COUNT) {
       return undefined;
     }
@@ -512,6 +790,7 @@ export class InMemoryRecommendationService implements RecommendationService {
             stylePackContext: input.stylePackContext,
             userProfileContext: input.userProfileContext,
             preferenceTags: input.preferenceTags,
+            preferredItemIds: input.preferredItemIds,
             candidates: shortlistedCandidates
           }),
           temperature: 0.2
@@ -669,9 +948,11 @@ type RecommendationCategoryBucket =
   | "other";
 
 function buildPlannedOutfitItems(
-  candidates: RecommendationCandidateItem[]
+  candidates: RecommendationCandidateItem[],
+  preferredItemIds?: string[]
 ): Array<{ itemId: string; role: string }> {
-  const grouped = groupCandidatesByBucket(candidates);
+  const prioritizedCandidates = prioritizeCandidates(candidates, preferredItemIds);
+  const grouped = groupCandidatesByBucket(prioritizedCandidates);
   const topBottomPlan = buildTopBottomPlan(grouped);
   const dressPlan = buildDressPlan(grouped);
 
@@ -682,7 +963,7 @@ function buildPlannedOutfitItems(
   const resolvedPlan =
     selectedPlan.length >= MIN_CANDIDATE_COUNT
       ? selectedPlan
-      : buildFallbackPlan(candidates);
+      : buildFallbackPlan(prioritizedCandidates);
 
   return resolvedPlan.slice(0, MAX_OUTFIT_ITEMS).map((candidate, index) => ({
     itemId: candidate.itemId,
@@ -691,9 +972,11 @@ function buildPlannedOutfitItems(
 }
 
 function buildPlannerCandidateShortlist(
-  candidates: RecommendationCandidateItem[]
+  candidates: RecommendationCandidateItem[],
+  preferredItemIds?: string[]
 ): RecommendationCandidateItem[] {
-  const grouped = groupCandidatesByBucket(candidates);
+  const prioritizedCandidates = prioritizeCandidates(candidates, preferredItemIds);
+  const grouped = groupCandidatesByBucket(prioritizedCandidates);
   const shortlist: RecommendationCandidateItem[] = [];
   const usedIds = new Set<string>();
   const bucketLimits: Array<[RecommendationCategoryBucket, number]> = [
@@ -717,8 +1000,8 @@ function buildPlannerCandidateShortlist(
     });
   });
 
-  for (const candidate of candidates) {
-    if (shortlist.length >= 18) {
+  for (const candidate of prioritizedCandidates) {
+    if (shortlist.length >= MAX_LLM_CANDIDATES) {
       break;
     }
     if (usedIds.has(candidate.itemId)) {
@@ -729,6 +1012,33 @@ function buildPlannerCandidateShortlist(
   }
 
   return shortlist;
+}
+
+function prioritizeCandidates(
+  candidates: RecommendationCandidateItem[],
+  preferredItemIds?: string[]
+): RecommendationCandidateItem[] {
+  if (!preferredItemIds?.length) {
+    return candidates;
+  }
+
+  const preferredOrder = new Map(
+    preferredItemIds.map((itemId, index) => [itemId, index] as const)
+  );
+  return [...candidates].sort((left, right) => {
+    const leftScore = preferredOrder.get(left.itemId);
+    const rightScore = preferredOrder.get(right.itemId);
+    if (leftScore === undefined && rightScore === undefined) {
+      return 0;
+    }
+    if (leftScore === undefined) {
+      return 1;
+    }
+    if (rightScore === undefined) {
+      return -1;
+    }
+    return leftScore - rightScore;
+  });
 }
 
 function buildTopBottomPlan(
@@ -913,12 +1223,47 @@ function compactCandidates(
   );
 }
 
+function slimStylePackContext(stylePack?: RecommendationStylePackContext) {
+  if (!stylePack) {
+    return {};
+  }
+
+  const slimRules =
+    stylePack.rules && typeof stylePack.rules === "object"
+      ? Object.fromEntries(Object.entries(stylePack.rules).slice(0, 6))
+      : undefined;
+
+  return {
+    summary: stylePack.summary,
+    rules: slimRules,
+    promptProfile: stylePack.promptProfile
+      ? {
+          tone: stylePack.promptProfile.tone,
+          bias: limitStringArray(stylePack.promptProfile.bias, 4)
+        }
+      : undefined
+  };
+}
+
+function limitStringArray(
+  value: string[] | undefined,
+  limit: number
+): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+    .slice(0, limit);
+}
+
 function buildPlannerMessages(input: {
   scene: string;
   weather?: GenerateRecommendationCommand["weather"];
   stylePackContext?: RecommendationStylePackContext;
   userProfileContext?: RecommendationUserProfile;
   preferenceTags?: string[];
+  preferredItemIds?: string[];
   candidates: RecommendationCandidateItem[];
 }) {
   return [
@@ -934,14 +1279,15 @@ function buildPlannerMessages(input: {
           scene: input.scene,
           weather: input.weather,
           preferenceTags: input.preferenceTags ?? [],
+          preferredItemIds: input.preferredItemIds ?? [],
           userProfile: input.userProfileContext ?? {},
-          stylePack: input.stylePackContext ?? {},
+          stylePack: slimStylePackContext(input.stylePackContext),
           wardrobeCandidates: input.candidates.map((candidate) => ({
             itemId: candidate.itemId,
             category: candidate.category,
             subCategory: candidate.subCategory,
-            colors: candidate.colors ?? [],
-            tags: candidate.tags ?? []
+            colors: limitStringArray(candidate.colors, MAX_LLM_COLORS),
+            tags: limitStringArray(candidate.tags, MAX_LLM_TAGS)
           }))
         },
         null,
@@ -976,15 +1322,21 @@ function buildExplainerMessages(input: {
           scene: input.scene,
           weather: input.weather,
           userProfile: input.userProfileContext ?? {},
-          stylePack: input.stylePackContext ?? {},
+          stylePack: slimStylePackContext(input.stylePackContext),
           outfits: input.outfits.map((outfit) => ({
             outfitNo: outfit.outfitNo,
             items: outfit.items.map((item) => ({
               itemId: item.itemId,
               category: candidateMap.get(item.itemId)?.category,
               subCategory: candidateMap.get(item.itemId)?.subCategory,
-              colors: candidateMap.get(item.itemId)?.colors ?? [],
-              tags: candidateMap.get(item.itemId)?.tags ?? []
+              colors: limitStringArray(
+                candidateMap.get(item.itemId)?.colors,
+                MAX_LLM_COLORS
+              ),
+              tags: limitStringArray(
+                candidateMap.get(item.itemId)?.tags,
+                MAX_LLM_TAGS
+              )
             }))
           }))
         },
@@ -1028,7 +1380,10 @@ function coercePlannedOutfits(
   candidates: RecommendationCandidateItem[]
 ): RecommendationOutfitPlan[] {
   const candidateIds = new Set(candidates.map((candidate) => candidate.itemId));
-  const outfits = Array.isArray(parsed.outfits) ? parsed.outfits : [];
+  const outfits = (Array.isArray(parsed.outfits) ? parsed.outfits : []).slice(
+    0,
+    MAX_OUTFIT_COUNT
+  );
   const plannedOutfits: RecommendationOutfitPlan[] = [];
 
   outfits.forEach((entry, index) => {
@@ -1163,6 +1518,63 @@ function coercePositiveInt(value: unknown): number | undefined {
 
 function asOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function mapHomeRecommendationRecord(record: {
+  id: string;
+  scene: string;
+  reasonText?: string | null;
+  coverImageUrl?: string | null;
+  status: "processing" | "generated" | "validated" | "failed" | "saved";
+  createdAt: Date;
+  displayDate?: string | null;
+}): HomeRecommendationSnapshot {
+  return {
+    recommendationId: record.id,
+    scene: record.scene,
+    reason: record.reasonText ?? undefined,
+    coverImageUrl: record.coverImageUrl ?? undefined,
+    status:
+      record.status === "failed"
+        ? "failed"
+        : record.status === "processing"
+          ? "processing"
+          : "completed",
+    createdAt: record.createdAt.toISOString(),
+    displayDate: record.displayDate ?? undefined
+  };
+}
+
+function coerceWeatherFromJson(
+  value?: JsonValue | null
+): GenerateRecommendationCommand["weather"] | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const data = value as Record<string, JsonValue>;
+  return typeof data.temperature === "number" && typeof data.condition === "string"
+    ? {
+        temperature: data.temperature,
+        condition: data.condition
+      }
+    : undefined;
+}
+
+function inferSceneForDate(displayDate: string): string {
+  const date = new Date(`${displayDate}T00:00:00+08:00`);
+  const weekday = date.getUTCDay();
+  return weekday === 0 || weekday === 6 ? "休闲" : "通勤";
+}
+
+function getDateStringInTimeZone(date: Date, timeZone: string): string {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+  return formatter.format(date);
 }
 
 function generateId(): string {

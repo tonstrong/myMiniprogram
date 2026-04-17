@@ -1,6 +1,7 @@
 import type {
   RecommendationExplainerRecord,
   RecommendationFeedbackRecord,
+  RecommendationHomeCardRecord,
   RecommendationItemRecord,
   RecommendationListRecord,
   RecommendationPlannerRecord,
@@ -11,7 +12,10 @@ import type { RecommendationPromptTemplateStore } from "./prompt-templates";
 export interface RecommendationRepository {
   saveRecommendation(record: RecommendationRecord): Promise<void>;
   updateRecommendation(id: string, patch: Partial<RecommendationRecord>): Promise<void>;
-  saveRecommendationItems(items: RecommendationItemRecord[]): Promise<void>;
+  replaceRecommendationItems(
+    recommendationId: string,
+    items: RecommendationItemRecord[]
+  ): Promise<void>;
   findItemsByRecommendationId(
     recommendationId: string
   ): Promise<RecommendationItemRecord[]>;
@@ -21,6 +25,12 @@ export interface RecommendationRepository {
   ): Promise<{ items: RecommendationListRecord[]; total: number }>;
   saveFeedback(record: RecommendationFeedbackRecord): Promise<void>;
   findById(id: string): Promise<RecommendationRecord | null>;
+  countCreatedByUserSince(userId: string, since: Date): Promise<number>;
+  findDailyHomeByUserAndDate(
+    userId: string,
+    displayDate: string
+  ): Promise<RecommendationHomeCardRecord | null>;
+  listPreferredItemIds(userId: string, limit: number): Promise<string[]>;
   savePlannerOutput(record: RecommendationPlannerRecord): Promise<void>;
   saveExplainerOutput(record: RecommendationExplainerRecord): Promise<void>;
   findPlannerOutputByRecommendationId(

@@ -5,12 +5,21 @@ import type {
   RetryableProviderFields
 } from "../../../app/common/persistence";
 
-export type RecommendationStatus = "generated" | "validated" | "failed" | "saved";
+export type RecommendationStatus =
+  | "processing"
+  | "generated"
+  | "validated"
+  | "failed"
+  | "saved";
+
+export type RecommendationSourceType = "manual" | "daily_home";
 
 export interface RecommendationRecord extends BaseRecord, RetryableProviderFields {
   userId: string;
   stylePackId?: string | null;
   scene: string;
+  sourceType: RecommendationSourceType;
+  displayDate?: string | null;
   weatherJson?: JsonValue | null;
   validatorResult?: JsonValue | null;
   reasonText?: string | null;
@@ -43,6 +52,19 @@ export interface RecommendationListRecord {
   userId: string;
   scene: string;
   status: RecommendationStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  coverImageUrl?: string | null;
+}
+
+export interface RecommendationHomeCardRecord {
+  id: string;
+  userId: string;
+  scene: string;
+  sourceType: RecommendationSourceType;
+  displayDate?: string | null;
+  status: RecommendationStatus;
+  reasonText?: string | null;
   createdAt: Date;
   updatedAt: Date;
   coverImageUrl?: string | null;

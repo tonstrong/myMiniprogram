@@ -39,6 +39,7 @@ export type TaskType =
   | "extract_clothing_attributes"
   | "extract_style_pack"
   | "generate_outfit_recommendations"
+  | "generate_daily_home_recommendation"
   | "content_safety_scan"
   | "file_cleanup"
   | "custom";

@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { AppError } from "../../../app/common/errors";
+import type { JsonValue } from "../../../app/common/persistence";
 import type {
   CreateTaskCommand,
   TaskCenterService,
@@ -27,15 +28,23 @@ export class InMemoryTaskCenterService implements TaskCenterService {
       id: generateId(),
       userId: command.requesterId ?? "anonymous",
       taskType: command.taskType,
-      bizType: command.taskType,
-      bizId: undefined,
+      bizType: command.bizType ?? command.taskType,
+      bizId: command.bizId ?? undefined,
+      payloadJson: command.payload as unknown as JsonValue,
       status: "uploaded",
       progress: 0,
       resultSummary: undefined,
+      resultJson: undefined,
+      idempotencyKey: command.idempotencyKey,
       errorCode: undefined,
       errorMessage: undefined,
       finishedAt: undefined,
       providerMeta: undefined,
+      availableAt: command.availableAt ?? now,
+      lockedAt: undefined,
+      lockedBy: undefined,
+      attemptCount: 0,
+      maxAttempts: command.maxAttempts ?? 3,
       createdAt: now,
       updatedAt: now
     };
@@ -60,7 +69,7 @@ export class InMemoryTaskCenterService implements TaskCenterService {
     await this.deps.repository.update(command.taskId, {
       ...patch,
       updatedAt: now,
-      finishedAt: shouldFinish ? now : undefined
+      finishedAt: command.finishedAt ?? (shouldFinish ? now : undefined)
     });
 
     const record = await this.deps.repository.findById(command.taskId);

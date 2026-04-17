@@ -60,7 +60,8 @@ export const mapAsyncTaskRecordToSnapshot = (
   status: record.status,
   progress: record.progress,
   resultSummary: record.resultSummary ?? undefined,
-  providerMeta: coerceProviderMeta(record.providerMeta)
+  providerMeta: coerceProviderMeta(record.providerMeta),
+  resultPayload: record.resultJson ?? undefined
 });
 
 export const mapUpdateTaskCommandToRecordPatch = (
@@ -69,5 +70,14 @@ export const mapUpdateTaskCommandToRecordPatch = (
   status: command.status,
   progress: command.progress,
   resultSummary: command.resultSummary,
-  providerMeta: mapProviderMetaToJson(command.providerMeta)
+  providerMeta: mapProviderMetaToJson(command.providerMeta),
+  resultJson: command.resultPayload,
+  errorCode: command.errorCode,
+  errorMessage: command.errorMessage,
+  availableAt: command.availableAt,
+  lockedAt: command.lockedAt,
+  lockedBy: command.lockedBy,
+  attemptCount: command.attemptCount,
+  maxAttempts: command.maxAttempts,
+  finishedAt: command.finishedAt
 });

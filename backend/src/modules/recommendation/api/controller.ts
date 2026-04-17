@@ -11,6 +11,7 @@ import type { RecommendationService } from "../application";
 import type {
   GenerateRecommendationRequestDTO,
   GenerateRecommendationResponseDTO,
+  HomeRecommendationResponseDTO,
   RecommendationDetailResponseDTO,
   RecommendationFeedbackRequestDTO,
   RecommendationListItemDTO,
@@ -87,7 +88,33 @@ export class RecommendationController {
     return ok({
       recommendationId: result.recommendationId,
       outfits: result.outfits,
-      providerMeta: result.providerMeta
+      providerMeta: result.providerMeta,
+      status: result.status,
+      createdAt: result.createdAt
+    });
+  }
+
+  async getHomeDaily(
+    request: ApiRequest
+  ): Promise<ApiResponse<HomeRecommendationResponseDTO>> {
+    const userId = request.context.userId;
+    if (!userId) {
+      return fail("UNAUTHORIZED", "Missing user id");
+    }
+
+    const result = await this.deps.recommendationService.getHomeDaily(userId);
+    if (!result) {
+      return ok({ status: "empty" });
+    }
+
+    return ok({
+      recommendationId: result.recommendationId,
+      scene: result.scene,
+      reason: result.reason,
+      coverImageUrl: result.coverImageUrl,
+      status: result.status,
+      createdAt: result.createdAt,
+      displayDate: result.displayDate
     });
   }
 
@@ -206,6 +233,11 @@ export function createRecommendationControllerRoutes(
       ...parseRoute(RecommendationRoutes.generate),
       summary: "Generate recommendation",
       handler: controller.generate.bind(controller)
+    },
+    {
+      ...parseRoute(RecommendationRoutes.homeDaily),
+      summary: "Get today's home recommendation",
+      handler: controller.getHomeDaily.bind(controller)
     },
     {
       ...parseRoute(RecommendationRoutes.getDetail),

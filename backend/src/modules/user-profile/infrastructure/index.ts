@@ -8,6 +8,7 @@ export interface UserProfileRepository {
   saveUser(user: UserRecord): Promise<void>;
   savePreferences(preferences: UserPreferenceRecord): Promise<void>;
   findPreferencesByUserId(userId: string): Promise<UserPreferenceRecord | null>;
+  listActiveUserIds(): Promise<string[]>;
 }
 
 export * from "./mappers";

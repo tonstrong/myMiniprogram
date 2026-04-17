@@ -148,7 +148,7 @@
   box-sizing: border-box;
   border: 2rpx solid transparent;
   border-radius: 18rpx;
-  background: rgba(255, 255, 255, 0.72);
+  background: transparent;
 }
 
 .canvas-piece.selected {
