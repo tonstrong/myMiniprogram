@@ -10,6 +10,7 @@
       <view class="flex-row board-buttons">
         <button class="btn-secondary canvas-mini-btn" bindtap="clearCanvas">清空</button>
         <button class="btn-primary canvas-mini-btn" bindtap="saveCanvasDraft">保存草稿</button>
+        <button class="btn-primary canvas-mini-btn" bindtap="saveCanvasRecord" loading="{{savingRemote}}">保存搭配</button>
       </view>
     </view>
 

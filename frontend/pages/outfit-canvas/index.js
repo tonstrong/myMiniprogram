@@ -26,7 +26,9 @@ Page({
     slots: buildEmptySlots(),
     boardSlots: buildBoardSlots(buildEmptySlots()),
     closetItems: [],
-    loading: false
+    loading: false,
+    savingRemote: false,
+    lastSavedOutfitId: ''
   },
 
   onLoad() {
@@ -161,6 +163,37 @@ Page({
   saveCanvasDraft() {
     this.persistDraft();
     wx.showToast({ title: '搭配草稿已保存', icon: 'success' });
+  },
+
+  async saveCanvasRecord() {
+    const slotsPayload = serializeSlots(this.data.slots);
+    if (isCanvasEmpty(slotsPayload)) {
+      wx.showToast({ title: '请先放入至少一件单品', icon: 'none' });
+      return;
+    }
+
+    this.setData({ savingRemote: true });
+    try {
+      const result = await api.request({
+        url: '/api/saved-outfits',
+        method: 'POST',
+        data: {
+          sourceType: 'canvas',
+          slots: slotsPayload
+        }
+      });
+
+      this.persistDraft();
+      this.setData({
+        savingRemote: false,
+        lastSavedOutfitId: result.savedOutfitId
+      });
+      wx.showToast({ title: '正式搭配已保存', icon: 'success' });
+    } catch (error) {
+      console.error('Save outfit canvas record failed', error);
+      this.setData({ savingRemote: false });
+      wx.showToast({ title: '保存正式搭配失败', icon: 'none' });
+    }
   }
 });
 
@@ -206,4 +239,20 @@ function buildBoardSlots(slots) {
     item: slot === 'accessories' ? null : slots[slot],
     accessories: slot === 'accessories' ? slots.accessories : []
   }));
+}
+
+function serializeSlots(slots) {
+  return {
+    top: slots.top?.id,
+    bottom: slots.bottom?.id,
+    dress: slots.dress?.id,
+    outer: slots.outer?.id,
+    shoes: slots.shoes?.id,
+    bag: slots.bag?.id,
+    accessories: (slots.accessories || []).map(item => item.id)
+  };
+}
+
+function isCanvasEmpty(slots) {
+  return !slots.top && !slots.bottom && !slots.dress && !slots.outer && !slots.shoes && !slots.bag && (!slots.accessories || slots.accessories.length === 0);
 }

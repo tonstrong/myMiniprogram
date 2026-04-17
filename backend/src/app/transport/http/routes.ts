@@ -61,6 +61,15 @@ import {
   createLlmGatewayControllerRoutes
 } from "../../../modules/llm-gateway";
 import { LlmGatewayServiceImpl } from "../../../modules/llm-gateway/application/gateway-service-impl";
+import {
+  SavedOutfitController,
+  createSavedOutfitControllerRoutes,
+  createSavedOutfitService
+} from "../../../modules/saved-outfit";
+import {
+  createInMemorySavedOutfitRepository,
+  createMySqlSavedOutfitRepository
+} from "../../../modules/saved-outfit/infrastructure";
 
 export function buildHttpRoutes(): ApiRouteDefinition[] {
   const usesMySql = shouldUseMySqlPersistence();
@@ -79,6 +88,9 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
   const weatherRepository = usesMySql
     ? createMySqlWeatherCacheRepository()
     : createInMemoryWeatherCacheRepository();
+  const savedOutfitRepository = usesMySql
+    ? createMySqlSavedOutfitRepository()
+    : createInMemorySavedOutfitRepository();
   const authController = new AuthController({
     authService: createInMemoryAuthService()
   });
@@ -126,6 +138,12 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
       userProfileRepository
     })
   });
+  const savedOutfitController = new SavedOutfitController({
+    savedOutfitService: createSavedOutfitService({
+      repository: savedOutfitRepository,
+      closetRepository
+    })
+  });
 
   return [
     ...createAuthControllerRoutes(authController),
@@ -135,7 +153,8 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
     ...createRecommendationControllerRoutes(recommendationController),
     ...createTaskCenterControllerRoutes(taskCenterController),
     ...createLlmGatewayControllerRoutes(llmGatewayController),
-    ...createWeatherControllerRoutes(weatherController)
+    ...createWeatherControllerRoutes(weatherController),
+    ...createSavedOutfitControllerRoutes(savedOutfitController)
   ];
 }
 

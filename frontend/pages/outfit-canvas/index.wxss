@@ -17,6 +17,8 @@
 
 .board-buttons {
   gap: 16rpx;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .canvas-mini-btn {
