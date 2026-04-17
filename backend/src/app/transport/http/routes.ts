@@ -73,6 +73,7 @@ import {
 
 export function buildHttpRoutes(): ApiRouteDefinition[] {
   const usesMySql = shouldUseMySqlPersistence();
+  const llmGatewayService = createLlmGatewayService();
   const taskCenterService = usesMySql
     ? createTaskCenterService({ repository: createMySqlTaskRepository() })
     : createInMemoryTaskCenterService();
@@ -103,19 +104,20 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
     closetService: createInMemoryClosetService({
       taskCenterService,
       repository: closetRepository,
-      llmGatewayService: createLlmGatewayService()
+      llmGatewayService
     })
   });
   const stylePackController = new StylePackController({
     stylePackService: createInMemoryStylePackService({
       repository: stylePackRepository,
-      llmGatewayService: createLlmGatewayService()
+      llmGatewayService
     })
   });
   const recommendationController = new RecommendationController({
     recommendationService: createInMemoryRecommendationService({
       closetRepository,
       stylePackRepository,
+      llmGatewayService,
       weatherService: createSharedWeatherService({
         repository: weatherRepository,
         userProfileRepository
@@ -130,7 +132,7 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
     taskCenterService
   });
   const llmGatewayController = new LlmGatewayController({
-    llmGatewayService: createLlmGatewayService()
+    llmGatewayService
   });
   const weatherController = new WeatherController({
     weatherService: createSharedWeatherService({

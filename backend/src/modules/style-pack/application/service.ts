@@ -240,7 +240,8 @@ export function createInMemoryStylePackService(
   deps: Partial<StylePackServiceDependencies> = {}
 ): StylePackService {
   return new InMemoryStylePackService({
-    repository: deps.repository ?? createInMemoryStylePackRepository()
+    repository: deps.repository ?? createInMemoryStylePackRepository(),
+    llmGatewayService: deps.llmGatewayService
   });
 }
 

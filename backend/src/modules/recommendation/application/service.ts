@@ -4,6 +4,7 @@ import type { PaginatedResult } from "../../../app/common/types";
 import type { JsonValue } from "../../../app/common/persistence";
 import type { ProviderMeta } from "../../../app/common/types";
 import type { ClosetRepository } from "../../closet/infrastructure";
+import type { LlmGatewayService, LlmGatewayResponse } from "../../llm-gateway";
 import type { StylePackRepository } from "../../style-pack/infrastructure";
 import { mapStylePackRecordToDetail } from "../../style-pack/infrastructure";
 import type { RecommendationRepository } from "../infrastructure";
@@ -32,8 +33,10 @@ import type {
 import { RecommendationOrchestrator } from "./orchestrator";
 import type {
   RecommendationCandidateItem,
+  RecommendationOutfitAlternative,
   RecommendationOutfitPlan,
   RecommendationStylePackContext,
+  RecommendationUserProfile,
   RecommendationValidationResult
 } from "./types";
 
@@ -46,6 +49,7 @@ export interface RecommendationServiceDependencies {
   closetRepository: ClosetRepository;
   stylePackRepository: StylePackRepository;
   recommendationRepository: RecommendationRepository;
+  llmGatewayService?: LlmGatewayService;
   weatherService?: WeatherService;
   userProfileRepository?: UserProfileRepository;
 }
@@ -61,11 +65,12 @@ export class InMemoryRecommendationService implements RecommendationService {
       command.userId,
       command.stylePackId
     );
+    const userProfileContext = await this.loadUserProfileContext(command.userId);
     const candidateProvider = this.buildCandidateProvider();
     const candidateFilter = this.buildCandidateFilter();
-    const planner = this.buildPlanner(stylePackContext);
+    const planner = this.buildPlanner(stylePackContext, userProfileContext);
     const validator = this.buildValidator();
-    const explainer = this.buildExplainer(stylePackContext);
+    const explainer = this.buildExplainer(stylePackContext, userProfileContext);
 
     const orchestrator = new RecommendationOrchestrator({
       candidateProvider,
@@ -278,7 +283,8 @@ export class InMemoryRecommendationService implements RecommendationService {
   }
 
   private buildPlanner(
-    stylePackContext?: RecommendationStylePackContext
+    stylePackContext?: RecommendationStylePackContext,
+    userProfileContext?: RecommendationUserProfile
   ): RecommendationPlanner {
     return {
       plan: async (input) => {
@@ -287,6 +293,23 @@ export class InMemoryRecommendationService implements RecommendationService {
             status: "insufficient_items",
             reason: "Not enough candidates to plan outfits.",
             providerMeta: { provider: "mock" }
+          };
+        }
+
+        const llmPlanned = await this.planOutfitsWithModel({
+          scene: input.scene,
+          weather: input.weather,
+          stylePackContext,
+          userProfileContext,
+          preferenceTags: input.preferenceTags,
+          candidates: input.candidates
+        });
+        if (llmPlanned?.outfits.length) {
+          return {
+            status: "success",
+            outfits: llmPlanned.outfits,
+            providerMeta: llmPlanned.providerMeta,
+            promptVersion: "llm-planner-v1"
           };
         }
 
@@ -373,11 +396,29 @@ export class InMemoryRecommendationService implements RecommendationService {
   }
 
   private buildExplainer(
-    stylePackContext?: RecommendationStylePackContext
+    stylePackContext?: RecommendationStylePackContext,
+    userProfileContext?: RecommendationUserProfile
   ): RecommendationExplainer {
     return {
       explain: async (input) => {
-        const outfits = input.outfits.map((outfit) => ({
+        const llmExplained = await this.explainOutfitsWithModel({
+          scene: input.scene,
+          weather: input.weather,
+          stylePackContext,
+          userProfileContext,
+          outfits: input.outfits,
+          candidates: await this.deps.closetRepository
+            .listItemsByUserId(input.userId)
+            .then((records) =>
+              records
+                .filter((record) => record.status === "active")
+                .map((record) => mapClothingRecordToCandidate(record))
+                .filter((candidate): candidate is RecommendationCandidateItem =>
+                  Boolean(candidate)
+                )
+            )
+        });
+        const outfits = (llmExplained?.outfits ?? input.outfits).map((outfit) => ({
           ...outfit,
           reason:
             outfit.reason ?? buildExplainerReason(input.scene, stylePackContext)
@@ -386,8 +427,8 @@ export class InMemoryRecommendationService implements RecommendationService {
         return {
           status: "success",
           outfits,
-          providerMeta: { provider: "mock" },
-          promptVersion: "mock-explainer-v1"
+          providerMeta: llmExplained?.providerMeta ?? { provider: "mock" },
+          promptVersion: llmExplained ? "llm-explainer-v1" : "mock-explainer-v1"
         };
       }
     };
@@ -410,6 +451,135 @@ export class InMemoryRecommendationService implements RecommendationService {
       rules: detail.rulesJson,
       promptProfile: detail.promptProfile
     };
+  }
+
+  private async loadUserProfileContext(
+    userId: string
+  ): Promise<RecommendationUserProfile | undefined> {
+    if (!this.deps.userProfileRepository) {
+      return undefined;
+    }
+
+    const preferences = await this.deps.userProfileRepository.findPreferencesByUserId(
+      userId
+    );
+    if (!preferences) {
+      return undefined;
+    }
+
+    const stylePreferences = coerceStringArray(preferences.stylePreferences);
+    const bodyPreferences = coerceStringArray(preferences.bodyPreferences);
+    if (!stylePreferences.length && !bodyPreferences.length) {
+      return undefined;
+    }
+
+    return {
+      stylePreferences,
+      bodyPreferences
+    };
+  }
+
+  private async planOutfitsWithModel(input: {
+    scene: string;
+    weather?: GenerateRecommendationCommand["weather"];
+    stylePackContext?: RecommendationStylePackContext;
+    userProfileContext?: RecommendationUserProfile;
+    preferenceTags?: string[];
+    candidates: RecommendationCandidateItem[];
+  }): Promise<
+    | {
+        outfits: RecommendationOutfitPlan[];
+        providerMeta?: ProviderMeta;
+      }
+    | undefined
+  > {
+    if (!this.deps.llmGatewayService) {
+      return undefined;
+    }
+
+    const shortlistedCandidates = buildPlannerCandidateShortlist(input.candidates);
+    if (shortlistedCandidates.length < MIN_CANDIDATE_COUNT) {
+      return undefined;
+    }
+
+    try {
+      const result = await this.deps.llmGatewayService.invoke({
+        taskType: "recommendation_planner",
+        input: {
+          messages: buildPlannerMessages({
+            scene: input.scene,
+            weather: input.weather,
+            stylePackContext: input.stylePackContext,
+            userProfileContext: input.userProfileContext,
+            preferenceTags: input.preferenceTags,
+            candidates: shortlistedCandidates
+          }),
+          temperature: 0.2
+        },
+        outputSchema: { type: "object" }
+      });
+
+      const parsed = parseLlmObject(result);
+      const outfits = coercePlannedOutfits(parsed, shortlistedCandidates);
+      if (!outfits.length) {
+        return undefined;
+      }
+
+      return {
+        outfits,
+        providerMeta: result.providerMeta
+      };
+    } catch (error) {
+      console.error("Recommendation planner LLM failed", error);
+      return undefined;
+    }
+  }
+
+  private async explainOutfitsWithModel(input: {
+    scene: string;
+    weather?: GenerateRecommendationCommand["weather"];
+    stylePackContext?: RecommendationStylePackContext;
+    userProfileContext?: RecommendationUserProfile;
+    outfits: RecommendationOutfitPlan[];
+    candidates: RecommendationCandidateItem[];
+  }): Promise<
+    | {
+        outfits: RecommendationOutfitPlan[];
+        providerMeta?: ProviderMeta;
+      }
+    | undefined
+  > {
+    if (!this.deps.llmGatewayService || !input.outfits.length) {
+      return undefined;
+    }
+
+    try {
+      const result = await this.deps.llmGatewayService.invoke({
+        taskType: "recommendation_explainer",
+        input: {
+          messages: buildExplainerMessages({
+            scene: input.scene,
+            weather: input.weather,
+            stylePackContext: input.stylePackContext,
+            userProfileContext: input.userProfileContext,
+            candidates: input.candidates,
+            outfits: input.outfits
+          }),
+          temperature: 0.4
+        },
+        outputSchema: { type: "object" }
+      });
+
+      const parsed = parseLlmObject(result);
+      const outfits = mergeExplainedOutfits(input.outfits, parsed);
+      return {
+        outfits,
+        providerMeta: result.providerMeta
+      };
+    } catch (error) {
+      console.error("Recommendation explainer LLM failed", error);
+      return undefined;
+    }
   }
 }
 
@@ -476,16 +646,16 @@ function buildPlannerReason(
   scene: string,
   stylePack?: RecommendationStylePackContext
 ): string {
-  const styleHint = stylePack?.summary ? ` Inspired by ${stylePack.summary}.` : "";
-  return `Planned for ${scene}.${styleHint}`;
+  const styleHint = stylePack?.summary ? `，带一点${stylePack.summary}的气质` : "";
+  return `围绕${scene}场景整理出的一套基础搭配${styleHint}。`;
 }
 
 function buildExplainerReason(
   scene: string,
   stylePack?: RecommendationStylePackContext
 ): string {
-  const styleHint = stylePack?.summary ? ` It reflects ${stylePack.summary}.` : "";
-  return `Chosen to suit ${scene}.${styleHint}`;
+  const styleHint = stylePack?.summary ? `，并呼应了${stylePack.summary}` : "";
+  return `这套更适合${scene}场景${styleHint}。`;
 }
 
 type RecommendationCategoryBucket =
@@ -518,6 +688,47 @@ function buildPlannedOutfitItems(
     itemId: candidate.itemId,
     role: index === 0 ? "primary" : "secondary"
   }));
+}
+
+function buildPlannerCandidateShortlist(
+  candidates: RecommendationCandidateItem[]
+): RecommendationCandidateItem[] {
+  const grouped = groupCandidatesByBucket(candidates);
+  const shortlist: RecommendationCandidateItem[] = [];
+  const usedIds = new Set<string>();
+  const bucketLimits: Array<[RecommendationCategoryBucket, number]> = [
+    ["top", 3],
+    ["bottom", 3],
+    ["dress", 2],
+    ["outer", 2],
+    ["shoes", 2],
+    ["bag", 2],
+    ["accessory", 2],
+    ["other", 2]
+  ];
+
+  bucketLimits.forEach(([bucket, limit]) => {
+    (grouped.get(bucket) ?? []).slice(0, limit).forEach((candidate) => {
+      if (usedIds.has(candidate.itemId)) {
+        return;
+      }
+      shortlist.push(candidate);
+      usedIds.add(candidate.itemId);
+    });
+  });
+
+  for (const candidate of candidates) {
+    if (shortlist.length >= 18) {
+      break;
+    }
+    if (usedIds.has(candidate.itemId)) {
+      continue;
+    }
+    shortlist.push(candidate);
+    usedIds.add(candidate.itemId);
+  }
+
+  return shortlist;
 }
 
 function buildTopBottomPlan(
@@ -680,6 +891,17 @@ function validateCategoryConflicts(
     });
   }
 
+  const hasDress = (categoryCount.get("dress") ?? 0) > 0;
+  const hasTop = (categoryCount.get("top") ?? 0) > 0;
+  const hasBottom = (categoryCount.get("bottom") ?? 0) > 0;
+  if (!hasDress && !(hasTop && hasBottom)) {
+    errors?.push({
+      code: "missing_category",
+      message: "Outfit must include either a dress or a top-and-bottom pairing.",
+      outfitNo
+    });
+  }
+
   return errors ?? [];
 }
 
@@ -689,6 +911,258 @@ function compactCandidates(
   return candidates.filter(
     (candidate): candidate is RecommendationCandidateItem => Boolean(candidate)
   );
+}
+
+function buildPlannerMessages(input: {
+  scene: string;
+  weather?: GenerateRecommendationCommand["weather"];
+  stylePackContext?: RecommendationStylePackContext;
+  userProfileContext?: RecommendationUserProfile;
+  preferenceTags?: string[];
+  candidates: RecommendationCandidateItem[];
+}) {
+  return [
+    {
+      role: "system",
+      content:
+        "你是一个服饰搭配助手。请只基于给定候选衣物生成搭配，不要杜撰不存在的单品。输出严格 JSON，格式为 {\"outfits\":[{\"outfitNo\":1,\"itemIds\":[\"...\"],\"reason\":\"...\"}]}。每套最多 5 件。优先形成完整穿搭：要么是连衣裙，要么是上衣+下装；可再补外套、鞋履、包袋、配饰。避免同一套里出现两条下装、两件连衣裙、两双鞋，避免重复 itemId。reason 用简短中文。"
+    },
+    {
+      role: "user",
+      content: JSON.stringify(
+        {
+          scene: input.scene,
+          weather: input.weather,
+          preferenceTags: input.preferenceTags ?? [],
+          userProfile: input.userProfileContext ?? {},
+          stylePack: input.stylePackContext ?? {},
+          wardrobeCandidates: input.candidates.map((candidate) => ({
+            itemId: candidate.itemId,
+            category: candidate.category,
+            subCategory: candidate.subCategory,
+            colors: candidate.colors ?? [],
+            tags: candidate.tags ?? []
+          }))
+        },
+        null,
+        2
+      )
+    }
+  ];
+}
+
+function buildExplainerMessages(input: {
+  scene: string;
+  weather?: GenerateRecommendationCommand["weather"];
+  stylePackContext?: RecommendationStylePackContext;
+  userProfileContext?: RecommendationUserProfile;
+  candidates: RecommendationCandidateItem[];
+  outfits: RecommendationOutfitPlan[];
+}) {
+  const candidateMap = new Map(
+    input.candidates.map((candidate) => [candidate.itemId, candidate] as const)
+  );
+
+  return [
+    {
+      role: "system",
+      content:
+        "你是一个穿搭说明助手。请基于已有搭配结果写简短中文理由。输出严格 JSON，格式为 {\"outfits\":[{\"outfitNo\":1,\"reason\":\"...\"}]}。不要改动 itemId，不要输出 Markdown。"
+    },
+    {
+      role: "user",
+      content: JSON.stringify(
+        {
+          scene: input.scene,
+          weather: input.weather,
+          userProfile: input.userProfileContext ?? {},
+          stylePack: input.stylePackContext ?? {},
+          outfits: input.outfits.map((outfit) => ({
+            outfitNo: outfit.outfitNo,
+            items: outfit.items.map((item) => ({
+              itemId: item.itemId,
+              category: candidateMap.get(item.itemId)?.category,
+              subCategory: candidateMap.get(item.itemId)?.subCategory,
+              colors: candidateMap.get(item.itemId)?.colors ?? [],
+              tags: candidateMap.get(item.itemId)?.tags ?? []
+            }))
+          }))
+        },
+        null,
+        2
+      )
+    }
+  ];
+}
+
+function parseLlmObject(result: LlmGatewayResponse): Record<string, unknown> {
+  const textCandidate =
+    typeof result.output?.text === "string"
+      ? result.output.text
+      : typeof result.rawText === "string"
+        ? result.rawText
+        : undefined;
+
+  if (textCandidate) {
+    const normalized = stripCodeFence(textCandidate);
+    try {
+      return JSON.parse(normalized) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+
+  return result.output && typeof result.output === "object" && !Array.isArray(result.output)
+    ? result.output
+    : {};
+}
+
+function stripCodeFence(value: string): string {
+  const trimmed = value.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced?.[1]?.trim() ?? trimmed;
+}
+
+function coercePlannedOutfits(
+  parsed: Record<string, unknown>,
+  candidates: RecommendationCandidateItem[]
+): RecommendationOutfitPlan[] {
+  const candidateIds = new Set(candidates.map((candidate) => candidate.itemId));
+  const outfits = Array.isArray(parsed.outfits) ? parsed.outfits : [];
+  const plannedOutfits: RecommendationOutfitPlan[] = [];
+
+  outfits.forEach((entry, index) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      return;
+    }
+
+    const data = entry as Record<string, unknown>;
+    const itemIds = coercePlannerItemIds(data)
+      .filter((itemId) => candidateIds.has(itemId))
+      .filter((itemId, itemIndex, list) => list.indexOf(itemId) === itemIndex)
+      .slice(0, MAX_OUTFIT_ITEMS);
+    if (itemIds.length < MIN_CANDIDATE_COUNT) {
+      return;
+    }
+
+    const outfit: RecommendationOutfitPlan = {
+      outfitNo: coercePositiveInt(data.outfitNo) ?? index + 1,
+      items: itemIds.map((itemId, itemIndex) => ({
+        itemId,
+        role: itemIndex === 0 ? "primary" : "secondary"
+      }))
+    };
+
+    const reason = asOptionalString(data.reason);
+    if (reason) {
+      outfit.reason = reason;
+    }
+
+    const alternatives = coercePlannerAlternatives(data.alternatives, candidateIds);
+    if (alternatives?.length) {
+      outfit.alternatives = alternatives;
+    }
+
+    plannedOutfits.push(outfit);
+  });
+
+  return plannedOutfits;
+}
+
+function coercePlannerItemIds(data: Record<string, unknown>): string[] {
+  const rawItems = Array.isArray(data.itemIds)
+    ? data.itemIds
+    : Array.isArray(data.items)
+      ? data.items
+      : [];
+
+  return rawItems
+    .map((entry) => {
+      if (typeof entry === "string") {
+        return entry;
+      }
+      if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+        const itemId = (entry as Record<string, unknown>).itemId;
+        return typeof itemId === "string" ? itemId : undefined;
+      }
+      return undefined;
+    })
+    .filter((itemId): itemId is string => Boolean(itemId));
+}
+
+function coercePlannerAlternatives(
+  value: unknown,
+  candidateIds: Set<string>
+): RecommendationOutfitAlternative[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const alternatives: RecommendationOutfitAlternative[] = [];
+  value.forEach((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      return;
+    }
+    const data = entry as Record<string, unknown>;
+    const replaceItemId = asOptionalString(data.replaceItemId);
+    const withItemId = asOptionalString(data.withItemId);
+    if (
+      !replaceItemId ||
+      !withItemId ||
+      !candidateIds.has(replaceItemId) ||
+      !candidateIds.has(withItemId)
+    ) {
+      return;
+    }
+
+    const alternative: RecommendationOutfitAlternative = {
+      replaceItemId,
+      withItemId
+    };
+    const reason = asOptionalString(data.reason);
+    if (reason) {
+      alternative.reason = reason;
+    }
+    alternatives.push(alternative);
+  });
+
+  return alternatives.length ? alternatives : undefined;
+}
+
+function mergeExplainedOutfits(
+  outfits: RecommendationOutfitPlan[],
+  parsed: Record<string, unknown>
+): RecommendationOutfitPlan[] {
+  const explained = new Map<number, string>();
+  const entries = Array.isArray(parsed.outfits) ? parsed.outfits : [];
+
+  entries.forEach((entry, index) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      return;
+    }
+    const data = entry as Record<string, unknown>;
+    const outfitNo = coercePositiveInt(data.outfitNo) ?? index + 1;
+    const reason = asOptionalString(data.reason);
+    if (reason) {
+      explained.set(outfitNo, reason);
+    }
+  });
+
+  return outfits.map((outfit, index) => ({
+    ...outfit,
+    reason: explained.get(outfit.outfitNo) ?? explained.get(index + 1) ?? outfit.reason
+  }));
+}
+
+function coercePositiveInt(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+  return undefined;
+}
+
+function asOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function generateId(): string {
