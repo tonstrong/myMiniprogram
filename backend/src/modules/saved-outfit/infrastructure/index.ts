@@ -1,7 +1,15 @@
-import type { SavedOutfitItemRecord, SavedOutfitRecord } from "./persistence";
+import type {
+  SavedOutfitItemRecord,
+  SavedOutfitListRecord,
+  SavedOutfitRecord
+} from "./persistence";
 
 export interface SavedOutfitRepository {
   saveOutfit(record: SavedOutfitRecord, items: SavedOutfitItemRecord[]): Promise<void>;
+  listByUser(
+    userId: string,
+    query: { pageNo: number; pageSize: number }
+  ): Promise<{ items: SavedOutfitListRecord[]; total: number }>;
 }
 
 export * from "./persistence";

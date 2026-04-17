@@ -1,11 +1,16 @@
 import {
   createObjectValidator,
   objectField,
+  optionalNumber,
   optionalString,
   optionalStringArray,
   requiredStringEnum
 } from "../../../app/common/validation";
-import type { SaveSavedOutfitRequestDTO, SaveSavedOutfitSlotsDTO } from "./dtos";
+import type {
+  SaveSavedOutfitRequestDTO,
+  SaveSavedOutfitSlotsDTO,
+  SavedOutfitListQueryDTO
+} from "./dtos";
 
 export const validateSaveSavedOutfitSlots =
   createObjectValidator<SaveSavedOutfitSlotsDTO>({
@@ -22,4 +27,10 @@ export const validateSaveSavedOutfitRequest =
   createObjectValidator<SaveSavedOutfitRequestDTO>({
     sourceType: requiredStringEnum(["canvas"]),
     slots: objectField(validateSaveSavedOutfitSlots)
+  });
+
+export const validateSavedOutfitListQuery =
+  createObjectValidator<SavedOutfitListQueryDTO>({
+    pageNo: optionalNumber({ integer: true, min: 1 }),
+    pageSize: optionalNumber({ integer: true, min: 1, max: 200 })
   });

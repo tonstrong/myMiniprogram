@@ -3,5 +3,6 @@ export * from "./validators";
 export * from "./controller";
 
 export const SavedOutfitRoutes = {
+  list: "GET /api/saved-outfits",
   save: "POST /api/saved-outfits"
 };

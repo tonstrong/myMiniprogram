@@ -1,3 +1,4 @@
+import type { PaginatedResult } from "../../../app/common/types";
 import type { ClosetRepository } from "../../closet/infrastructure";
 import type { SavedOutfitRepository } from "../infrastructure";
 
@@ -22,8 +23,25 @@ export interface SaveSavedOutfitResult {
   createdAt: string;
 }
 
+export interface SavedOutfitHistoryItem {
+  savedOutfitId: string;
+  sourceType: string;
+  createdAt: string;
+  coverImageUrl?: string;
+  itemCount: number;
+}
+
+export interface SavedOutfitListQuery {
+  pageNo?: number;
+  pageSize?: number;
+}
+
 export interface SavedOutfitService {
   save(command: SaveSavedOutfitCommand): Promise<SaveSavedOutfitResult>;
+  list(
+    userId: string,
+    query: SavedOutfitListQuery
+  ): Promise<PaginatedResult<SavedOutfitHistoryItem>>;
 }
 
 export interface SavedOutfitServiceDependencies {

@@ -1,13 +1,17 @@
 import { randomUUID } from "crypto";
 import { AppError } from "../../../app/common/errors";
-import type { ClothingItemRecord } from "../../closet/infrastructure/persistence";
 import type { SavedOutfitItemRecord, SavedOutfitRecord } from "../infrastructure";
 import type {
   SaveSavedOutfitCommand,
   SaveSavedOutfitResult,
+  SavedOutfitHistoryItem,
+  SavedOutfitListQuery,
   SavedOutfitService,
   SavedOutfitServiceDependencies
 } from "./index";
+
+const DEFAULT_PAGE_NO = 1;
+const DEFAULT_PAGE_SIZE = 20;
 
 export class PersistedSavedOutfitService implements SavedOutfitService {
   constructor(private readonly deps: SavedOutfitServiceDependencies) {}
@@ -44,6 +48,28 @@ export class PersistedSavedOutfitService implements SavedOutfitService {
     return {
       savedOutfitId,
       createdAt: now.toISOString()
+    };
+  }
+
+  async list(userId: string, query: SavedOutfitListQuery) {
+    const pageNo = query.pageNo ?? DEFAULT_PAGE_NO;
+    const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
+    const result = await this.deps.repository.listByUser(userId, {
+      pageNo,
+      pageSize
+    });
+
+    return {
+      items: result.items.map((item): SavedOutfitHistoryItem => ({
+        savedOutfitId: item.id,
+        sourceType: item.sourceType,
+        createdAt: item.createdAt.toISOString(),
+        coverImageUrl: item.coverImageUrl ?? undefined,
+        itemCount: item.itemCount
+      })),
+      pageNo,
+      pageSize,
+      total: result.total
     };
   }
 }

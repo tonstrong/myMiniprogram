@@ -6,6 +6,16 @@ export interface SavedOutfitRecord extends BaseRecord {
   coverItemId?: string | null;
 }
 
+export interface SavedOutfitListRecord {
+  id: string;
+  userId: string;
+  sourceType: string;
+  createdAt: Date;
+  updatedAt: Date;
+  coverImageUrl?: string | null;
+  itemCount: number;
+}
+
 export interface SavedOutfitItemRecord extends CreatedAtRecord {
   id: string;
   savedOutfitId: string;
