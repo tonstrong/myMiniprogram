@@ -37,7 +37,12 @@ export class InMemorySavedOutfitRepository implements SavedOutfitRepository {
       previewItems: (this.items.get(item.id) || []).map((savedItem) => ({
         itemId: savedItem.itemId,
         slotCode: savedItem.slotCode,
-        sortOrder: savedItem.sortOrder
+        sortOrder: savedItem.sortOrder,
+        layoutX: savedItem.layoutX ?? undefined,
+        layoutY: savedItem.layoutY ?? undefined,
+        layoutW: savedItem.layoutW ?? undefined,
+        layoutH: savedItem.layoutH ?? undefined,
+        layerIndex: savedItem.layerIndex
       }))
     }));
 
@@ -93,14 +98,24 @@ export class MySqlSavedOutfitRepository implements SavedOutfitRepository {
               item_id,
               slot_code,
               sort_order,
+              layout_x,
+              layout_y,
+              layout_w,
+              layout_h,
+              layer_index,
               created_at
-            ) VALUES (?, ?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
             [
               item.id,
               item.savedOutfitId,
               item.itemId,
               item.slotCode,
               item.sortOrder,
+              item.layoutX ?? null,
+              item.layoutY ?? null,
+              item.layoutW ?? null,
+              item.layoutH ?? null,
+              item.layerIndex,
               formatDateTime(item.createdAt)
             ]
           );
@@ -207,6 +222,11 @@ export class MySqlSavedOutfitRepository implements SavedOutfitRepository {
               soi.item_id,
               soi.slot_code,
               soi.sort_order,
+              soi.layout_x,
+              soi.layout_y,
+              soi.layout_w,
+              soi.layout_h,
+              soi.layer_index,
               ci.image_original_url,
               ci.category,
               ci.sub_category
@@ -225,7 +245,12 @@ export class MySqlSavedOutfitRepository implements SavedOutfitRepository {
         sortOrder: Number(row.sort_order ?? 0),
         imageOriginalUrl: sanitizeImageUrl((row.image_original_url as string | null) ?? null),
         category: row.category ? String(row.category) : undefined,
-        subCategory: row.sub_category ? String(row.sub_category) : undefined
+        subCategory: row.sub_category ? String(row.sub_category) : undefined,
+        layoutX: toOptionalNumber(row.layout_x),
+        layoutY: toOptionalNumber(row.layout_y),
+        layoutW: toOptionalNumber(row.layout_w),
+        layoutH: toOptionalNumber(row.layout_h),
+        layerIndex: toOptionalNumber(row.layer_index)
       });
       grouped.set(savedOutfitId, current);
     });
@@ -257,6 +282,14 @@ function sanitizeImageUrl(value?: string | null): string | undefined {
     return undefined;
   }
   return value;
+}
+
+function toOptionalNumber(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
 }
 
 function sortPreviewItems(items: SavedOutfitPreviewItemRecord[]): SavedOutfitPreviewItemRecord[] {

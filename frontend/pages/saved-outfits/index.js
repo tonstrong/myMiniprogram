@@ -52,6 +52,7 @@ Page({
         sourceTypeText: item.sourceType === 'canvas' ? '自由搭配' : '已保存搭配',
         createdAt: item.createdAt,
         createdDateText: formatDate(item.createdAt),
+        createdFullDateText: formatFullDate(item.createdAt),
         createdTimeText: formatTime(item.createdAt),
         itemCount: item.itemCount || 0,
         coverImageUrl: await resolveImageUrl(item.coverImageUrl),
@@ -60,10 +61,16 @@ Page({
           itemId: previewItem.itemId,
           slotCode: previewItem.slotCode,
           sortOrder: previewItem.sortOrder || 0,
+          x: toOptionalNumber(previewItem.x),
+          y: toOptionalNumber(previewItem.y),
+          w: toOptionalNumber(previewItem.w),
+          h: toOptionalNumber(previewItem.h),
+          layerIndex: toOptionalNumber(previewItem.layerIndex) || index,
           imageUrl: await resolveImageUrl(previewItem.imageUrl),
           category: previewItem.category || '',
           subCategory: previewItem.subCategory || '',
-          className: getPreviewClassName(previewItem.slotCode, previewItem.sortOrder || 0)
+          className: getPreviewClassName(previewItem.slotCode, previewItem.sortOrder || 0),
+          styleText: buildPreviewStyle(previewItem, index)
         })))
       })));
 
@@ -166,6 +173,16 @@ function formatTime(value) {
   return `${hours}:${minutes}`;
 }
 
+function formatFullDate(value) {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 function getPreviewClassName(slotCode, sortOrder) {
   switch (slotCode) {
     case 'outer':
@@ -188,6 +205,30 @@ function getPreviewClassName(slotCode, sortOrder) {
 }
 
 function buildImportPayload(outfit) {
+  const hasLayout = (outfit.previewItems || []).some((item) =>
+    typeof item.x === 'number' &&
+    typeof item.y === 'number' &&
+    typeof item.w === 'number' &&
+    typeof item.h === 'number'
+  );
+
+  if (hasLayout) {
+    return {
+      source: 'saved-outfit',
+      savedOutfitId: outfit.id,
+      layoutItems: (outfit.previewItems || []).map((item, index) => ({
+        itemId: item.itemId,
+        slotCode: item.slotCode,
+        x: typeof item.x === 'number' ? item.x : 0.2,
+        y: typeof item.y === 'number' ? item.y : 0.2,
+        w: typeof item.w === 'number' ? item.w : 0.24,
+        h: typeof item.h === 'number' ? item.h : 0.24,
+        layerIndex: typeof item.layerIndex === 'number' ? item.layerIndex : index
+      })),
+      updatedAt: Date.now()
+    };
+  }
+
   const slots = {
     top: '',
     bottom: '',
@@ -215,4 +256,30 @@ function buildImportPayload(outfit) {
     slots,
     updatedAt: Date.now()
   };
+}
+
+function buildPreviewStyle(previewItem, index) {
+  const x = toOptionalNumber(previewItem.x);
+  const y = toOptionalNumber(previewItem.y);
+  const w = toOptionalNumber(previewItem.w);
+  const h = toOptionalNumber(previewItem.h);
+  if (
+    typeof x !== 'number' ||
+    typeof y !== 'number' ||
+    typeof w !== 'number' ||
+    typeof h !== 'number'
+  ) {
+    return '';
+  }
+
+  const layerIndex = toOptionalNumber(previewItem.layerIndex) || index;
+  return `left:${x * 100}%;top:${y * 100}%;width:${w * 100}%;height:${h * 100}%;z-index:${layerIndex + 1};`;
+}
+
+function toOptionalNumber(value) {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  const nextValue = Number(value);
+  return Number.isNaN(nextValue) ? undefined : nextValue;
 }

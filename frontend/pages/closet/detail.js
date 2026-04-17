@@ -3,9 +3,30 @@ import api from '../../utils/api';
 const CATEGORY_OPTIONS = ['上衣', '下装', '外套', '连衣裙', '鞋履', '包袋', '配饰'];
 const ACCESSORY_SUBCATEGORY_OPTIONS = ['层搭装饰片', '腰饰', '披肩', '围巾', '帽子', '首饰', '其他配饰'];
 const FIT_OPTIONS = ['宽松', '修身', '直筒', '短款', '超长'];
-const COLOR_OPTIONS = ['白色', '黑色', '灰色', '蓝色', '卡其色', '米色', '红色', '粉色', '黄色', '绿色', '紫色', '棕色', '多色'];
 const SEASON_OPTIONS = ['春', '夏', '秋', '冬'];
-const TAG_OPTIONS = ['极简', '通勤', '基础款', '休闲', '百搭'];
+const TAG_OPTIONS = ['极简', '通勤', '基础款', '休闲', '百搭', '甜酷', '优雅', '法式', '韩系', '复古', '时髦', '知性', '慵懒', '山系', '街头'];
+const COLOR_PALETTE_OPTIONS = [
+  { label: '白色', hex: '#F7F7F2' },
+  { label: '米白色', hex: '#F1E9D8' },
+  { label: '黑色', hex: '#1C1C1E' },
+  { label: '深灰色', hex: '#4B5563' },
+  { label: '浅灰色', hex: '#D1D5DB' },
+  { label: '米色', hex: '#D8C3A5' },
+  { label: '卡其色', hex: '#B89968' },
+  { label: '棕色', hex: '#7A5230' },
+  { label: '咖啡色', hex: '#5B3A29' },
+  { label: '浅蓝色', hex: '#A9CFF4' },
+  { label: '牛仔蓝', hex: '#5F86C2' },
+  { label: '深蓝色', hex: '#355C9A' },
+  { label: '藏蓝色', hex: '#213A6B' },
+  { label: '绿色', hex: '#5F8D4E' },
+  { label: '红色', hex: '#C94C4C' },
+  { label: '粉色', hex: '#E8A0BF' },
+  { label: '黄色', hex: '#E3B341' },
+  { label: '紫色', hex: '#8B6FB3' },
+  { label: '橙色', hex: '#E6893D' },
+  { label: '多色', hex: 'linear-gradient(135deg,#F87171 0%,#FBBF24 35%,#60A5FA 70%,#34D399 100%)' }
+];
 
 Page({
   data: {
@@ -15,12 +36,12 @@ Page({
     previewImage: '',
     CATEGORY_OPTIONS,
     FIT_OPTIONS,
-    COLOR_OPTIONS,
+    COLOR_PALETTE: buildColorPaletteState([]),
     item: {
       img: '',
       category: '',
       subCategory: '',
-      color: '',
+      colors: [],
       material: '',
       fit: '',
       seasons: [],
@@ -51,7 +72,11 @@ Page({
         url: `/api/closet/items/${this.data.itemId}`,
         method: 'GET'
       });
-      this.setData({ item: mapItemDetail(detail, this.data.previewImage) });
+      const item = mapItemDetail(detail, this.data.previewImage);
+      this.setData({
+        item,
+        COLOR_PALETTE: buildColorPaletteState(item.colors || [])
+      });
     } catch (error) {
       console.error('Fetch closet detail failed', error);
       wx.showToast({ title: '加载失败', icon: 'none' });
@@ -74,10 +99,6 @@ Page({
     this.setData({ 'item.fit': FIT_OPTIONS[e.detail.value] });
   },
 
-  bindColorChange(e) {
-    this.setData({ 'item.color': COLOR_OPTIONS[e.detail.value] });
-  },
-
   editField(e) {
     const field = e.currentTarget.dataset.field;
     switch (field) {
@@ -87,9 +108,56 @@ Page({
         return this.pickMultiple('seasons', SEASON_OPTIONS, '适用季节');
       case '风格':
         return this.pickMultiple('tags', TAG_OPTIONS, '风格标签');
+      case '颜色':
+        return this.openCustomColorInput();
       default:
         wx.showToast({ title: `暂不支持编辑${field}`, icon: 'none' });
     }
+  },
+
+  toggleColor(e) {
+    const color = e.currentTarget.dataset.color;
+    const selectedColors = this.data.item.colors || [];
+    const nextColors = selectedColors.includes(color)
+      ? selectedColors.filter((item) => item !== color)
+      : [...selectedColors, color];
+    this.setData({
+      'item.colors': nextColors,
+      COLOR_PALETTE: buildColorPaletteState(nextColors)
+    });
+  },
+
+  openCustomColorInput() {
+    wx.showModal({
+      title: '添加自定义颜色',
+      editable: true,
+      placeholderText: '例如：雾霾蓝 / 奶油黄 / 酒红色',
+      success: (res) => {
+        if (!res.confirm) {
+          return;
+        }
+        const color = (res.content || '').trim();
+        if (!color) {
+          return;
+        }
+        const nextColors = this.data.item.colors.includes(color)
+          ? this.data.item.colors
+          : [...this.data.item.colors, color];
+        this.setData({
+          'item.colors': nextColors,
+          COLOR_PALETTE: buildColorPaletteState(nextColors)
+        });
+      }
+    });
+  },
+
+  removeColor(e) {
+    const color = e.currentTarget.dataset.color;
+    const nextColors = (this.data.item.colors || []).filter((item) => item !== color);
+    this.setData({
+      'item.colors': nextColors,
+      COLOR_PALETTE: buildColorPaletteState(nextColors)
+    });
   },
 
   addCustomTag() {
@@ -235,7 +303,7 @@ function mapItemDetail(detail, previewImage = '') {
     img: normalizeImageUrl(detail.imageOriginalUrl) || previewImage || '',
     category: attributes.category || '',
     subCategory: attributes.subCategory || '',
-    color: (attributes.colors || [])[0] || '',
+    colors: attributes.colors || [],
     material: attributes.material || '',
     fit: (attributes.fit || [])[0] || '',
     seasons: attributes.seasons || [],
@@ -264,10 +332,20 @@ function buildUpdatePayload(item) {
   return {
     category: item.category || undefined,
     subCategory: item.subCategory || undefined,
-    colors: item.color ? [item.color] : [],
+    colors: item.colors || [],
     material: item.material || undefined,
     fit: item.fit ? [item.fit] : [],
     seasons: item.seasons || [],
     tags: item.tags || []
   };
+}
+
+function buildColorPaletteState(selectedColors) {
+  return COLOR_PALETTE_OPTIONS.map((option) => ({
+    ...option,
+    selected: selectedColors.includes(option.label),
+    swatchStyle: option.hex.indexOf('linear-gradient') === 0
+      ? `background:${option.hex};`
+      : `background-color:${option.hex};`
+  }));
 }

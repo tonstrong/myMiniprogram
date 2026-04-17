@@ -12,10 +12,21 @@ export interface SaveSavedOutfitSlots {
   accessories?: string[];
 }
 
+export interface SaveSavedOutfitLayoutItem {
+  itemId: string;
+  slotCode?: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  layerIndex?: number;
+}
+
 export interface SaveSavedOutfitCommand {
   userId: string;
   sourceType: "canvas";
-  slots: SaveSavedOutfitSlots;
+  slots?: SaveSavedOutfitSlots;
+  layoutItems?: SaveSavedOutfitLayoutItem[];
 }
 
 export interface SaveSavedOutfitResult {
@@ -30,6 +41,11 @@ export interface SavedOutfitPreviewItem {
   imageUrl?: string;
   category?: string;
   subCategory?: string;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  layerIndex?: number;
 }
 
 export interface SavedOutfitHistoryItem {

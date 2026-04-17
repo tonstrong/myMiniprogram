@@ -46,16 +46,34 @@
         </view>
       </picker>
 
-      <picker mode="selector" range="{{COLOR_OPTIONS}}" bindchange="bindColorChange">
-        <view class="f-row flex-row items-center justify-between">
-          <text class="f-label">主色</text>
+      <view class="f-row col-mode">
+        <view class="flex-row items-center justify-between w-full h-auto">
+          <text class="f-label">颜色仪表盘</text>
           <view class="flex-row items-center">
-            <view class="color-dot" style="background-color: #FFFFFF; border: 1rpx solid #E5E7EB;"></view>
-            <text class="f-value">{{item.color}}</text>
-            <text class="arrow">></text>
+            <text class="f-value">{{item.colors.length}} 已选</text>
+            <text class="arrow" bindtap="editField" data-field="颜色">+</text>
           </view>
         </view>
-      </picker>
+        <view class="color-palette">
+          <block wx:for="{{COLOR_PALETTE}}" wx:key="label" wx:for-item="colorOption">
+            <view class="color-chip {{colorOption.selected ? 'active' : ''}}" bindtap="toggleColor" data-color="{{colorOption.label}}">
+              <view class="color-swatch" style="{{colorOption.swatchStyle}}"></view>
+              <text class="color-chip-text">{{colorOption.label}}</text>
+            </view>
+          </block>
+          <view class="color-chip add-color-chip" bindtap="editField" data-field="颜色">
+            <text class="color-chip-plus">+</text>
+            <text class="color-chip-text">自定义</text>
+          </view>
+        </view>
+        <view class="tag-row flex-row mt-2" wx:if="{{item.colors.length > 0}}">
+          <block wx:for="{{item.colors}}" wx:key="*this">
+            <view class="tag-chip active removable-chip" catchtap="removeColor" data-color="{{item}}">
+              {{item}} ×
+            </view>
+          </block>
+        </view>
+      </view>
 
       <view class="f-row col-mode" bindtap="editField" data-field="季节">
         <view class="flex-row items-center justify-between w-full h-auto">

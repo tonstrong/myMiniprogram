@@ -8,9 +8,20 @@ export interface SaveSavedOutfitSlotsDTO {
   accessories?: string[];
 }
 
+export interface SaveSavedOutfitLayoutItemDTO {
+  itemId: string;
+  slotCode?: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  layerIndex?: number;
+}
+
 export interface SaveSavedOutfitRequestDTO {
   sourceType: "canvas";
-  slots: SaveSavedOutfitSlotsDTO;
+  slots?: SaveSavedOutfitSlotsDTO;
+  layoutItems?: SaveSavedOutfitLayoutItemDTO[];
 }
 
 export interface SaveSavedOutfitResponseDTO {
@@ -34,6 +45,11 @@ export interface SavedOutfitPreviewItemDTO {
   imageUrl?: string;
   category?: string;
   subCategory?: string;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  layerIndex?: number;
 }
 
 export interface SavedOutfitListItemDTO {

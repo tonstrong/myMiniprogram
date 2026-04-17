@@ -598,11 +598,8 @@ function normalizeColorValue(value: string): string | undefined {
     navy: "\u84dd\u8272",
     "\u84dd": "\u84dd\u8272",
     "\u84dd\u8272": "\u84dd\u8272",
-    "\u85cf\u84dd": "\u84dd\u8272",
-    "\u6df1\u84dd": "\u84dd\u8272",
     beige: "\u7c73\u8272",
     "\u7c73\u8272": "\u7c73\u8272",
-    "\u7c73\u767d\u8272": "\u7c73\u8272",
     khaki: "\u5361\u5176\u8272",
     "\u5361\u5176": "\u5361\u5176\u8272",
     "\u5361\u5176\u8272": "\u5361\u5176\u8272",
@@ -631,10 +628,26 @@ function normalizeColorValue(value: string): string | undefined {
     multi: "\u591a\u8272",
     "\u591a\u8272": "\u591a\u8272",
     "\u62fc\u8272": "\u591a\u8272",
-    "\u5f69\u8272": "\u591a\u8272"
+    "\u5f69\u8272": "\u591a\u8272",
+    "\u6d45\u84dd": "\u6d45\u84dd\u8272",
+    "\u6d45\u84dd\u8272": "\u6d45\u84dd\u8272",
+    "\u725b\u4ed4\u84dd": "\u725b\u4ed4\u84dd",
+    "\u4e39\u5b81\u84dd": "\u725b\u4ed4\u84dd",
+    "\u6df1\u84dd": "\u6df1\u84dd\u8272",
+    "\u6df1\u84dd\u8272": "\u6df1\u84dd\u8272",
+    "\u85cf\u84dd": "\u85cf\u84dd\u8272",
+    "\u85cf\u84dd\u8272": "\u85cf\u84dd\u8272",
+    "\u7c73\u767d": "\u7c73\u767d\u8272",
+    "\u7c73\u767d\u8272": "\u7c73\u767d\u8272",
+    "\u6df1\u7070": "\u6df1\u7070\u8272",
+    "\u6df1\u7070\u8272": "\u6df1\u7070\u8272",
+    "\u6d45\u7070": "\u6d45\u7070\u8272",
+    "\u6d45\u7070\u8272": "\u6d45\u7070\u8272",
+    "\u5496\u5561": "\u5496\u5561\u8272",
+    "\u5496\u5561\u8272": "\u5496\u5561\u8272"
   };
 
-  return mapping[toLookupKey(value)];
+  return mapping[toLookupKey(value)] ?? fallbackLabel(value);
 }
 
 function normalizeSeasonValue(value: string): string | undefined {
@@ -703,10 +716,21 @@ function normalizeTagValue(value: string): string | undefined {
     streetwear: "\u8857\u5934",
     "\u8857\u5934": "\u8857\u5934",
     chic: "\u65f6\u9ae6",
-    "\u65f6\u9ae6": "\u65f6\u9ae6"
+    "\u65f6\u9ae6": "\u65f6\u9ae6",
+    "\u751c\u9177": "\u751c\u9177",
+    "\u7b80\u7ea6": "\u7b80\u7ea6",
+    "\u6162\u677e": "\u6162\u677e",
+    "\u6162\u61d2": "\u6162\u61d2",
+    "\u77e5\u6027": "\u77e5\u6027",
+    "\u6cd5\u5f0f": "\u6cd5\u5f0f",
+    "\u97e9\u7cfb": "\u97e9\u7cfb",
+    "\u65e5\u5e38": "\u65e5\u5e38",
+    "\u5c71\u7cfb": "\u5c71\u7cfb",
+    "\u5de5\u88c5": "\u5de5\u88c5",
+    "\u77e5\u8bc6\u5206\u5b50": "\u77e5\u8bc6\u5206\u5b50"
   };
 
-  return mapping[toLookupKey(value)];
+  return mapping[toLookupKey(value)] ?? fallbackLabel(value);
 }
 
 function normalizeSubCategoryValue(

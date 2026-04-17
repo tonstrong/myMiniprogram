@@ -70,7 +70,8 @@ export class SavedOutfitController {
     const result = await this.deps.savedOutfitService.save({
       userId,
       sourceType: validation.value.sourceType,
-      slots: validation.value.slots
+      slots: validation.value.slots,
+      layoutItems: validation.value.layoutItems
     });
 
     return ok(result);

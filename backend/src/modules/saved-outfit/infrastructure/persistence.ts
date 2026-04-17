@@ -23,6 +23,11 @@ export interface SavedOutfitItemRecord extends CreatedAtRecord {
   itemId: string;
   slotCode: string;
   sortOrder: number;
+  layoutX?: number | null;
+  layoutY?: number | null;
+  layoutW?: number | null;
+  layoutH?: number | null;
+  layerIndex: number;
 }
 
 export interface SavedOutfitPreviewItemRecord {
@@ -32,4 +37,9 @@ export interface SavedOutfitPreviewItemRecord {
   imageOriginalUrl?: string | null;
   category?: string | null;
   subCategory?: string | null;
+  layoutX?: number | null;
+  layoutY?: number | null;
+  layoutW?: number | null;
+  layoutH?: number | null;
+  layerIndex?: number | null;
 }

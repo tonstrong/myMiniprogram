@@ -20,11 +20,12 @@
                 <block wx:for="{{outfit.previewItems}}" wx:key="id" wx:for-item="piece">
                   <image
                     wx:if="{{piece.imageUrl}}"
-                    class="canvas-piece {{piece.className}}"
+                    class="canvas-piece {{piece.styleText ? '' : piece.className}}"
+                    style="{{piece.styleText}}"
                     src="{{piece.imageUrl}}"
                     mode="aspectFit"
                   ></image>
-                  <view wx:else class="canvas-piece canvas-fallback-piece {{piece.className}}">
+                  <view wx:else class="canvas-piece canvas-fallback-piece {{piece.styleText ? '' : piece.className}}" style="{{piece.styleText}}">
                     <text class="fallback-piece-text">{{piece.subCategory || piece.category || '单品'}}</text>
                   </view>
                 </block>
@@ -41,7 +42,7 @@
                 <text class="card-time">{{outfit.createdTimeText}}</text>
               </view>
               <view class="card-bottom flex-row items-center justify-between">
-                <text class="card-date">{{outfit.createdAt ? outfit.createdAt.slice(0, 10) : outfit.createdDateText}}</text>
+                <text class="card-date">{{outfit.createdFullDateText || outfit.createdDateText}}</text>
                 <view class="card-actions flex-row items-center">
                   <text class="card-count">共 {{outfit.itemCount}} 件</text>
                   <button

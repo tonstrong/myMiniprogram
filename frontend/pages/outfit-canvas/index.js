@@ -3,33 +3,22 @@ import { resolveImageUrl } from '../../utils/image-url';
 
 const DRAFT_KEY = 'outfit-canvas:draft';
 const IMPORT_KEY = 'outfit-canvas:import';
-const SLOT_ORDER = ['top', 'bottom', 'dress', 'outer', 'shoes', 'bag', 'accessories'];
-const SLOT_META = {
-  top: { title: '上衣位', accept: ['上衣'] },
-  bottom: { title: '下装位', accept: ['下装'] },
-  dress: { title: '连衣裙位', accept: ['连衣裙'] },
-  outer: { title: '外套位', accept: ['外套'] },
-  shoes: { title: '鞋履位', accept: ['鞋履'] },
-  bag: { title: '包袋位', accept: ['包袋'] },
-  accessories: { title: '配饰位', accept: ['配饰'] }
-};
+const MAX_CANVAS_ITEMS = 8;
 
 Page({
   data: {
-    activeSlot: 'top',
-    activeSlotTitle: SLOT_META.top.title,
-    slotSections: SLOT_ORDER.map((slot) => ({
-      slot,
-      title: SLOT_META[slot].title,
-      itemLabel: SLOT_META[slot].title.replace('位', ''),
-      tip: slot === 'accessories' ? '可叠加多个配饰' : '点击选中该区域'
-    })),
-    slots: buildEmptySlots(),
-    boardSlots: buildBoardSlots(buildEmptySlots()),
+    canvasItems: [],
+    canvasItemIds: [],
+    selectedCanvasItemId: '',
+    selectedCanvasTitle: '',
     closetItems: [],
     loading: false,
     savingRemote: false,
-    lastSavedOutfitId: ''
+    lastSavedOutfitId: '',
+    maxCanvasItems: MAX_CANVAS_ITEMS,
+    boardWidth: 0,
+    boardHeight: 0,
+    boardReady: false
   },
 
   onLoad() {
@@ -38,7 +27,12 @@ Page({
     }
   },
 
+  onReady() {
+    this.measureBoard();
+  },
+
   onShow() {
+    this.measureBoard();
     this.fetchClosetItems();
   },
 
@@ -47,43 +41,43 @@ Page({
     if (!draft || typeof draft !== 'object') {
       return;
     }
-    this.setData({
-      slots: {
-        ...buildEmptySlots(),
-        ...draft.slots
-      },
-      boardSlots: buildBoardSlots({
-        ...buildEmptySlots(),
-        ...draft.slots
-      }),
-      activeSlot: draft.activeSlot || 'top',
-      activeSlotTitle: SLOT_META[draft.activeSlot || 'top']?.title || SLOT_META.top.title
-    });
+
+    if (Array.isArray(draft.canvasItems)) {
+      this.pendingCanvasItems = draft.canvasItems;
+      this.pendingSelectedCanvasItemId = draft.selectedCanvasItemId || '';
+      this.tryHydratePendingState();
+      return;
+    }
+
+    if (draft.slots) {
+      this.pendingImportSlots = draft.slots;
+    }
   },
 
   restoreImportedOutfit() {
     const imported = wx.getStorageSync(IMPORT_KEY);
-    if (!imported || typeof imported !== 'object' || !imported.slots) {
+    if (!imported || typeof imported !== 'object') {
       return false;
     }
 
-    this.pendingImportSlots = imported.slots;
-    this.setData({
-      activeSlot: 'top',
-      activeSlotTitle: SLOT_META.top.title,
-      lastSavedOutfitId: ''
-    });
+    if (Array.isArray(imported.layoutItems)) {
+      this.pendingImportLayoutItems = imported.layoutItems;
+    } else if (imported.slots) {
+      this.pendingImportSlots = imported.slots;
+    } else {
+      return false;
+    }
+
     wx.removeStorageSync(IMPORT_KEY);
     return true;
   },
 
-  persistDraft(nextState = {}) {
-    const payload = {
-      slots: nextState.slots || this.data.slots,
-      activeSlot: nextState.activeSlot || this.data.activeSlot,
+  persistDraft(nextCanvasItems = this.getNormalizedCanvasItems(), selectedCanvasItemId = this.data.selectedCanvasItemId) {
+    wx.setStorageSync(DRAFT_KEY, {
+      canvasItems: nextCanvasItems,
+      selectedCanvasItemId,
       updatedAt: Date.now()
-    };
-    wx.setStorageSync(DRAFT_KEY, payload);
+    });
   },
 
   async fetchClosetItems() {
@@ -98,13 +92,11 @@ Page({
         category: item.category,
         subCategory: item.subCategory || '',
         title: [item.category, item.subCategory].filter(Boolean).join(' / ') || '未命名单品',
-        imageUrl: await resolveImageUrl(item.imageOriginalUrl)
+        imageUrl: await resolveImageUrl(item.imageOriginalUrl),
+        addedToCanvas: false
       })));
       this.setData({ closetItems, loading: false });
-      if (this.pendingImportSlots) {
-        this.applyImportedSlots(this.pendingImportSlots, closetItems);
-        this.pendingImportSlots = null;
-      }
+      this.tryHydratePendingState();
     } catch (error) {
       console.error('Fetch canvas closet items failed', error);
       this.setData({ loading: false });
@@ -112,74 +104,149 @@ Page({
     }
   },
 
-  selectSlot(e) {
-    const slot = e.currentTarget.dataset.slot;
-    this.setData({
-      activeSlot: slot,
-      activeSlotTitle: SLOT_META[slot]?.title || SLOT_META.top.title
-    });
-    this.persistDraft({ activeSlot: slot });
+  measureBoard() {
+    const query = wx.createSelectorQuery();
+    query.select('#free-canvas-stage').boundingClientRect((rect) => {
+      if (!rect || !rect.width || !rect.height) {
+        return;
+      }
+      this.setData({
+        boardWidth: rect.width,
+        boardHeight: rect.height,
+        boardReady: true
+      });
+
+      if (this.data.canvasItems.length > 0) {
+        this.syncCanvasItems(this.getNormalizedCanvasItems(), this.data.selectedCanvasItemId);
+      } else {
+        this.tryHydratePendingState();
+      }
+    }).exec();
   },
 
-  useClosetItem(e) {
-    const itemId = e.currentTarget.dataset.id;
-    const item = this.data.closetItems.find(entry => entry.id === itemId);
-    if (!item) {
+  tryHydratePendingState() {
+    if (!this.data.boardReady) {
       return;
     }
 
-    const slot = this.data.activeSlot || inferSlotFromCategory(item.category);
-    if (!slot) {
-      wx.showToast({ title: '请先选择放置区域', icon: 'none' });
+    if (this.pendingCanvasItems) {
+      const canvasItems = sanitizeCanvasItems(this.pendingCanvasItems);
+      const selectedCanvasItemId = this.pendingSelectedCanvasItemId || canvasItems[0]?.id || '';
+      this.pendingCanvasItems = null;
+      this.pendingSelectedCanvasItemId = '';
+      this.syncCanvasItems(canvasItems, selectedCanvasItemId);
       return;
     }
 
-    const nextSlots = { ...this.data.slots };
-    if (slot === 'accessories') {
-      const existing = nextSlots.accessories || [];
-      nextSlots.accessories = existing.some(entry => entry.id === item.id)
-        ? existing
-        : [...existing, item];
-    } else {
-      nextSlots[slot] = item;
-      if (slot === 'dress') {
-        nextSlots.bottom = null;
-      }
-      if (slot === 'bottom') {
-        nextSlots.dress = null;
-      }
+    if (!this.data.closetItems.length) {
+      return;
     }
 
-    this.setData({ slots: nextSlots });
-    this.setData({ boardSlots: buildBoardSlots(nextSlots) });
-    this.persistDraft({ slots: nextSlots });
+    if (this.pendingImportLayoutItems) {
+      const importedItems = buildCanvasItemsFromLayout(this.pendingImportLayoutItems, this.data.closetItems);
+      this.pendingImportLayoutItems = null;
+      this.syncCanvasItems(importedItems, importedItems[0]?.id || '');
+      this.persistDraft(importedItems, importedItems[0]?.id || '');
+      wx.showToast({ title: '已载入这套搭配', icon: 'success' });
+      return;
+    }
+
+    if (this.pendingImportSlots) {
+      const importedItems = buildCanvasItemsFromSlots(this.pendingImportSlots, this.data.closetItems);
+      this.pendingImportSlots = null;
+      this.syncCanvasItems(importedItems, importedItems[0]?.id || '');
+      this.persistDraft(importedItems, importedItems[0]?.id || '');
+      wx.showToast({ title: '已载入这套搭配', icon: 'success' });
+    }
   },
 
-  removeFromSlot(e) {
-    const slot = e.currentTarget.dataset.slot;
+  addClosetItem(e) {
     const itemId = e.currentTarget.dataset.id;
-    const nextSlots = { ...this.data.slots };
-
-    if (slot === 'accessories') {
-      nextSlots.accessories = (nextSlots.accessories || []).filter(item => item.id !== itemId);
-    } else {
-      nextSlots[slot] = null;
+    const closetItem = this.data.closetItems.find((item) => item.id === itemId);
+    if (!closetItem) {
+      return;
     }
 
-    this.setData({ slots: nextSlots });
-    this.setData({ boardSlots: buildBoardSlots(nextSlots) });
-    this.persistDraft({ slots: nextSlots });
+    if (this.data.canvasItemIds.includes(itemId)) {
+      const existing = this.data.canvasItems.find((item) => item.itemId === itemId);
+      if (existing) {
+        this.selectCanvasItemById(existing.id);
+      }
+      wx.showToast({ title: '这件单品已在画布里', icon: 'none' });
+      return;
+    }
+
+    if (this.data.canvasItems.length >= MAX_CANVAS_ITEMS) {
+      wx.showToast({ title: `最多添加 ${MAX_CANVAS_ITEMS} 件`, icon: 'none' });
+      return;
+    }
+
+    const nextItems = [
+      ...this.getNormalizedCanvasItems(),
+      buildCanvasItemFromCloset(closetItem, this.data.canvasItems.length)
+    ];
+    const newItemId = nextItems[nextItems.length - 1]?.id || '';
+    this.syncCanvasItems(nextItems, newItemId);
+    this.persistDraft(nextItems, newItemId);
+  },
+
+  selectCanvasItem(e) {
+    const canvasId = e.currentTarget.dataset.id;
+    this.selectCanvasItemById(canvasId);
+  },
+
+  selectCanvasItemById(canvasId) {
+    if (!canvasId) {
+      return;
+    }
+    const nextItems = bringCanvasItemToFront(this.getNormalizedCanvasItems(), canvasId);
+    this.syncCanvasItems(nextItems, canvasId);
+    this.persistDraft(nextItems, canvasId);
+  },
+
+  onPieceMove(e) {
+    if (!this.data.boardWidth || !this.data.boardHeight) {
+      return;
+    }
+
+    const canvasId = e.currentTarget.dataset.id;
+    const currentItems = this.getNormalizedCanvasItems();
+    const targetIndex = currentItems.findIndex((item) => item.id === canvasId);
+    if (targetIndex < 0) {
+      return;
+    }
+
+    const target = currentItems[targetIndex];
+    const maxX = Math.max(this.data.boardWidth - target.w * this.data.boardWidth, 0);
+    const maxY = Math.max(this.data.boardHeight - target.h * this.data.boardHeight, 0);
+    const nextX = clamp((e.detail.x || 0) / this.data.boardWidth, 0, maxX / this.data.boardWidth);
+    const nextY = clamp((e.detail.y || 0) / this.data.boardHeight, 0, maxY / this.data.boardHeight);
+
+    currentItems[targetIndex] = {
+      ...target,
+      x: nextX,
+      y: nextY
+    };
+    this.syncCanvasItems(currentItems, canvasId);
+    this.persistDraft(currentItems, canvasId);
+  },
+
+  removeSelectedItem() {
+    const selectedCanvasItemId = this.data.selectedCanvasItemId;
+    if (!selectedCanvasItemId) {
+      wx.showToast({ title: '请先选中一个单品', icon: 'none' });
+      return;
+    }
+
+    const nextItems = this.getNormalizedCanvasItems().filter((item) => item.id !== selectedCanvasItemId);
+    const nextSelectedId = nextItems[nextItems.length - 1]?.id || '';
+    this.syncCanvasItems(nextItems, nextSelectedId);
+    this.persistDraft(nextItems, nextSelectedId);
   },
 
   clearCanvas() {
-    const slots = buildEmptySlots();
-    this.setData({
-      slots,
-      boardSlots: buildBoardSlots(slots),
-      activeSlot: 'top',
-      activeSlotTitle: SLOT_META.top.title
-    });
-    this.persistDraft({ slots, activeSlot: 'top' });
+    this.syncCanvasItems([], '');
+    this.persistDraft([], '');
     wx.showToast({ title: '已清空画布', icon: 'success' });
   },
 
@@ -189,9 +256,20 @@ Page({
   },
 
   async saveCanvasRecord() {
-    const slotsPayload = serializeSlots(this.data.slots);
-    if (isCanvasEmpty(slotsPayload)) {
-      wx.showToast({ title: '请先放入至少一件单品', icon: 'none' });
+    const layoutItems = this.getNormalizedCanvasItems()
+      .sort((a, b) => a.layerIndex - b.layerIndex)
+      .map((item) => ({
+        itemId: item.itemId,
+        slotCode: inferSlotFromCategory(item.category),
+        x: roundLayoutValue(item.x),
+        y: roundLayoutValue(item.y),
+        w: roundLayoutValue(item.w),
+        h: roundLayoutValue(item.h),
+        layerIndex: item.layerIndex
+      }));
+
+    if (layoutItems.length === 0) {
+      wx.showToast({ title: '请先加入至少一件单品', icon: 'none' });
       return;
     }
 
@@ -202,7 +280,7 @@ Page({
         method: 'POST',
         data: {
           sourceType: 'canvas',
-          slots: slotsPayload
+          layoutItems
         }
       });
 
@@ -223,32 +301,191 @@ Page({
     wx.navigateTo({ url: '/pages/saved-outfits/index' });
   },
 
-  applyImportedSlots(slotIds, closetItems = this.data.closetItems) {
-    const nextSlots = buildSlotsFromItemIds(slotIds, closetItems);
+  getNormalizedCanvasItems() {
+    return (this.data.canvasItems || []).map(stripCanvasMetrics);
+  },
+
+  syncCanvasItems(items, selectedCanvasItemId = '') {
+    const decoratedItems = decorateCanvasItems(items, this.data.boardWidth, this.data.boardHeight);
+    const selectedItem = decoratedItems.find((item) => item.id === selectedCanvasItemId) || decoratedItems[decoratedItems.length - 1] || null;
     this.setData({
-      slots: nextSlots,
-      boardSlots: buildBoardSlots(nextSlots),
-      activeSlot: pickFirstFilledSlot(nextSlots) || 'top',
-      activeSlotTitle: SLOT_META[pickFirstFilledSlot(nextSlots) || 'top']?.title || SLOT_META.top.title
+      canvasItems: decoratedItems,
+      canvasItemIds: decoratedItems.map((item) => item.itemId),
+      selectedCanvasItemId: selectedItem?.id || '',
+      selectedCanvasTitle: selectedItem?.title || '',
+      closetItems: (this.data.closetItems || []).map((item) => ({
+        ...item,
+        addedToCanvas: decoratedItems.some((canvasItem) => canvasItem.itemId === item.id)
+      }))
     });
-    this.persistDraft({
-      slots: nextSlots,
-      activeSlot: pickFirstFilledSlot(nextSlots) || 'top'
-    });
-    wx.showToast({ title: '已载入这套搭配', icon: 'success' });
   }
 });
 
-function buildEmptySlots() {
+function decorateCanvasItems(items, boardWidth, boardHeight) {
+  return sanitizeCanvasItems(items).map((item) => ({
+    ...item,
+    xPx: Math.round(item.x * boardWidth),
+    yPx: Math.round(item.y * boardHeight),
+    widthPx: Math.max(Math.round(item.w * boardWidth), 56),
+    heightPx: Math.max(Math.round(item.h * boardHeight), 56)
+  }));
+}
+
+function sanitizeCanvasItems(items) {
+  return (items || []).slice(0, MAX_CANVAS_ITEMS).map((item, index) => ({
+    id: item.id || `canvas-${item.itemId}-${index}`,
+    itemId: item.itemId,
+    category: item.category || '',
+    subCategory: item.subCategory || '',
+    title: item.title || [item.category, item.subCategory].filter(Boolean).join(' / ') || '未命名单品',
+    imageUrl: item.imageUrl || '',
+    x: clamp(Number(item.x), 0, 0.88),
+    y: clamp(Number(item.y), 0, 0.88),
+    w: clampSize(Number(item.w), 0.24),
+    h: clampSize(Number(item.h), 0.24),
+    layerIndex: Number.isFinite(item.layerIndex) ? Number(item.layerIndex) : index
+  }));
+}
+
+function buildCanvasItemFromCloset(item, index) {
+  const size = getDefaultCanvasSize(item.category);
+  const offset = Math.min(index * 0.03, 0.18);
   return {
-    top: null,
-    bottom: null,
-    dress: null,
-    outer: null,
-    shoes: null,
-    bag: null,
-    accessories: []
+    id: `canvas-${item.id}-${Date.now()}`,
+    itemId: item.id,
+    category: item.category,
+    subCategory: item.subCategory || '',
+    title: item.title,
+    imageUrl: item.imageUrl || '',
+    x: clamp(0.36 - size.w / 2 + offset, 0, 1 - size.w),
+    y: clamp(0.22 + offset, 0, 1 - size.h),
+    w: size.w,
+    h: size.h,
+    layerIndex: index
   };
+}
+
+function buildCanvasItemsFromLayout(layoutItems, closetItems) {
+  const closetMap = new Map((closetItems || []).map((item) => [item.id, item]));
+  return (layoutItems || []).map((layoutItem, index) => {
+    const closetItem = closetMap.get(layoutItem.itemId);
+    if (!closetItem) {
+      return null;
+    }
+    return {
+      id: `canvas-${layoutItem.itemId}-${index}`,
+      itemId: layoutItem.itemId,
+      category: closetItem.category,
+      subCategory: closetItem.subCategory || '',
+      title: closetItem.title,
+      imageUrl: closetItem.imageUrl || '',
+      x: clamp(Number(layoutItem.x), 0, 0.95),
+      y: clamp(Number(layoutItem.y), 0, 0.95),
+      w: clampSize(Number(layoutItem.w), getDefaultCanvasSize(closetItem.category).w),
+      h: clampSize(Number(layoutItem.h), getDefaultCanvasSize(closetItem.category).h),
+      layerIndex: Number.isFinite(layoutItem.layerIndex) ? Number(layoutItem.layerIndex) : index
+    };
+  }).filter(Boolean);
+}
+
+function buildCanvasItemsFromSlots(slots, closetItems) {
+  const closetMap = new Map((closetItems || []).map((item) => [item.id, item]));
+  const legacyLayout = [
+    { key: 'outer', x: 0.04, y: 0.04, w: 0.3, h: 0.38 },
+    { key: 'dress', x: 0.34, y: 0.08, w: 0.34, h: 0.56 },
+    { key: 'top', x: 0.34, y: 0.08, w: 0.34, h: 0.24 },
+    { key: 'bottom', x: 0.34, y: 0.32, w: 0.3, h: 0.46 },
+    { key: 'bag', x: 0.06, y: 0.66, w: 0.18, h: 0.18 },
+    { key: 'shoes', x: 0.34, y: 0.8, w: 0.28, h: 0.12 }
+  ];
+
+  const items = legacyLayout.map((layout, index) => {
+    const itemId = slots?.[layout.key];
+    if (!itemId) {
+      return null;
+    }
+    const closetItem = closetMap.get(itemId);
+    if (!closetItem) {
+      return null;
+    }
+    return {
+      id: `canvas-${itemId}-${layout.key}`,
+      itemId,
+      category: closetItem.category,
+      subCategory: closetItem.subCategory || '',
+      title: closetItem.title,
+      imageUrl: closetItem.imageUrl || '',
+      x: layout.x,
+      y: layout.y,
+      w: layout.w,
+      h: layout.h,
+      layerIndex: index
+    };
+  }).filter(Boolean);
+
+  (slots?.accessories || []).forEach((itemId, index) => {
+    const closetItem = closetMap.get(itemId);
+    if (!closetItem) {
+      return;
+    }
+    items.push({
+      id: `canvas-${itemId}-accessories-${index}`,
+      itemId,
+      category: closetItem.category,
+      subCategory: closetItem.subCategory || '',
+      title: closetItem.title,
+      imageUrl: closetItem.imageUrl || '',
+      x: 0.8,
+      y: Math.min(0.08 + index * 0.12, 0.78),
+      w: 0.12,
+      h: 0.12,
+      layerIndex: items.length
+    });
+  });
+
+  return items;
+}
+
+function bringCanvasItemToFront(items, canvasId) {
+  const maxLayerIndex = items.reduce((maxValue, item) => Math.max(maxValue, item.layerIndex || 0), 0);
+  return items.map((item) => item.id === canvasId ? { ...item, layerIndex: maxLayerIndex + 1 } : item);
+}
+
+function stripCanvasMetrics(item) {
+  return {
+    id: item.id,
+    itemId: item.itemId,
+    category: item.category,
+    subCategory: item.subCategory,
+    title: item.title,
+    imageUrl: item.imageUrl,
+    x: item.x,
+    y: item.y,
+    w: item.w,
+    h: item.h,
+    layerIndex: item.layerIndex
+  };
+}
+
+function getDefaultCanvasSize(category) {
+  switch (category) {
+    case '连衣裙':
+      return { w: 0.34, h: 0.5 };
+    case '外套':
+      return { w: 0.32, h: 0.38 };
+    case '上衣':
+      return { w: 0.3, h: 0.22 };
+    case '下装':
+      return { w: 0.28, h: 0.4 };
+    case '鞋履':
+      return { w: 0.22, h: 0.12 };
+    case '包袋':
+      return { w: 0.18, h: 0.18 };
+    case '配饰':
+      return { w: 0.12, h: 0.12 };
+    default:
+      return { w: 0.24, h: 0.24 };
+  }
 }
 
 function inferSlotFromCategory(category) {
@@ -268,57 +505,24 @@ function inferSlotFromCategory(category) {
     case '配饰':
       return 'accessories';
     default:
-      return '';
+      return 'free';
   }
 }
 
-function buildBoardSlots(slots) {
-  return SLOT_ORDER.map((slot) => ({
-    slot,
-    title: SLOT_META[slot].title,
-    itemLabel: SLOT_META[slot].title.replace('位', ''),
-    tip: slot === 'accessories' ? '可叠加多个配饰' : '点击选中该区域',
-    item: slot === 'accessories' ? null : slots[slot],
-    accessories: slot === 'accessories' ? slots.accessories : []
-  }));
+function clamp(value, min, max) {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  return Math.min(max, Math.max(min, value));
 }
 
-function serializeSlots(slots) {
-  return {
-    top: slots.top?.id,
-    bottom: slots.bottom?.id,
-    dress: slots.dress?.id,
-    outer: slots.outer?.id,
-    shoes: slots.shoes?.id,
-    bag: slots.bag?.id,
-    accessories: (slots.accessories || []).map(item => item.id)
-  };
+function clampSize(value, fallback) {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(0.8, Math.max(0.08, value));
 }
 
-function isCanvasEmpty(slots) {
-  return !slots.top && !slots.bottom && !slots.dress && !slots.outer && !slots.shoes && !slots.bag && (!slots.accessories || slots.accessories.length === 0);
-}
-
-function buildSlotsFromItemIds(slotIds, closetItems) {
-  const itemMap = new Map((closetItems || []).map((item) => [item.id, item]));
-  return {
-    top: itemMap.get(slotIds?.top) || null,
-    bottom: itemMap.get(slotIds?.bottom) || null,
-    dress: itemMap.get(slotIds?.dress) || null,
-    outer: itemMap.get(slotIds?.outer) || null,
-    shoes: itemMap.get(slotIds?.shoes) || null,
-    bag: itemMap.get(slotIds?.bag) || null,
-    accessories: (slotIds?.accessories || []).map((id) => itemMap.get(id)).filter(Boolean)
-  };
-}
-
-function pickFirstFilledSlot(slots) {
-  if (slots.top) return 'top';
-  if (slots.dress) return 'dress';
-  if (slots.bottom) return 'bottom';
-  if (slots.outer) return 'outer';
-  if (slots.shoes) return 'shoes';
-  if (slots.bag) return 'bag';
-  if (slots.accessories?.length) return 'accessories';
-  return '';
+function roundLayoutValue(value) {
+  return Number(clamp(value, 0, 1).toFixed(4));
 }
