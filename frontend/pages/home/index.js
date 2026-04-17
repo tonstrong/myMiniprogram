@@ -148,6 +148,10 @@ Page({
 
   goStylePack() {
     wx.navigateTo({ url: '/pages/style-pack/index' });
+  },
+
+  goCanvas() {
+    wx.navigateTo({ url: '/pages/outfit-canvas/index' });
   }
 });
 

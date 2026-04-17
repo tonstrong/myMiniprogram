@@ -28,6 +28,14 @@
         </view>
       </picker>
 
+      <view class="f-row flex-row items-center justify-between" bindtap="editField" data-field="子类">
+        <text class="f-label">子类</text>
+        <view class="flex-row items-center">
+          <text class="f-value">{{item.subCategory || '点击补充'}}</text>
+          <text class="arrow">></text>
+        </view>
+      </view>
+
       <picker mode="selector" range="{{FIT_OPTIONS}}" bindchange="bindFitChange">
         <view class="f-row flex-row items-center justify-between">
           <text class="f-label">版型</text>

@@ -1,6 +1,7 @@
 import api from '../../utils/api';
 
 const CATEGORY_OPTIONS = ['上衣', '下装', '外套', '连衣裙', '鞋履', '包袋', '配饰'];
+const ACCESSORY_SUBCATEGORY_OPTIONS = ['层搭装饰片', '腰饰', '披肩', '围巾', '帽子', '首饰', '其他配饰'];
 const FIT_OPTIONS = ['宽松', '修身', '直筒', '短款', '超长'];
 const COLOR_OPTIONS = ['白色', '黑色', '灰色', '蓝色', '卡其色', '米色', '红色', '粉色', '黄色', '绿色', '紫色', '棕色', '多色'];
 const SEASON_OPTIONS = ['春', '夏', '秋', '冬'];
@@ -58,7 +59,15 @@ Page({
   },
 
   bindCategoryChange(e) {
-    this.setData({ 'item.category': CATEGORY_OPTIONS[e.detail.value] });
+    const category = CATEGORY_OPTIONS[e.detail.value];
+    const nextItem = {
+      ...this.data.item,
+      category,
+      subCategory: category === '配饰'
+        ? (this.data.item.subCategory || '层搭装饰片')
+        : this.data.item.subCategory
+    };
+    this.setData({ item: nextItem });
   },
 
   bindFitChange(e) {
@@ -72,6 +81,8 @@ Page({
   editField(e) {
     const field = e.currentTarget.dataset.field;
     switch (field) {
+      case '子类':
+        return this.editSubCategory();
       case '季节':
         return this.pickMultiple('seasons', SEASON_OPTIONS, '适用季节');
       case '风格':
@@ -95,6 +106,38 @@ Page({
             });
           }
         }
+      }
+    });
+  },
+
+  editSubCategory() {
+    if (this.data.item.category === '配饰') {
+      wx.showActionSheet({
+        itemList: ACCESSORY_SUBCATEGORY_OPTIONS,
+        success: ({ tapIndex }) => {
+          this.setData({ 'item.subCategory': ACCESSORY_SUBCATEGORY_OPTIONS[tapIndex] });
+        },
+        fail: () => {
+          this.openSubCategoryInput();
+        }
+      });
+      return;
+    }
+
+    this.openSubCategoryInput();
+  },
+
+  openSubCategoryInput() {
+    wx.showModal({
+      title: '填写子类',
+      editable: true,
+      placeholderText: '请输入更细的单品类型',
+      content: this.data.item.subCategory || '',
+      success: (res) => {
+        if (!res.confirm) {
+          return;
+        }
+        this.setData({ 'item.subCategory': (res.content || '').trim() });
       }
     });
   },

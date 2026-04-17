@@ -1,5 +1,5 @@
 const BASE_URL = 'http://39.97.158.168:4000';
-// const BASE_URL = 'http://zwyi.xin';
+// const BASE_URL = 'https://zwyi.xin';
 
 function request(options) {
   return new Promise(async (resolve, reject) => {

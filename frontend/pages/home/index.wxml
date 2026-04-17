@@ -64,5 +64,10 @@
       <text class="text-body">风格灵感</text>
       <text class="text-caption">管理风格包</text>
     </view>
+    <view class="action-item glass-panel" bindtap="goCanvas">
+      <view class="action-icon">🧩</view>
+      <text class="text-body">手动搭配</text>
+      <text class="text-caption">自己拼一套造型</text>
+    </view>
   </view>
 </view>

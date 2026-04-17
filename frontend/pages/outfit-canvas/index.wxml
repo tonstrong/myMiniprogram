@@ -1,0 +1,72 @@
+<scroll-view class="container canvas-page" scroll-y>
+  <view class="canvas-header animate-fade-in">
+    <text class="text-h2">手动搭配画布</text>
+    <text class="text-caption">不抠图，先用单品卡片快速拼出一套搭配</text>
+  </view>
+
+  <view class="canvas-board glass-panel animate-fade-in" style="animation-delay: 0.05s;">
+    <view class="board-actions flex-row justify-between items-center">
+      <text class="text-caption">当前选区：{{activeSlotTitle}}</text>
+      <view class="flex-row board-buttons">
+        <button class="btn-secondary canvas-mini-btn" bindtap="clearCanvas">清空</button>
+        <button class="btn-primary canvas-mini-btn" bindtap="saveCanvasDraft">保存草稿</button>
+      </view>
+    </view>
+
+    <block wx:for="{{boardSlots}}" wx:key="slot">
+      <view class="slot-section {{activeSlot === item.slot ? 'active' : ''}}" bindtap="selectSlot" data-slot="{{item.slot}}">
+        <view class="slot-header flex-row items-center justify-between">
+          <text class="slot-title">{{item.title}}</text>
+          <text class="slot-tip">{{item.tip}}</text>
+        </view>
+
+        <view wx:if="{{item.slot === 'accessories'}}" class="accessory-row">
+          <block wx:if="{{item.accessories.length > 0}}">
+            <block wx:for="{{item.accessories}}" wx:key="id">
+              <view class="mini-card" catchtap="removeFromSlot" data-slot="accessories" data-id="{{item.id}}">
+                <image wx:if="{{item.imageUrl}}" class="mini-card-img" src="{{item.imageUrl}}" mode="aspectFill"></image>
+                <view wx:else class="mini-card-img mini-placeholder">{{item.category}}</view>
+                <text class="mini-card-text">{{item.subCategory || item.category}}</text>
+              </view>
+            </block>
+          </block>
+          <view wx:else class="slot-placeholder">点击下方单品可加入多个配饰</view>
+        </view>
+
+        <view wx:else class="slot-card">
+          <view wx:if="{{item.item}}" class="placed-card" catchtap="removeFromSlot" data-slot="{{item.slot}}" data-id="{{item.item.id}}">
+            <image wx:if="{{item.item.imageUrl}}" class="placed-image" src="{{item.item.imageUrl}}" mode="aspectFill"></image>
+            <view wx:else class="placed-image mini-placeholder">{{item.item.category}}</view>
+            <view class="placed-meta">
+              <text class="placed-title">{{item.item.title}}</text>
+              <text class="placed-remove">点击移除</text>
+            </view>
+          </view>
+          <view wx:else class="slot-placeholder">点亮此区域后，从下方挑一件{{item.itemLabel}}加入</view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <view class="tray-section animate-fade-in" style="animation-delay: 0.1s;">
+    <view class="tray-header flex-row justify-between items-center">
+      <text class="text-h2">我的衣橱单品</text>
+      <text class="text-caption">点击单品放入当前选区</text>
+    </view>
+
+    <view wx:if="{{loading}}" class="tray-empty glass-panel">正在加载衣橱...</view>
+    <view wx:elif="{{closetItems.length === 0}}" class="tray-empty glass-panel">暂无已入库单品，先去确认单品吧。</view>
+    <view wx:else class="tray-grid">
+      <block wx:for="{{closetItems}}" wx:key="id">
+        <view class="tray-card glass-panel" bindtap="useClosetItem" data-id="{{item.id}}">
+          <image wx:if="{{item.imageUrl}}" class="tray-image" src="{{item.imageUrl}}" mode="aspectFill"></image>
+          <view wx:else class="tray-image mini-placeholder">{{item.category}}</view>
+          <view class="tray-meta">
+            <text class="tray-title">{{item.title}}</text>
+            <text class="tray-sub">{{item.category}}</text>
+          </view>
+        </view>
+      </block>
+    </view>
+  </view>
+</scroll-view>

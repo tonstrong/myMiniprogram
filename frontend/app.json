@@ -7,6 +7,7 @@
     "pages/style-pack/index",
     "pages/style-pack/import",
     "pages/style-pack/detail",
+    "pages/outfit-canvas/index",
     "pages/recommend/config",
     "pages/recommend/result",
     "pages/history/index",

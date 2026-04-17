@@ -315,9 +315,10 @@ function asOptionalConfidence(value: unknown): Record<string, number> | undefine
 function normalizeExtractedAttributes(
   parsed: Record<string, unknown>
 ): Partial<ClothingAttributes> {
+  const categoryInfo = normalizeCategoryInfo(parsed);
   return {
-    category: normalizeCategoryValue(asOptionalString(parsed.category)),
-    subCategory: normalizeLabel(asOptionalString(parsed.subCategory)),
+    category: categoryInfo.category,
+    subCategory: categoryInfo.subCategory,
     colors: normalizeArray(asOptionalStringArray(parsed.colors), normalizeColorValue),
     pattern: normalizeLabel(asOptionalString(parsed.pattern)),
     material: normalizeLabel(asOptionalString(parsed.material)),
@@ -328,6 +329,30 @@ function normalizeExtractedAttributes(
     occasionTags: normalizeArray(asOptionalStringArray(parsed.occasionTags), normalizeTagValue),
     confidence: asOptionalConfidence(parsed.confidence)
   };
+}
+
+function normalizeCategoryInfo(
+  parsed: Record<string, unknown>
+): { category?: string; subCategory?: string } {
+  const rawCategory = asOptionalString(parsed.category);
+  const rawSubCategory = asOptionalString(parsed.subCategory);
+  const rawTags = asOptionalStringArray(parsed.tags) ?? [];
+  const rawOccasionTags = asOptionalStringArray(parsed.occasionTags) ?? [];
+
+  const joinedHints = [rawCategory, rawSubCategory, ...rawTags, ...rawOccasionTags]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map(toLookupKey);
+
+  if (joinedHints.some((value) => DECORATIVE_ACCESSORY_HINTS.has(value))) {
+    return {
+      category: "配饰",
+      subCategory: normalizeDecorativeSubCategory(rawSubCategory ?? rawCategory) ?? "层搭装饰片"
+    };
+  }
+
+  const category = normalizeCategoryValue(rawCategory);
+  const subCategory = normalizeSubCategoryValue(rawSubCategory, category);
+  return { category, subCategory };
 }
 
 function normalizeArray(
@@ -609,7 +634,7 @@ function normalizeColorValue(value: string): string | undefined {
     "\u5f69\u8272": "\u591a\u8272"
   };
 
-  return mapWithAliases(value, mapping);
+  return mapping[toLookupKey(value)];
 }
 
 function normalizeSeasonValue(value: string): string | undefined {
@@ -629,7 +654,7 @@ function normalizeSeasonValue(value: string): string | undefined {
     "\u51ac\u5b63": "\u51ac"
   };
 
-  return mapWithAliases(value, mapping);
+  return mapping[toLookupKey(value)];
 }
 
 function normalizeFitValue(value: string): string | undefined {
@@ -652,7 +677,7 @@ function normalizeFitValue(value: string): string | undefined {
     "\u8d85\u957f": "\u957f\u6b3e"
   };
 
-  return mapWithAliases(value, mapping);
+  return mapping[toLookupKey(value)];
 }
 
 function normalizeTagValue(value: string): string | undefined {
@@ -681,7 +706,45 @@ function normalizeTagValue(value: string): string | undefined {
     "\u65f6\u9ae6": "\u65f6\u9ae6"
   };
 
-  return mapWithAliases(value, mapping);
+  return mapping[toLookupKey(value)];
+}
+
+function normalizeSubCategoryValue(
+  value?: string,
+  category?: string
+): string | undefined {
+  if (!value) {
+    return category === "配饰" ? undefined : undefined;
+  }
+
+  const normalized = toLookupKey(value);
+  const mapping: Record<string, string> = {
+    腰饰: "腰饰",
+    腰链: "腰饰",
+    腰封: "腰饰",
+    beltaccessory: "腰饰",
+    屁帘: "层搭装饰片",
+    覆裙: "层搭装饰片",
+    装饰片: "层搭装饰片",
+    层搭装饰片: "层搭装饰片",
+    layeringpanel: "层搭装饰片",
+    overlaypanel: "层搭装饰片",
+    hipscarf: "层搭装饰片",
+    decorativepanel: "层搭装饰片",
+    披肩: "披肩",
+    scarf: "围巾",
+    围巾: "围巾",
+    hat: "帽子",
+    帽子: "帽子",
+    jewelry: "首饰",
+    首饰: "首饰"
+  };
+
+  return mapping[normalized] ?? (category === "配饰" ? fallbackLabel(value) : undefined);
+}
+
+function normalizeDecorativeSubCategory(value?: string): string | undefined {
+  return normalizeSubCategoryValue(value, "配饰");
 }
 
 function mapWithAliases(
@@ -706,6 +769,22 @@ function toLookupKey(value: string): string {
     .toLowerCase()
     .replace(/[\s_\-\/\\,，、.。:：;；()（）\[\]{}'"]+/g, "");
 }
+
+const DECORATIVE_ACCESSORY_HINTS = new Set([
+  "屁帘",
+  "覆裙",
+  "装饰片",
+  "层搭装饰片",
+  "layeringpanel",
+  "overlaypanel",
+  "decorativepanel",
+  "waistaccessory",
+  "beltaccessory",
+  "腰饰",
+  "腰链",
+  "腰封",
+  "hipscarf"
+]);
 
 export function createInMemoryClosetService(
   deps: Pick<ClosetServiceDependencies, "taskCenterService"> &
