@@ -31,6 +31,19 @@ export class InMemoryTaskRepository implements TaskRepository {
     return task;
   }
 
+  async countCreatedByUserAndTypeSince(
+    userId: string,
+    taskType: AsyncTaskRecord["taskType"],
+    since: Date
+  ): Promise<number> {
+    return Array.from(this.tasks.values()).filter(
+      (task) =>
+        task.userId === userId &&
+        task.taskType === taskType &&
+        task.createdAt >= since
+    ).length;
+  }
+
   async findLatestByBizForUser(
     userId: string,
     bizType: string,
@@ -328,6 +341,22 @@ export class MySqlTaskRepository implements TaskRepository {
     });
   }
 
+  async countCreatedByUserAndTypeSince(
+    userId: string,
+    taskType: AsyncTaskRecord["taskType"],
+    since: Date
+  ): Promise<number> {
+    return withClient(async (client) => {
+      const [rows] = await client.query<RowDataPacket[]>(
+        `SELECT COUNT(*) AS total
+         FROM async_tasks
+         WHERE user_id = ? AND task_type = ? AND created_at >= ?`,
+        [userId, taskType, formatDateTime(since)]
+      );
+      return Number(rows[0]?.total ?? 0);
+    });
+  }
+
   async findLatestByBizForUser(
     userId: string,
     bizType: string,
@@ -479,6 +508,9 @@ export const createNoopTaskRepository = (): TaskRepository => ({
   },
   async findByIdForUser() {
     return null;
+  },
+  async countCreatedByUserAndTypeSince() {
+    return 0;
   },
   async findLatestByBizForUser() {
     return null;

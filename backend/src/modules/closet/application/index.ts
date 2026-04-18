@@ -42,8 +42,8 @@ export interface ClothingItemImageAsset {
 
 export interface UploadClothingItemResult {
   itemId: string;
-  taskId: string;
-  status: TaskStatus;
+  taskId?: string;
+  status: TaskStatus | ClothingItemStatus;
 }
 
 export interface ClothingItemSummary {
@@ -85,6 +85,7 @@ export interface ClosetQueryFilters extends PaginationQuery {
 
 export interface ClosetService {
   uploadItem(command: UploadClothingItemCommand): Promise<UploadClothingItemResult>;
+  extractItemAttributes(userId: string, itemId: string): Promise<ClothingItemDetail>;
   listItems(
     userId: string,
     query: ClosetQueryFilters

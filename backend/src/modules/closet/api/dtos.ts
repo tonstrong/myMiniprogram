@@ -24,7 +24,7 @@ export interface GetClothingItemImageQueryDTO {
 
 export interface UploadClothingItemResponseDTO {
   itemId: string;
-  taskId: string;
+  taskId?: string;
   status: TaskStatus | ClothingItemStatusDTO;
 }
 

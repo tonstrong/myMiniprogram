@@ -32,8 +32,10 @@ Page({
   data: {
     itemId: '',
     isNew: false,
-    taskId: '',
     previewImage: '',
+    aiExtracting: false,
+    hasAiResult: false,
+    aiSummaryText: '还没触发 AI 识别，也可以直接手动填写',
     CATEGORY_OPTIONS,
     FIT_OPTIONS,
     COLOR_PALETTE: buildColorPaletteState([]),
@@ -54,7 +56,6 @@ Page({
     this.setData({
       itemId: options.id || '',
       isNew,
-      taskId: options.taskId || '',
       previewImage: options.preview ? decodeURIComponent(options.preview) : ''
     });
     wx.setNavigationBarTitle({ title: isNew ? '确认单品' : '单品详情' });
@@ -75,11 +76,48 @@ Page({
       const item = mapItemDetail(detail, this.data.previewImage);
       this.setData({
         item,
+        hasAiResult: hasAiResult(detail),
+        aiSummaryText: buildAiSummary(detail),
         COLOR_PALETTE: buildColorPaletteState(item.colors || [])
       });
     } catch (error) {
       console.error('Fetch closet detail failed', error);
       wx.showToast({ title: '加载失败', icon: 'none' });
+    }
+  },
+
+  async triggerAiExtract() {
+    if (this.data.aiExtracting) {
+      return;
+    }
+
+    this.setData({ aiExtracting: true });
+    wx.showLoading({ title: '识别中...' });
+    try {
+      const detail = await api.request({
+        url: `/api/closet/items/${this.data.itemId}/extract`,
+        method: 'POST',
+        data: {}
+      });
+      const item = mapItemDetail(detail, this.data.previewImage);
+      wx.hideLoading();
+      this.setData({
+        aiExtracting: false,
+        item,
+        hasAiResult: hasAiResult(detail),
+        aiSummaryText: buildAiSummary(detail),
+        COLOR_PALETTE: buildColorPaletteState(item.colors || [])
+      });
+      wx.showToast({ title: 'AI 识别完成', icon: 'success' });
+    } catch (error) {
+      wx.hideLoading();
+      this.setData({ aiExtracting: false });
+      console.error('Extract clothing item failed', error);
+      const message = error?.error?.message || error?.message || '';
+      wx.showToast({
+        title: mapExtractErrorMessage(message),
+        icon: 'none'
+      });
     }
   },
 
@@ -131,7 +169,7 @@ Page({
     wx.showModal({
       title: '添加自定义颜色',
       editable: true,
-      placeholderText: '例如：雾霾蓝 / 奶油黄 / 酒红色',
+      placeholderText: '例如：雾霾蓝 / 奶油白 / 酒红色',
       success: (res) => {
         if (!res.confirm) {
           return;
@@ -210,25 +248,15 @@ Page({
     });
   },
 
-  pickSingle(key, options) {
-    wx.showActionSheet({
-      itemList: options,
-      success: ({ tapIndex }) => {
-        const next = { ...this.data.item, [key]: options[tapIndex] };
-        this.setData({ item: next });
-      }
-    });
-  },
-
   pickMultiple(key, options, title) {
     const selected = this.data.item[key] || [];
     wx.showActionSheet({
       alertText: `${title}（当前：${selected.join('、') || '未选择'}）`,
-      itemList: options.map(option => `${selected.includes(option) ? '✓ ' : ''}${option}`),
+      itemList: options.map((option) => `${selected.includes(option) ? '✓ ' : ''}${option}`),
       success: ({ tapIndex }) => {
         const value = options[tapIndex];
         const nextValues = selected.includes(value)
-          ? selected.filter(item => item !== value)
+          ? selected.filter((item) => item !== value)
           : [...selected, value];
         this.setData({ item: { ...this.data.item, [key]: nextValues } });
       }
@@ -311,6 +339,24 @@ function mapItemDetail(detail, previewImage = '') {
   };
 }
 
+function hasAiResult(detail) {
+  const attributes = detail.attributes || {};
+  return Boolean(
+    detail.llmMeta?.provider ||
+    attributes.category ||
+    (attributes.colors && attributes.colors.length) ||
+    (attributes.tags && attributes.tags.length)
+  );
+}
+
+function buildAiSummary(detail) {
+  const provider = detail.llmMeta?.provider;
+  if (provider) {
+    return `AI 已识别，可继续修改结果`;
+  }
+  return '还没触发 AI 识别，也可以直接手动填写';
+}
+
 function normalizeImageUrl(url) {
   if (!url || typeof url !== 'string') {
     return '';
@@ -348,4 +394,20 @@ function buildColorPaletteState(selectedColors) {
       ? `background:${option.hex};`
       : `background-color:${option.hex};`
   }));
+}
+
+function mapExtractErrorMessage(message) {
+  if (!message) {
+    return 'AI 识别失败，请稍后再试';
+  }
+
+  if (message.includes('每天最多 3 次') || message.includes('今日 AI 识别次数已用完')) {
+    return '今日 AI 识别次数已用完';
+  }
+
+  if (message.includes('Item image is not available')) {
+    return '当前图片暂不支持 AI 识别';
+  }
+
+  return message;
 }

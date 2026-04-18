@@ -52,6 +52,19 @@
   margin-bottom: var(--spacing-xl);
 }
 
+.form-caption {
+  display: block;
+  margin-top: 12rpx;
+}
+
+.mini-ai-btn {
+  min-height: auto;
+  margin: 0;
+  padding: 14rpx 22rpx;
+  line-height: 1.4;
+  font-size: 24rpx;
+}
+
 .form-list {
   display: flex;
   flex-direction: column;

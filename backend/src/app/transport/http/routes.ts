@@ -107,6 +107,8 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
   const closetController = new ClosetController({
     closetService: createInMemoryClosetService({
       taskCenterService,
+      taskRepository,
+      userProfileRepository,
       repository: closetRepository,
       llmGatewayService
     })

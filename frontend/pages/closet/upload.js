@@ -37,13 +37,13 @@ Page({
 
           this.setData({ status: 'done' });
           wx.hideLoading();
-          wx.showToast({ title: '识别任务已创建', icon: 'success' });
+          wx.showToast({ title: '上传成功', icon: 'success' });
 
           setTimeout(() => {
             wx.redirectTo({
-              url: `/pages/closet/detail?id=${result.itemId}&isNew=1&taskId=${result.taskId}&preview=${encodeURIComponent(tempFilePath)}`
+              url: `/pages/closet/detail?id=${result.itemId}&isNew=1&preview=${encodeURIComponent(tempFilePath)}`
             });
-          }, 600);
+          }, 500);
         } catch (error) {
           wx.hideLoading();
           console.error('Upload item failed', error);

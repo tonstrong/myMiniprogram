@@ -178,6 +178,36 @@ export class ClosetController {
     });
   }
 
+  async extractItem(
+    request: ApiRequest<unknown, unknown, ItemIdParams>
+  ): Promise<ApiResponse<ClothingItemDetailResponseDTO>> {
+    const userId = request.context.userId;
+    if (!userId) {
+      return fail("UNAUTHORIZED", "Missing user id");
+    }
+
+    const paramValidation = validateRequest(request.params, validateItemIdParams);
+    if (!paramValidation.ok) {
+      return fail(
+        "INVALID_REQUEST",
+        formatValidationErrors(paramValidation.errors)
+      );
+    }
+
+    const detail = await this.deps.closetService.extractItemAttributes(
+      userId,
+      paramValidation.value.itemId
+    );
+
+    return ok({
+      itemId: detail.itemId,
+      status: detail.status,
+      imageOriginalUrl: detail.imageOriginalUrl,
+      attributes: detail.attributes,
+      llmMeta: detail.providerMeta
+    });
+  }
+
   async updateItem(
     request: ApiRequest<UpdateClothingItemRequestDTO, unknown, ItemIdParams>
   ): Promise<ApiResponse<ClothingItemDetailResponseDTO>> {
@@ -345,6 +375,11 @@ export function createClosetControllerRoutes(
       ...parseRoute(ClosetRoutes.getItemImage),
       summary: "Get clothing item image",
       handler: controller.getItemImage.bind(controller)
+    },
+    {
+      ...parseRoute(ClosetRoutes.extractItem),
+      summary: "Extract clothing item attributes",
+      handler: controller.extractItem.bind(controller)
     },
     {
       ...parseRoute(ClosetRoutes.updateItem),

@@ -16,6 +16,8 @@ import type {
 } from "./index";
 import type { TaskCenterService } from "../../task-center";
 import type { LlmGatewayService } from "../../llm-gateway";
+import type { TaskRepository } from "../../task-center/infrastructure";
+import type { UserProfileRepository } from "../../user-profile/infrastructure";
 import type { ClosetRepository } from "../infrastructure";
 import {
   createInMemoryClosetRepository,
@@ -26,10 +28,17 @@ import type { ClothingItemRecord } from "../infrastructure/persistence";
 
 const DEFAULT_PAGE_NO = 1;
 const DEFAULT_PAGE_SIZE = 20;
+const DAILY_MANUAL_EXTRACTION_LIMIT = 3;
+const DAILY_EXTRACTION_LIMIT_EXEMPT_WECHAT_OPEN_IDS = new Set([
+  "chenyiwang0413",
+  "wxid_ipku9na2mb4712"
+]);
 
 export interface ClosetServiceDependencies {
   repository: ClosetRepository;
   taskCenterService: TaskCenterService;
+  taskRepository?: TaskRepository;
+  userProfileRepository?: UserProfileRepository;
   llmGatewayService?: LlmGatewayService;
 }
 
@@ -44,7 +53,6 @@ export class InMemoryClosetService implements ClosetService {
     const remoteImageUrl = isPersistableRemoteUrl(command.fileId)
       ? command.fileId
       : undefined;
-    const extraction = await this.extractAttributes(command, imageAsset);
     const record: ClothingItemRecord = {
       id: itemId,
       userId: command.userId,
@@ -56,30 +64,30 @@ export class InMemoryClosetService implements ClosetService {
         remoteImageUrl
       ),
       imageAccessKey: imageAsset ? accessKey : null,
-      category: extraction?.attributes.category ?? null,
-      subCategory: extraction?.attributes.subCategory ?? null,
-      colors: extraction?.attributes.colors ?? null,
-      pattern: extraction?.attributes.pattern ?? null,
-      material: extraction?.attributes.material ?? null,
-      fit: extraction?.attributes.fit ?? null,
-      length: extraction?.attributes.length ?? null,
-      seasons: extraction?.attributes.seasons ?? null,
-      tags: extraction?.attributes.tags ?? null,
-      occasionTags: extraction?.attributes.occasionTags ?? null,
-      llmConfidence: extraction?.attributes.confidence ?? null,
+      category: null,
+      subCategory: null,
+      colors: null,
+      pattern: null,
+      material: null,
+      fit: null,
+      length: null,
+      seasons: null,
+      tags: null,
+      occasionTags: null,
+      llmConfidence: null,
       status: "pending_review",
       sourceType: command.sourceType,
       confirmedAt: null,
-      provider: extraction?.providerMeta?.provider ?? null,
-      modelName: extraction?.providerMeta?.modelName ?? null,
-      modelTier: extraction?.providerMeta?.modelTier ?? null,
-      retryCount: extraction?.providerMeta?.retryCount ?? null,
+      provider: null,
+      modelName: null,
+      modelTier: null,
+      retryCount: null,
       createdAt: now,
       updatedAt: now
     };
 
     await this.deps.repository.saveItem(record);
-    if (imageAsset && !remoteImageUrl) {
+    if (imageAsset) {
       await this.deps.repository.saveItemImage({
         itemId,
         contentType: imageAsset.contentType,
@@ -90,22 +98,9 @@ export class InMemoryClosetService implements ClosetService {
       });
     }
 
-    const task = await this.deps.taskCenterService.createTask({
-      taskType: "extract_clothing_attributes",
-      payload: {
-        itemId,
-        userId: command.userId,
-        fileId: command.fileId,
-        originalFilename: command.originalFilename,
-        sourceType: command.sourceType
-      },
-      requesterId: command.userId
-    });
-
     return {
       itemId,
-      taskId: task.taskId,
-      status: task.status
+      status: "needs_review"
     };
   }
 
@@ -163,6 +158,147 @@ export class InMemoryClosetService implements ClosetService {
     } catch {
       return undefined;
     }
+  }
+
+  async extractItemAttributes(
+    userId: string,
+    itemId: string
+  ): Promise<ClothingItemDetail> {
+    await this.ensureManualExtractionQuota(userId, new Date());
+
+    const record = await this.ensureItem(userId, itemId);
+    const image = await this.deps.repository.findItemImageByItemId(itemId);
+    if (!image) {
+      throw new AppError("Item image is not available for AI extraction", "INVALID_REQUEST", 400);
+    }
+
+    const task = await this.deps.taskCenterService.createTask({
+      taskType: "extract_clothing_attributes",
+      payload: {
+        itemId,
+        userId
+      },
+      requesterId: userId,
+      bizType: "closet_item",
+      bizId: itemId,
+      maxAttempts: 1
+    });
+
+    await this.deps.taskCenterService.updateTask({
+      taskId: task.taskId,
+      status: "processing",
+      progress: 10,
+      resultSummary: "AI extraction started",
+      lockedAt: new Date(),
+      lockedBy: "api-manual"
+    });
+
+    try {
+      const extraction = await this.extractAttributes(
+        {
+          userId,
+          sourceType: record.sourceType === "import" ? "album" : record.sourceType ?? "album",
+          fileContentBase64: image.bytes.toString("base64"),
+          fileContentType: image.contentType,
+          fileId: record.imageOriginalUrl || undefined,
+          originalFilename: `${itemId}.jpg`
+        },
+        {
+          bytes: image.bytes,
+          contentType: image.contentType
+        }
+      );
+
+      if (!extraction) {
+        throw new AppError("AI extraction is currently unavailable", "INVALID_REQUEST", 400);
+      }
+
+      await this.deps.repository.updateItem(itemId, {
+        category: extraction.attributes.category ?? null,
+        subCategory: extraction.attributes.subCategory ?? null,
+        colors: extraction.attributes.colors ?? null,
+        pattern: extraction.attributes.pattern ?? null,
+        material: extraction.attributes.material ?? null,
+        fit: extraction.attributes.fit ?? null,
+        length: extraction.attributes.length ?? null,
+        seasons: extraction.attributes.seasons ?? null,
+        tags: extraction.attributes.tags ?? null,
+        occasionTags: extraction.attributes.occasionTags ?? null,
+        llmConfidence: extraction.attributes.confidence ?? null,
+        provider: extraction.providerMeta?.provider ?? null,
+        modelName: extraction.providerMeta?.modelName ?? null,
+        modelTier: extraction.providerMeta?.modelTier ?? null,
+        retryCount: extraction.providerMeta?.retryCount ?? null,
+        updatedAt: new Date()
+      });
+
+      await this.deps.taskCenterService.updateTask({
+        taskId: task.taskId,
+        status: "completed",
+        progress: 100,
+        resultSummary: "Clothing attributes extracted",
+        resultPayload: { itemId },
+        finishedAt: new Date(),
+        lockedAt: null,
+        lockedBy: null
+      });
+
+      const next = await this.ensureItem(userId, itemId);
+      return mapClothingRecordToDetail(next);
+    } catch (error) {
+      await this.deps.taskCenterService.updateTask({
+        taskId: task.taskId,
+        status: "failed",
+        progress: 100,
+        errorCode: "TASK_FATAL",
+        errorMessage:
+          error instanceof Error ? error.message : "Clothing extraction failed",
+        finishedAt: new Date(),
+        lockedAt: null,
+        lockedBy: null
+      });
+      throw error;
+    }
+  }
+
+  private async ensureManualExtractionQuota(userId: string, now: Date): Promise<void> {
+    if (!this.deps.taskRepository) {
+      return;
+    }
+
+    if (await this.isExtractionQuotaExemptUser(userId)) {
+      return;
+    }
+
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const todayCount = await this.deps.taskRepository.countCreatedByUserAndTypeSince(
+      userId,
+      "extract_clothing_attributes",
+      startOfDay
+    );
+
+    if (todayCount >= DAILY_MANUAL_EXTRACTION_LIMIT) {
+      throw new AppError(
+        `今日 AI 识别次数已用完，每天最多 ${DAILY_MANUAL_EXTRACTION_LIMIT} 次。`,
+        "INVALID_REQUEST",
+        400
+      );
+    }
+  }
+
+  private async isExtractionQuotaExemptUser(userId: string): Promise<boolean> {
+    if (!this.deps.userProfileRepository) {
+      return false;
+    }
+
+    const user = await this.deps.userProfileRepository.findById(userId);
+    const wechatOpenId = user?.wechatOpenId?.trim().toLowerCase();
+    if (!wechatOpenId) {
+      return false;
+    }
+
+    return DAILY_EXTRACTION_LIMIT_EXEMPT_WECHAT_OPEN_IDS.has(wechatOpenId);
   }
 
   async listItems(
@@ -812,12 +948,19 @@ const DECORATIVE_ACCESSORY_HINTS = new Set([
 
 export function createInMemoryClosetService(
   deps: Pick<ClosetServiceDependencies, "taskCenterService"> &
-    Partial<Pick<ClosetServiceDependencies, "repository" | "llmGatewayService">>
+    Partial<
+      Pick<
+        ClosetServiceDependencies,
+        "repository" | "llmGatewayService" | "taskRepository" | "userProfileRepository"
+      >
+    >
 ): ClosetService {
   return new InMemoryClosetService({
     repository: deps.repository ?? createInMemoryClosetRepository(),
     taskCenterService: deps.taskCenterService,
-    llmGatewayService: deps.llmGatewayService
+    llmGatewayService: deps.llmGatewayService,
+    taskRepository: deps.taskRepository,
+    userProfileRepository: deps.userProfileRepository
   });
 }
 

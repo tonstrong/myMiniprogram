@@ -1,6 +1,4 @@
 <scroll-view class="container no-pad" scroll-y>
-  
-  <!-- 商品大图 -->
   <view class="hero-image-wrap">
     <image wx:if="{{item.img}}" class="hero-img" src="{{item.img}}" mode="aspectFill"></image>
     <view wx:else class="hero-placeholder">
@@ -9,20 +7,23 @@
     <view class="hero-gradient"></view>
   </view>
 
-  <!-- 识别结果确认表单 -->
   <view class="form-panel glass-panel animate-fade-in">
-    <view class="form-header flex-row items-center justify-between">
-      <text class="text-h2">{{isNew ? 'AI 识别结果' : '单品特征'}}</text>
-      <text class="text-caption text-tertiary" wx:if="{{isNew}}">可点击修改</text>
+    <view class="form-header">
+      <view class="flex-row items-center justify-between">
+        <text class="text-h2">{{isNew ? '单品识别与确认' : '单品特征'}}</text>
+        <button class="btn-secondary mini-ai-btn" bindtap="triggerAiExtract" loading="{{aiExtracting}}">
+          {{aiExtracting ? '识别中' : '手动 AI 识别'}}
+        </button>
+      </view>
+      <text class="text-caption text-tertiary form-caption">{{aiSummaryText}}</text>
     </view>
 
     <view class="form-list">
-      
       <picker mode="selector" range="{{CATEGORY_OPTIONS}}" bindchange="bindCategoryChange">
         <view class="f-row flex-row items-center justify-between">
           <text class="f-label">类别</text>
           <view class="flex-row items-center">
-            <text class="f-value">{{item.category}}</text>
+            <text class="f-value">{{item.category || '点击选择'}}</text>
             <text class="arrow">></text>
           </view>
         </view>
@@ -40,7 +41,7 @@
         <view class="f-row flex-row items-center justify-between">
           <text class="f-label">版型</text>
           <view class="flex-row items-center">
-            <text class="f-value">{{item.fit}}</text>
+            <text class="f-value">{{item.fit || '点击选择'}}</text>
             <text class="arrow">></text>
           </view>
         </view>
@@ -77,7 +78,7 @@
 
       <view class="f-row col-mode" bindtap="editField" data-field="季节">
         <view class="flex-row items-center justify-between w-full h-auto">
-          <text class="f-label">适应季节</text>
+          <text class="f-label">适用季节</text>
           <text class="arrow">></text>
         </view>
         <view class="tag-row flex-row mt-2">
@@ -99,10 +100,8 @@
           <view class="tag-chip" catchtap="addCustomTag">+ 添加</view>
         </view>
       </view>
-
     </view>
 
-    <!-- 底部操作按钮 -->
     <view class="action-bar mt-4 {{isNew ? 'single' : 'double'}}">
       <block wx:if="{{isNew}}">
         <button class="btn-primary action-btn" bindtap="confirmItem">确认并入库</button>
@@ -112,6 +111,5 @@
         <button class="btn-secondary action-btn text-error" bindtap="deleteItem">删除单品</button>
       </block>
     </view>
-
   </view>
 </scroll-view>
