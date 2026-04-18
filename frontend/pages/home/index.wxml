@@ -29,7 +29,7 @@
     <view class="section-header flex-row justify-between items-center">
       <text class="text-h2">今日推荐</text>
     </view>
-    <view class="recommend-card">
+    <view class="recommend-card" bindtap="handleTodayCardTap">
       <image wx:if="{{todayRecommend.image}}" class="rc-bg" src="{{todayRecommend.image}}" mode="aspectFill"></image>
       <view wx:else class="rc-bg rc-placeholder">
         <text class="rc-placeholder-text">{{todayRecommend.scene}}</text>
@@ -41,19 +41,6 @@
         </view>
         <view class="rc-bottom">
           <text class="rc-reason text-h2">{{todayRecommend.reason}}</text>
-          <view class="rc-actions">
-            <button class="rc-btn rc-btn-secondary" bindtap="handleTodaySecondaryAction">
-              {{todayRecommend.secondaryLabel}}
-            </button>
-            <button
-              class="rc-btn rc-btn-primary"
-              bindtap="handleTodayPrimaryAction"
-              loading="{{generatingTodayCanvas}}"
-              disabled="{{generatingTodayCanvas || (todayRecommend.primaryAction === 'generate' && !todayRecommend.canGenerate)}}"
-            >
-              {{todayRecommend.primaryLabel}}
-            </button>
-          </view>
         </view>
       </view>
     </view>

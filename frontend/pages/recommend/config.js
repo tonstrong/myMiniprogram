@@ -17,6 +17,12 @@ Page({
     isGenerating: false
   },
 
+  onLoad(options) {
+    this.autoStart = options?.autoStart === '1';
+    this.autoGenerateTriggered = false;
+    this.requestInFlight = false;
+  },
+
   onShow() {
     this.cityGuideShown = false;
     this.initializePage();
@@ -24,6 +30,10 @@ Page({
 
   async initializePage() {
     await Promise.all([this.fetchStylePacks(), this.prepareWeatherState()]);
+    if (this.autoStart && !this.autoGenerateTriggered) {
+      this.autoGenerateTriggered = true;
+      this.generateLook();
+    }
   },
 
   async fetchStylePacks() {
@@ -194,10 +204,11 @@ Page({
   },
 
   async generateLook() {
-    if (this.data.isGenerating) {
+    if (this.data.isGenerating || this.requestInFlight) {
       return;
     }
 
+    this.requestInFlight = true;
     this.setData({ isGenerating: true });
     try {
       const result = await api.request({
@@ -210,12 +221,14 @@ Page({
         }
       });
 
+      this.requestInFlight = false;
       this.setData({ isGenerating: false });
       wx.showToast({ title: '已开始生成', icon: 'success' });
       wx.navigateTo({
         url: `/pages/recommend/result?id=${result.recommendationId}`
       });
     } catch (error) {
+      this.requestInFlight = false;
       this.setData({ isGenerating: false });
       console.error('Generate recommendation failed', error);
       const rawMessage = error?.error?.message || error?.message || '';

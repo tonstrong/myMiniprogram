@@ -158,6 +158,17 @@ Page({
     this.goRecommend();
   },
 
+  handleTodayCardTap() {
+    const todayRecommend = this.data.todayRecommend || {};
+    if (todayRecommend.recommendationId) {
+      wx.navigateTo({
+        url: `/pages/recommend/result?id=${todayRecommend.recommendationId}`
+      });
+      return;
+    }
+    wx.navigateTo({ url: '/pages/recommend/config?autoStart=1' });
+  },
+
   handleTodayPrimaryAction() {
     const todayRecommend = this.data.todayRecommend || {};
     if (todayRecommend.primaryAction === 'recommend') {

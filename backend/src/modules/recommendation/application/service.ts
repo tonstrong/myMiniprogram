@@ -72,6 +72,7 @@ export class InMemoryRecommendationService implements RecommendationService {
   ): Promise<RecommendationResult> {
     const createdAtDate = new Date();
     await this.ensureDailyGenerationQuota(command.userId, createdAtDate);
+    await this.ensureReadyToGenerate(command.userId);
     return this.queueRecommendationGeneration({
       ...command,
       sourceType: "manual"
@@ -364,6 +365,24 @@ export class InMemoryRecommendationService implements RecommendationService {
     if (todayCount >= DAILY_RECOMMENDATION_LIMIT) {
       throw new AppError(
         `今日灵感图集生成次数已用完，每天最多 ${DAILY_RECOMMENDATION_LIMIT} 次。`,
+        "INVALID_REQUEST",
+        400
+      );
+    }
+  }
+
+  private async ensureReadyToGenerate(userId: string): Promise<void> {
+    const records = await this.deps.closetRepository.listItemsByUserId(userId);
+    const candidateCount = records
+      .filter((record) => record.status === "active")
+      .map((record) => mapClothingRecordToCandidate(record))
+      .filter((candidate): candidate is RecommendationCandidateItem =>
+        Boolean(candidate)
+      ).length;
+
+    if (candidateCount < MIN_CANDIDATE_COUNT) {
+      throw new AppError(
+        "No available wardrobe candidates were found",
         "INVALID_REQUEST",
         400
       );
