@@ -6,6 +6,11 @@ export interface TaskRepository {
   update(id: string, patch: Partial<AsyncTaskRecord>): Promise<void>;
   findById(id: string): Promise<AsyncTaskRecord | null>;
   findByIdForUser(id: string, userId: string): Promise<AsyncTaskRecord | null>;
+  findLatestByBizForUser(
+    userId: string,
+    bizType: string,
+    bizId: string
+  ): Promise<AsyncTaskRecord | null>;
   claimNextReadyTask(input: {
     workerId: string;
     taskTypes: TaskType[];

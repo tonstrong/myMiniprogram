@@ -25,6 +25,10 @@ export interface RecommendationRepository {
   ): Promise<{ items: RecommendationListRecord[]; total: number }>;
   saveFeedback(record: RecommendationFeedbackRecord): Promise<void>;
   findById(id: string): Promise<RecommendationRecord | null>;
+  findLatestProcessingManualByUser(
+    userId: string
+  ): Promise<RecommendationRecord | null>;
+  deleteRecommendation(id: string): Promise<void>;
   countCreatedByUserSince(userId: string, since: Date): Promise<number>;
   findDailyHomeByUserAndDate(
     userId: string,

@@ -1,6 +1,6 @@
 <view class="container no-pad flex-col h-full">
   <view class="weather-bar flex-row items-center animate-fade-in">
-    <text class="wx-icon">☁</text>
+    <text class="wx-icon">☼</text>
     <view class="flex-col ml-sm weather-copy">
       <text class="text-body font-medium">{{weather}}</text>
       <text wx:if="{{cityName}}" class="weather-city">当前城市：{{cityName}}</text>
@@ -42,14 +42,13 @@
   </view>
 
   <view class="action-fixed">
-    <block wx:if="{{!isGenerating}}">
-      <button class="btn-primary w-full shadow-glow" bindtap="generateLook">开始生成灵感图集</button>
-    </block>
-    <block wx:else>
-      <button class="btn-primary w-full disabled flex-row items-center justify-center">
-        <view class="spinner mini mr-sm inline"></view>
-        正在生成搭配...
-      </button>
-    </block>
+    <button
+      class="btn-primary w-full shadow-glow {{isGenerating ? 'disabled' : ''}}"
+      bindtap="generateLook"
+      disabled="{{isGenerating}}"
+      loading="{{isGenerating}}"
+    >
+      {{isGenerating ? '正在生成搭配...' : '开始生成灵感图集'}}
+    </button>
   </view>
 </view>

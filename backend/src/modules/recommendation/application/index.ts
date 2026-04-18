@@ -78,6 +78,7 @@ export interface RecommendationService {
     query: RecommendationListQuery
   ): Promise<PaginatedResult<RecommendationHistoryItem>>;
   getDetail(userId: string, recommendationId: string): Promise<RecommendationResult>;
+  delete(userId: string, recommendationId: string): Promise<void>;
   getHomeDaily(userId: string): Promise<HomeRecommendationSnapshot | null>;
   ensureDailyHomeRecommendation(
     userId: string,

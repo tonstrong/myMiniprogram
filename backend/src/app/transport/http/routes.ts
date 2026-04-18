@@ -34,9 +34,11 @@ import {
   TaskCenterController,
   createTaskCenterService,
   createTaskCenterControllerRoutes,
-  createInMemoryTaskCenterService
 } from "../../../modules/task-center";
-import { createMySqlTaskRepository } from "../../../modules/task-center/infrastructure";
+import {
+  createInMemoryTaskRepository,
+  createMySqlTaskRepository
+} from "../../../modules/task-center/infrastructure";
 import {
   UserProfileController,
   createUserProfileService,
@@ -72,11 +74,13 @@ import {
 } from "../../../modules/saved-outfit/infrastructure";
 
 export function buildHttpRoutes(): ApiRouteDefinition[] {
-  const usesMySql = shouldUseMySqlPersistence();
+  const config = loadConfig();
+  const usesMySql = config.databaseUrl.startsWith("mysql://");
   const llmGatewayService = createLlmGatewayService();
-  const taskCenterService = usesMySql
-    ? createTaskCenterService({ repository: createMySqlTaskRepository() })
-    : createInMemoryTaskCenterService();
+  const taskRepository = usesMySql
+    ? createMySqlTaskRepository()
+    : createInMemoryTaskRepository();
+  const taskCenterService = createTaskCenterService({ repository: taskRepository });
   const closetRepository = usesMySql
     ? createMySqlClosetRepository()
     : createInMemoryClosetRepository();
@@ -118,12 +122,14 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
       closetRepository,
       stylePackRepository,
       taskCenterService,
+      taskRepository,
       llmGatewayService,
       weatherService: createSharedWeatherService({
         repository: weatherRepository,
         userProfileRepository
       }),
       userProfileRepository,
+      taskLeaseMs: config.worker.leaseMs,
       recommendationRepository: usesMySql
         ? createMySqlRecommendationRepository()
         : undefined
@@ -163,8 +169,4 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
 
 function createLlmGatewayService() {
   return new LlmGatewayServiceImpl();
-}
-
-function shouldUseMySqlPersistence(): boolean {
-  return loadConfig().databaseUrl.startsWith("mysql://");
 }

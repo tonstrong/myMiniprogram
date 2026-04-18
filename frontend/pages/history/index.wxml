@@ -15,6 +15,14 @@
           <view class="grid-layout">
             <block wx:for="{{item.items}}" wx:key="id" wx:for-item="record">
               <view class="grid-card" bindtap="openRecommendation" data-id="{{record.id}}">
+                <view
+                  wx:if="{{activeTab === 1}}"
+                  class="card-delete"
+                  catchtap="handleDeleteRecord"
+                  data-id="{{record.id}}"
+                >
+                  删除
+                </view>
                 <image wx:if="{{record.coverImageUrl}}" class="g-img" src="{{record.coverImageUrl}}" mode="aspectFill"></image>
                 <view wx:else class="g-img g-placeholder">
                   <text class="g-placeholder-text">{{record.scene}}</text>

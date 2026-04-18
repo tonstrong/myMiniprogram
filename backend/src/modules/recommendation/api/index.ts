@@ -7,6 +7,7 @@ export const RecommendationRoutes = {
   generate: "POST /api/recommendations/generate",
   homeDaily: "GET /api/recommendations/home-daily",
   getDetail: "GET /api/recommendations/:recommendationId",
+  delete: "DELETE /api/recommendations/:recommendationId",
   feedback: "POST /api/recommendations/:recommendationId/feedback",
   save: "POST /api/recommendations/:recommendationId/save"
 };

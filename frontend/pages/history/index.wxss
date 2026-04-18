@@ -88,6 +88,19 @@
   border-radius: var(--radius-md);
 }
 
+.card-delete {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+  z-index: 3;
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  background: rgba(28, 28, 30, 0.6);
+  color: #fff;
+  font-size: 22rpx;
+  backdrop-filter: blur(8px);
+}
+
 .g-img {
   width: 100%;
   height: 100%;

@@ -76,7 +76,7 @@ Page({
       this.setData({
         hasCity: false,
         cityName: '',
-        weather: '未设置城市，可先生成不带天气的搭配',
+        weather: '未设置城市，也可以先生成不带天气的搭配',
         weatherPayload: null
       });
       this.promptCityGuide();
@@ -93,7 +93,7 @@ Page({
   async fetchWeather(forceRefresh = false) {
     if (!this.data.hasCity) {
       this.setData({
-        weather: '未设置城市，可先生成不带天气的搭配',
+        weather: '未设置城市，也可以先生成不带天气的搭配',
         weatherPayload: null
       });
       return;
@@ -115,7 +115,7 @@ Page({
       this.setData({
         hasCity: !missingCity && this.data.hasCity,
         weather: missingCity
-          ? '未设置城市，可先生成不带天气的搭配'
+          ? '未设置城市，也可以先生成不带天气的搭配'
           : '天气暂不可用，仍可继续生成搭配',
         weatherPayload: null
       });
@@ -221,11 +221,13 @@ Page({
         }
       });
 
-      this.requestInFlight = false;
-      this.setData({ isGenerating: false });
       wx.showToast({ title: '已开始生成', icon: 'success' });
       wx.navigateTo({
-        url: `/pages/recommend/result?id=${result.recommendationId}`
+        url: `/pages/recommend/result?id=${result.recommendationId}`,
+        complete: () => {
+          this.requestInFlight = false;
+          this.setData({ isGenerating: false });
+        }
       });
     } catch (error) {
       this.requestInFlight = false;
@@ -250,10 +252,6 @@ function mapRecommendationErrorMessage(message) {
     message.includes('当前衣橱里还没有可用于推荐的单品')
   ) {
     return '先确认并入库至少 2 件单品，再来生成推荐';
-  }
-
-  if (message.includes('每天最多 3 次') || message.includes('今日灵感图集生成次数已用完')) {
-    return '今日生成次数已用完，明天再来试试';
   }
 
   return message;

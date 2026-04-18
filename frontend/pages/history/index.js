@@ -94,6 +94,42 @@ Page({
     wx.navigateTo({ url: `/pages/recommend/result?id=${id}` });
   },
 
+  handleDeleteRecord(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id) {
+      return;
+    }
+
+    wx.showModal({
+      title: '删除记录',
+      content: '删除后这条生成记录将无法恢复，确认删除吗？',
+      success: async ({ confirm }) => {
+        if (!confirm) {
+          return;
+        }
+
+        try {
+          await api.request({
+            url: `/api/recommendations/${id}`,
+            method: 'DELETE'
+          });
+
+          const nextRecords = this.data.records.filter((record) => record.id !== id);
+          this.setData({
+            records: nextRecords,
+            groupedRecords: buildGroups(nextRecords),
+            total: Math.max(0, (this.data.total || 0) - 1),
+            noMore: nextRecords.length >= Math.max(0, (this.data.total || 0) - 1)
+          });
+          wx.showToast({ title: '已删除', icon: 'success' });
+        } catch (error) {
+          console.error('Delete recommendation failed', error);
+          wx.showToast({ title: '删除失败', icon: 'none' });
+        }
+      }
+    });
+  },
+
   goRecommend() {
     wx.navigateTo({ url: '/pages/recommend/config' });
   }

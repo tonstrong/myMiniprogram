@@ -151,6 +151,33 @@ export class RecommendationController {
     });
   }
 
+  async delete(
+    request: ApiRequest<unknown, unknown, RecommendationIdParams>
+  ): Promise<ApiResponse<{ recommendationId: string }>> {
+    const userId = request.context.userId;
+    if (!userId) {
+      return fail("UNAUTHORIZED", "Missing user id");
+    }
+
+    const paramValidation = validateRequest(
+      request.params,
+      validateRecommendationIdParams
+    );
+    if (!paramValidation.ok) {
+      return fail(
+        "INVALID_REQUEST",
+        formatValidationErrors(paramValidation.errors)
+      );
+    }
+
+    await this.deps.recommendationService.delete(
+      userId,
+      paramValidation.value.recommendationId
+    );
+
+    return ok({ recommendationId: paramValidation.value.recommendationId });
+  }
+
   async feedback(
     request: ApiRequest<RecommendationFeedbackRequestDTO, unknown, RecommendationIdParams>
   ): Promise<ApiResponse<{ recommendationId: string }>> {
@@ -243,6 +270,11 @@ export function createRecommendationControllerRoutes(
       ...parseRoute(RecommendationRoutes.getDetail),
       summary: "Get recommendation detail",
       handler: controller.getDetail.bind(controller)
+    },
+    {
+      ...parseRoute(RecommendationRoutes.delete),
+      summary: "Delete recommendation",
+      handler: controller.delete.bind(controller)
     },
     {
       ...parseRoute(RecommendationRoutes.feedback),

@@ -11,6 +11,7 @@ import type { RecommendationRepository } from "../infrastructure";
 import type { WeatherService } from "../../weather";
 import type { UserProfileRepository } from "../../user-profile/infrastructure";
 import type { TaskCenterService } from "../../task-center";
+import type { TaskRepository } from "../../task-center/infrastructure";
 import {
   createInMemoryRecommendationRepository,
   mapRecommendationRecordsToResult
@@ -56,15 +57,18 @@ const MAX_LLM_TAGS = 3;
 const MAX_OUTFIT_COUNT = 1;
 const MAX_OUTFIT_ITEMS = 5;
 const RECOMMENDATION_TIME_ZONE = "Asia/Shanghai";
+const TASK_LEASE_FALLBACK_MS = 90_000;
 
 export interface RecommendationServiceDependencies {
   closetRepository: ClosetRepository;
   stylePackRepository: StylePackRepository;
   recommendationRepository: RecommendationRepository;
   taskCenterService?: TaskCenterService;
+  taskRepository?: TaskRepository;
   llmGatewayService?: LlmGatewayService;
   weatherService?: WeatherService;
   userProfileRepository?: UserProfileRepository;
+  taskLeaseMs?: number;
 }
 
 export class InMemoryRecommendationService implements RecommendationService {
@@ -73,6 +77,19 @@ export class InMemoryRecommendationService implements RecommendationService {
   async generate(
     command: GenerateRecommendationCommand
   ): Promise<RecommendationResult> {
+    const existingProcessing =
+      await this.deps.recommendationRepository.findLatestProcessingManualByUser(
+        command.userId
+      );
+    if (existingProcessing) {
+      return {
+        recommendationId: existingProcessing.id,
+        outfits: [],
+        status: "processing",
+        createdAt: existingProcessing.createdAt.toISOString()
+      };
+    }
+
     const createdAtDate = new Date();
     await this.ensureDailyGenerationQuota(command.userId, createdAtDate);
     await this.ensureReadyToGenerate(command.userId);
@@ -118,10 +135,25 @@ export class InMemoryRecommendationService implements RecommendationService {
     if (!recommendation || recommendation.userId !== _userId) {
       throw new AppError("Recommendation not found", "NOT_FOUND", 404);
     }
+    await this.tryRecoverQueuedRecommendation(recommendation);
+    const latestRecommendation =
+      (await this.deps.recommendationRepository.findById(recommendationId)) ??
+      recommendation;
     const items = await this.deps.recommendationRepository.findItemsByRecommendationId(
       recommendationId
     );
-    return mapRecommendationRecordsToResult(recommendation, items);
+    return mapRecommendationRecordsToResult(latestRecommendation, items);
+  }
+
+  async delete(userId: string, recommendationId: string): Promise<void> {
+    const recommendation = await this.deps.recommendationRepository.findById(
+      recommendationId
+    );
+    if (!recommendation || recommendation.userId !== userId) {
+      throw new AppError("Recommendation not found", "NOT_FOUND", 404);
+    }
+
+    await this.deps.recommendationRepository.deleteRecommendation(recommendationId);
   }
 
   async getHomeDaily(userId: string): Promise<HomeRecommendationSnapshot | null> {
@@ -390,6 +422,72 @@ export class InMemoryRecommendationService implements RecommendationService {
     }
 
     return DAILY_RECOMMENDATION_QUOTA_EXEMPT_WECHAT_OPEN_IDS.has(wechatOpenId);
+  }
+
+  private async tryRecoverQueuedRecommendation(recommendation: {
+    id: string;
+    userId: string;
+    status: string;
+    createdAt: Date;
+  }): Promise<void> {
+    if (recommendation.status !== "processing" || !this.deps.taskRepository) {
+      return;
+    }
+
+    const task = await this.deps.taskRepository.findLatestByBizForUser(
+      recommendation.userId,
+      "recommendation",
+      recommendation.id
+    );
+    if (!task || !shouldRecoverTaskInline(task, this.deps.taskLeaseMs)) {
+      return;
+    }
+
+    const payload = coerceRecoveryTaskPayload(task.payloadJson, recommendation);
+    const now = new Date();
+
+    if (this.deps.taskCenterService) {
+      await this.deps.taskCenterService.updateTask({
+        taskId: task.id,
+        status: "processing",
+        progress: 10,
+        resultSummary: "Recommendation processing recovered by API fallback",
+        lockedAt: now,
+        lockedBy: "api-fallback"
+      });
+    }
+
+    try {
+      await this.processQueuedRecommendationTask(payload);
+      if (this.deps.taskCenterService) {
+        await this.deps.taskCenterService.updateTask({
+          taskId: task.id,
+          status: "completed",
+          progress: 100,
+          resultSummary: "Recommendation generated",
+          resultPayload: {
+            recommendationId: recommendation.id
+          },
+          finishedAt: new Date(),
+          lockedAt: null,
+          lockedBy: null
+        });
+      }
+    } catch (error) {
+      if (this.deps.taskCenterService) {
+        await this.deps.taskCenterService.updateTask({
+          taskId: task.id,
+          status: "failed",
+          progress: 100,
+          errorCode: "TASK_FATAL",
+          errorMessage:
+            error instanceof Error ? error.message : "Recommendation generation failed",
+          finishedAt: new Date(),
+          lockedAt: null,
+          lockedBy: null
+        });
+      }
+    }
   }
 
   private async ensureReadyToGenerate(userId: string): Promise<void> {
@@ -1599,6 +1697,55 @@ function coerceWeatherFromJson(
       condition: data.condition
     }
     : undefined;
+}
+
+function shouldRecoverTaskInline(
+  task: {
+    status: string;
+    lockedAt?: Date | null;
+    updatedAt?: Date;
+  },
+  leaseMs = TASK_LEASE_FALLBACK_MS
+): boolean {
+  if (task.status === "uploaded") {
+    return true;
+  }
+
+  if (task.status !== "processing") {
+    return false;
+  }
+
+  if (!task.lockedAt) {
+    return true;
+  }
+
+  return task.lockedAt.getTime() <= Date.now() - leaseMs;
+}
+
+function coerceRecoveryTaskPayload(
+  value: unknown,
+  recommendation: { id: string; userId: string }
+): RecommendationGenerationTaskPayload {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      recommendationId: recommendation.id,
+      userId: recommendation.userId
+    };
+  }
+
+  const data = value as Record<string, unknown>;
+  return {
+    recommendationId:
+      typeof data.recommendationId === "string"
+        ? data.recommendationId
+        : recommendation.id,
+    userId: typeof data.userId === "string" ? data.userId : recommendation.userId,
+    preferredItemIds: Array.isArray(data.preferredItemIds)
+      ? data.preferredItemIds.filter(
+          (itemId): itemId is string => typeof itemId === "string"
+        )
+      : undefined
+  };
 }
 
 function inferSceneForDate(displayDate: string): string {

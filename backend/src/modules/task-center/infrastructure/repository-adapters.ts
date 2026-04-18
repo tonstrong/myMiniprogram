@@ -31,6 +31,20 @@ export class InMemoryTaskRepository implements TaskRepository {
     return task;
   }
 
+  async findLatestByBizForUser(
+    userId: string,
+    bizType: string,
+    bizId: string
+  ): Promise<AsyncTaskRecord | null> {
+    return (
+      Array.from(this.tasks.values())
+        .filter((task) => task.userId === userId)
+        .filter((task) => task.bizType === bizType && task.bizId === bizId)
+        .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0] ??
+      null
+    );
+  }
+
   async claimNextReadyTask(input: {
     workerId: string;
     taskTypes: string[];
@@ -314,6 +328,52 @@ export class MySqlTaskRepository implements TaskRepository {
     });
   }
 
+  async findLatestByBizForUser(
+    userId: string,
+    bizType: string,
+    bizId: string
+  ): Promise<AsyncTaskRecord | null> {
+    return withClient(async (client) => {
+      const [rows] = await client.query<AsyncTaskRow[]>(
+        `SELECT
+          id,
+          user_id,
+          task_type,
+          biz_type,
+          biz_id,
+          payload_json,
+          status,
+          progress,
+          result_summary,
+          result_json,
+          idempotency_key,
+          provider_meta,
+          error_code,
+          error_message,
+          created_at,
+          updated_at,
+          finished_at,
+          available_at,
+          locked_at,
+          locked_by,
+          attempt_count,
+          max_attempts
+        FROM async_tasks
+        WHERE user_id = ? AND biz_type = ? AND biz_id = ?
+        ORDER BY created_at DESC
+        LIMIT 1`,
+        [userId, bizType, bizId]
+      );
+
+      const row = rows[0];
+      if (!row) {
+        return null;
+      }
+
+      return mapAsyncTaskRowToRecord(row);
+    });
+  }
+
   async claimNextReadyTask(input: {
     workerId: string;
     taskTypes: string[];
@@ -418,6 +478,9 @@ export const createNoopTaskRepository = (): TaskRepository => ({
     return null;
   },
   async findByIdForUser() {
+    return null;
+  },
+  async findLatestByBizForUser() {
     return null;
   },
   async claimNextReadyTask() {

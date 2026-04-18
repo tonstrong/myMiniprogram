@@ -82,6 +82,30 @@ export class InMemoryRecommendationRepository
     return this.recommendations.get(id) ?? null;
   }
 
+  async findLatestProcessingManualByUser(
+    userId: string
+  ): Promise<RecommendationRecord | null> {
+    return (
+      Array.from(this.recommendations.values())
+        .filter(
+          (record) =>
+            record.userId === userId &&
+            record.sourceType === "manual" &&
+            record.status === "processing"
+        )
+        .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0] ??
+      null
+    );
+  }
+
+  async deleteRecommendation(id: string): Promise<void> {
+    this.recommendations.delete(id);
+    this.items = this.items.filter((item) => item.recommendationId !== id);
+    this.feedback = this.feedback.filter((item) => item.recommendationId !== id);
+    this.plannerOutputs.delete(id);
+    this.explainerOutputs.delete(id);
+  }
+
   async countCreatedByUserSince(userId: string, since: Date): Promise<number> {
     return Array.from(this.recommendations.values()).filter(
       (record) =>
@@ -483,6 +507,64 @@ export class MySqlRecommendationRepository implements RecommendationRepository {
     });
   }
 
+  async findLatestProcessingManualByUser(
+    userId: string
+  ): Promise<RecommendationRecord | null> {
+    return withClient(async (client) => {
+      const [rows] = await client.query<RecommendationRow[]>(
+        `SELECT id, user_id, style_pack_id, scene, weather_json, provider, model_name, model_tier, retry_count,
+                source_type, display_date, validator_result, reason_text, status, created_at, updated_at
+         FROM recommendations
+         WHERE user_id = ?
+           AND source_type = 'manual'
+           AND status = 'processing'
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [userId]
+      );
+      const row = rows[0];
+      if (!row) {
+        return null;
+      }
+      return {
+        id: row.id,
+        userId: row.user_id,
+        stylePackId: row.style_pack_id,
+        scene: row.scene,
+        sourceType: row.source_type,
+        displayDate: toDateOnly(row.display_date),
+        weatherJson: decodeJson(row.weather_json),
+        provider: row.provider,
+        modelName: row.model_name,
+        modelTier: row.model_tier,
+        retryCount: row.retry_count,
+        validatorResult: decodeJson(row.validator_result),
+        reasonText: row.reason_text,
+        status: row.status,
+        createdAt: toDate(row.created_at),
+        updatedAt: toDate(row.updated_at)
+      };
+    });
+  }
+
+  async deleteRecommendation(id: string): Promise<void> {
+    await withClient(async (client) => {
+      await client.query(
+        `DELETE FROM recommendation_feedback WHERE recommendation_id = ?`,
+        [id]
+      );
+      await client.query(
+        `DELETE FROM recommendation_items WHERE recommendation_id = ?`,
+        [id]
+      );
+      await client.query(
+        `DELETE FROM async_tasks WHERE biz_type = 'recommendation' AND biz_id = ?`,
+        [id]
+      );
+      await client.query(`DELETE FROM recommendations WHERE id = ?`, [id]);
+    });
+  }
+
   async countCreatedByUserSince(userId: string, since: Date): Promise<number> {
     return withClient(async (client) => {
       const [rows] = await client.query<RowDataPacket[]>(
@@ -626,6 +708,12 @@ export const createNoopRecommendationRepository =
     },
     async findById() {
       return null;
+    },
+    async findLatestProcessingManualByUser() {
+      return null;
+    },
+    async deleteRecommendation() {
+      return undefined;
     },
     async countCreatedByUserSince() {
       return 0;
