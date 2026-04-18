@@ -46,7 +46,10 @@ import type {
 const MIN_CANDIDATE_COUNT = 2;
 const DEFAULT_PAGE_NO = 1;
 const DEFAULT_PAGE_SIZE = 20;
-const DAILY_RECOMMENDATION_LIMIT = 3;
+const DAILY_RECOMMENDATION_LIMIT = 100;
+const DAILY_RECOMMENDATION_QUOTA_EXEMPT_WECHAT_OPEN_IDS = new Set([
+  "chenyiwang0413"
+]);
 const MAX_LLM_CANDIDATES = 12;
 const MAX_LLM_COLORS = 2;
 const MAX_LLM_TAGS = 3;
@@ -65,7 +68,7 @@ export interface RecommendationServiceDependencies {
 }
 
 export class InMemoryRecommendationService implements RecommendationService {
-  constructor(private readonly deps: RecommendationServiceDependencies) {}
+  constructor(private readonly deps: RecommendationServiceDependencies) { }
 
   async generate(
     command: GenerateRecommendationCommand
@@ -354,6 +357,10 @@ export class InMemoryRecommendationService implements RecommendationService {
     userId: string,
     now: Date
   ): Promise<void> {
+    if (await this.isQuotaExemptUser(userId)) {
+      return;
+    }
+
     const startOfDay = new Date(now);
     startOfDay.setHours(0, 0, 0, 0);
     const todayCount =
@@ -369,6 +376,20 @@ export class InMemoryRecommendationService implements RecommendationService {
         400
       );
     }
+  }
+
+  private async isQuotaExemptUser(userId: string): Promise<boolean> {
+    if (!this.deps.userProfileRepository) {
+      return false;
+    }
+
+    const user = await this.deps.userProfileRepository.findById(userId);
+    const wechatOpenId = user?.wechatOpenId?.trim().toLowerCase();
+    if (!wechatOpenId) {
+      return false;
+    }
+
+    return DAILY_RECOMMENDATION_QUOTA_EXEMPT_WECHAT_OPEN_IDS.has(wechatOpenId);
   }
 
   private async ensureReadyToGenerate(userId: string): Promise<void> {
@@ -397,17 +418,17 @@ export class InMemoryRecommendationService implements RecommendationService {
     userProfileContext?: RecommendationUserProfile;
   }): Promise<
     | {
-        status: "completed";
-      }
+      status: "completed";
+    }
     | {
-        status: "failed";
-        message: string;
-        providerMeta?: {
-          planner?: ProviderMeta;
-          explainer?: ProviderMeta;
-        };
-        validation?: RecommendationValidationResult;
-      }
+      status: "failed";
+      message: string;
+      providerMeta?: {
+        planner?: ProviderMeta;
+        explainer?: ProviderMeta;
+      };
+      validation?: RecommendationValidationResult;
+    }
   > {
     const candidateProvider = this.buildCandidateProvider();
     const candidateFilter = this.buildCandidateFilter();
@@ -782,9 +803,9 @@ export class InMemoryRecommendationService implements RecommendationService {
     candidates: RecommendationCandidateItem[];
   }): Promise<
     | {
-        outfits: RecommendationOutfitPlan[];
-        providerMeta?: ProviderMeta;
-      }
+      outfits: RecommendationOutfitPlan[];
+      providerMeta?: ProviderMeta;
+    }
     | undefined
   > {
     if (!this.deps.llmGatewayService) {
@@ -842,9 +863,9 @@ export class InMemoryRecommendationService implements RecommendationService {
     candidates: RecommendationCandidateItem[];
   }): Promise<
     | {
-        outfits: RecommendationOutfitPlan[];
-        providerMeta?: ProviderMeta;
-      }
+      outfits: RecommendationOutfitPlan[];
+      providerMeta?: ProviderMeta;
+    }
     | undefined
   > {
     if (!this.deps.llmGatewayService || !input.outfits.length) {
@@ -1257,9 +1278,9 @@ function slimStylePackContext(stylePack?: RecommendationStylePackContext) {
     rules: slimRules,
     promptProfile: stylePack.promptProfile
       ? {
-          tone: stylePack.promptProfile.tone,
-          bias: limitStringArray(stylePack.promptProfile.bias, 4)
-        }
+        tone: stylePack.promptProfile.tone,
+        bias: limitStringArray(stylePack.promptProfile.bias, 4)
+      }
       : undefined
   };
 }
@@ -1574,9 +1595,9 @@ function coerceWeatherFromJson(
   const data = value as Record<string, JsonValue>;
   return typeof data.temperature === "number" && typeof data.condition === "string"
     ? {
-        temperature: data.temperature,
-        condition: data.condition
-      }
+      temperature: data.temperature,
+      condition: data.condition
+    }
     : undefined;
 }
 

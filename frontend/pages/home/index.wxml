@@ -41,6 +41,11 @@
         </view>
         <view class="rc-bottom">
           <text class="rc-reason text-h2">{{todayRecommend.reason}}</text>
+          <view class="rc-actions">
+            <button class="rc-btn rc-btn-secondary rc-btn-centered" catchtap="handleTodaySecondaryAction">
+              {{todayRecommend.secondaryLabel}}
+            </button>
+          </view>
         </view>
       </view>
     </view>
