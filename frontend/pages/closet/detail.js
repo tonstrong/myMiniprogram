@@ -159,15 +159,7 @@ Page({
     this.setData({ cutoutProcessing: true });
     wx.showLoading({ title: '抠图中...' });
     try {
-      const result = await api.request({
-        url: `/api/closet/items/${this.data.itemId}/cutout-preview`,
-        method: 'POST',
-        data: {
-          engine: 'auto',
-          keepCanvas: false,
-          saveMask: false
-        }
-      });
+      const result = await this.requestCutoutPreview();
 
       const imagePath = await writeBase64ImageToTempFile(
         result.previewImageBase64,
@@ -195,6 +187,44 @@ Page({
       wx.showToast({
         title: message || '智能抠图失败',
         icon: 'none'
+      });
+    }
+  },
+
+  async requestCutoutPreview() {
+    const payload = {
+      engine: 'auto',
+      keepCanvas: false,
+      saveMask: false
+    };
+
+    try {
+      return await api.request({
+        url: `/api/closet/items/${this.data.itemId}/cutout-preview`,
+        method: 'POST',
+        data: payload
+      });
+    } catch (error) {
+      const message = error?.error?.message || error?.message || error?.errMsg || '';
+      if (!message.includes('Item image is not available for cutout')) {
+        throw error;
+      }
+
+      const sourcePayload = await buildCutoutSourcePayload(
+        this.data.item?.img || this.data.previewImage,
+        this.data.itemId
+      );
+      if (!sourcePayload) {
+        throw error;
+      }
+
+      return api.request({
+        url: `/api/closet/items/${this.data.itemId}/cutout-preview`,
+        method: 'POST',
+        data: {
+          ...payload,
+          ...sourcePayload
+        }
       });
     }
   },
@@ -698,6 +728,84 @@ function clearOldCutoutPreviewFiles(fs) {
 
 function cleanupCutoutPreviewFile(filePath) {
   if (!filePath || !filePath.startsWith(wx.env.USER_DATA_PATH)) {
+    return;
+  }
+
+  wx.getFileSystemManager().unlink({
+    filePath,
+    fail: () => {}
+  });
+}
+
+async function buildCutoutSourcePayload(imageUrl, itemId) {
+  const localFilePath = await ensureLocalImagePath(imageUrl);
+  if (!localFilePath) {
+    return null;
+  }
+
+  try {
+    const fileContentBase64 = await readFileAsBase64(localFilePath);
+    return {
+      sourceImageBase64: fileContentBase64,
+      sourceContentType: inferImageContentType(localFilePath),
+      sourceFilename: `${itemId || 'cutout-source'}${inferImageExtension('', localFilePath)}`
+    };
+  } finally {
+    cleanupDownloadedSourceImage(localFilePath, imageUrl);
+  }
+}
+
+function ensureLocalImagePath(imageUrl) {
+  if (!imageUrl || typeof imageUrl !== 'string') {
+    return Promise.resolve('');
+  }
+
+  if (
+    imageUrl.startsWith(wx.env.USER_DATA_PATH) ||
+    imageUrl.startsWith('wxfile://') ||
+    imageUrl.startsWith('http://tmp/') ||
+    imageUrl.startsWith('https://tmp/')
+  ) {
+    return Promise.resolve(imageUrl);
+  }
+
+  return new Promise((resolve) => {
+    wx.downloadFile({
+      url: imageUrl,
+      success: (res) => resolve(res.tempFilePath || ''),
+      fail: () => resolve('')
+    });
+  });
+}
+
+function readFileAsBase64(filePath) {
+  return new Promise((resolve, reject) => {
+    wx.getFileSystemManager().readFile({
+      filePath,
+      encoding: 'base64',
+      success: (res) => resolve(res.data),
+      fail: reject
+    });
+  });
+}
+
+function inferImageContentType(filePath = '') {
+  const lower = String(filePath || '').toLowerCase();
+  if (lower.endsWith('.png')) {
+    return 'image/png';
+  }
+  if (lower.endsWith('.webp')) {
+    return 'image/webp';
+  }
+  return 'image/jpeg';
+}
+
+function cleanupDownloadedSourceImage(filePath, originalUrl) {
+  if (!filePath || filePath === originalUrl) {
+    return;
+  }
+
+  if (!filePath.startsWith(wx.env.USER_DATA_PATH) && !filePath.startsWith('wxfile://')) {
     return;
   }
 

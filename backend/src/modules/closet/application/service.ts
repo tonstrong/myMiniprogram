@@ -353,7 +353,9 @@ export class InMemoryClosetService implements ClosetService {
     command: PreviewClothingItemCutoutCommand
   ): Promise<ClothingItemCutoutPreview> {
     const record = await this.ensureItem(command.userId, command.itemId);
-    const image = await this.getItemImageAsset(record);
+    const image =
+      (await this.getItemImageAsset(record)) ??
+      (await this.persistCommandSourceImage(record, command));
     if (!image) {
       throw new AppError(
         "Item image is not available for cutout. Please re-upload or replace the image first.",
@@ -520,6 +522,50 @@ export class InMemoryClosetService implements ClosetService {
     } catch {
       return null;
     }
+  }
+
+  private async persistCommandSourceImage(
+    record: ClothingItemRecord,
+    command: PreviewClothingItemCutoutCommand
+  ): Promise<{ bytes: Buffer; contentType: string } | null> {
+    if (!command.sourceImageBase64) {
+      return null;
+    }
+
+    const bytes = Buffer.from(command.sourceImageBase64, "base64");
+    if (bytes.byteLength === 0) {
+      return null;
+    }
+
+    const contentType = normalizeContentType(command.sourceContentType);
+    const now = new Date();
+    await this.deps.repository.saveItemImage({
+      itemId: record.id,
+      contentType,
+      byteSize: bytes.byteLength,
+      bytes,
+      createdAt: now,
+      updatedAt: now
+    });
+
+    if (!record.imageAccessKey) {
+      const imageAccessKey = generateId();
+      await this.deps.repository.updateItem(record.id, {
+        imageAccessKey,
+        imageOriginalUrl: buildImageUrl(
+          record.userId,
+          record.id,
+          imageAccessKey,
+          { bytes, contentType }
+        ),
+        updatedAt: now
+      });
+    }
+
+    return {
+      bytes,
+      contentType
+    };
   }
 }
 

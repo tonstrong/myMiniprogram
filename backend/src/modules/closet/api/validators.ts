@@ -78,7 +78,10 @@ export const validatePreviewClothingItemCutoutRequest =
   createObjectValidator<PreviewClothingItemCutoutRequestDTO>({
     engine: optionalStringEnum(cutoutEngineValues),
     keepCanvas: optionalBoolean(),
-    saveMask: optionalBoolean()
+    saveMask: optionalBoolean(),
+    sourceImageBase64: optionalString({ minLength: 1 }),
+    sourceContentType: optionalString({ minLength: 1 }),
+    sourceFilename: optionalString({ minLength: 1 })
   });
 
 export const validateApplyClothingItemCutoutRequest =

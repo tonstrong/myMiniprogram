@@ -239,7 +239,10 @@ export class ClosetController {
       userId,
       engine: bodyValidation.value.engine,
       keepCanvas: bodyValidation.value.keepCanvas,
-      saveMask: bodyValidation.value.saveMask
+      saveMask: bodyValidation.value.saveMask,
+      sourceImageBase64: bodyValidation.value.sourceImageBase64,
+      sourceContentType: bodyValidation.value.sourceContentType,
+      sourceFilename: bodyValidation.value.sourceFilename
     });
 
     return ok(result);

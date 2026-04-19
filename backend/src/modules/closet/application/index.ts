@@ -82,6 +82,9 @@ export interface PreviewClothingItemCutoutCommand {
   engine?: "auto" | "rembg" | "classic";
   keepCanvas?: boolean;
   saveMask?: boolean;
+  sourceImageBase64?: string;
+  sourceContentType?: string;
+  sourceFilename?: string;
 }
 
 export interface ApplyClothingItemCutoutCommand {

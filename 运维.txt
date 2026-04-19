@@ -15,8 +15,10 @@ pm2 logs closet-backend
 .\venv\Scripts\python main.py "你的视频链接" audio
 .\venv\Scripts\python main.py "你的视频链接" both
 
+.\venv\Scripts\python.exe main.py "你的视频链接" ocr
 
-
+服装自动抠图：
+python main.py clothes-cutout "C:/Users/Administrator/Pictures/09c588e589c4d19e236e435d510a7b0.jpg"
 
 BethanyJacobsiddy@outlook.com----wfaDQEVMzLYZ----yptnfyraxb188----rt_WDjvmw4WOCjnpbNe4YHHt45pMa-uMe9GnguuQxI_GZ8.ToReMLseNi0vzF3WQ_3fQD4SpCNXMCBUL73tf_8N198
 OrvilleFadelusit@outlook.com----7FFAwXHyOYIL----ukucaftf7365----rt_xNVz_9zCZQGPeVsmStCMqXGIJsM66OBmfrqZuoaKiIE.wyLhgrTd-IIyec5ew5GPsXzNqegc8UJYDE0K56vJFMA
