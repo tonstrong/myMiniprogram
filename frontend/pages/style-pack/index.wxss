@@ -16,6 +16,29 @@
   font-weight: 500;
 }
 
+.pending-guide {
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: linear-gradient(135deg, rgba(255, 247, 237, 0.95) 0%, rgba(255, 251, 235, 0.96) 100%);
+  border: 1px solid rgba(212, 163, 115, 0.28);
+}
+
+.pending-guide-title {
+  display: block;
+  color: var(--brand-primary);
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.pending-guide-desc {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-secondary);
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
 .mt-2 { margin-top: var(--spacing-sm); }
 .mt-4 { margin-top: var(--spacing-xl); }
 .w-full { width: 100%; }

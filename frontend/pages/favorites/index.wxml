@@ -1,7 +1,7 @@
 <view class="container">
   <view class="page-head animate-fade-in">
-    <text class="text-h1">推荐历史</text>
-    <text class="text-caption head-copy">这里保留你生成过的推荐结果，可以继续查看或删除。</text>
+    <text class="text-h1">我的收藏</text>
+    <text class="text-caption head-copy">这里单独保留你收藏过的搭配结果，方便反复回看。</text>
   </view>
 
   <view class="grid-wrap animate-fade-in" style="animation-delay: 0.1s;">
@@ -12,9 +12,6 @@
           <view class="grid-layout">
             <block wx:for="{{item.items}}" wx:key="id" wx:for-item="record">
               <view class="grid-card" bindtap="openRecommendation" data-id="{{record.id}}">
-                <view class="card-delete" catchtap="handleDeleteRecord" data-id="{{record.id}}">
-                  删除
-                </view>
                 <image wx:if="{{record.coverImageUrl}}" class="g-img" src="{{record.coverImageUrl}}" mode="aspectFill"></image>
                 <view wx:else class="g-img g-placeholder">
                   <text class="g-placeholder-text">{{record.scene}}</text>
@@ -23,7 +20,7 @@
                   <text class="g-date">{{record.date}}</text>
                   <view class="flex-row justify-between items-center">
                     <text class="g-scene">{{record.scene}}</text>
-                    <text class="star-icon" wx:if="{{record.isSaved}}">★</text>
+                    <text class="star-icon">★</text>
                   </view>
                 </view>
               </view>
@@ -38,7 +35,7 @@
 
     <view wx:elif="{{!backendReady}}" class="empty-state flex-col items-center justify-center glass-panel capability-panel">
       <text class="text-h1 text-tertiary">:(</text>
-      <text class="text-body text-secondary mt-md">推荐历史暂时不可用</text>
+      <text class="text-body text-secondary mt-md">我的收藏暂时不可用</text>
       <text class="text-caption capability-copy">{{backendMessage}}</text>
       <view class="status-pill error">后端未连通</view>
       <button class="btn-primary mt-action" bindtap="goRecommend">去生成新推荐</button>
@@ -46,8 +43,8 @@
 
     <view wx:else class="empty-state flex-col items-center justify-center glass-panel capability-panel">
       <text class="text-h1 text-tertiary">:(</text>
-      <text class="text-body text-secondary mt-md">暂无可展示的推荐历史</text>
-      <text class="text-caption capability-copy">你生成过的推荐结果会展示在这里。</text>
+      <text class="text-body text-secondary mt-md">还没有收藏的搭配</text>
+      <text class="text-caption capability-copy">在推荐结果页点击收藏后，搭配会展示在这里。</text>
       <view class="status-pill ready">后端已连通</view>
       <button class="btn-primary mt-action" bindtap="goRecommend">去生成新推荐</button>
     </view>

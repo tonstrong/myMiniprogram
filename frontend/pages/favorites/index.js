@@ -16,7 +16,7 @@ Page({
   },
 
   onLoad() {
-    wx.setNavigationBarTitle({ title: '推荐历史' });
+    wx.setNavigationBarTitle({ title: '我的收藏' });
   },
 
   onShow() {
@@ -37,7 +37,7 @@ Page({
     this.setData({ loading: true });
     try {
       const res = await api.request({
-        url: `/api/recommendations?savedOnly=0&pageNo=${pageNo}&pageSize=${this.data.pageSize}`,
+        url: `/api/recommendations?savedOnly=1&pageNo=${pageNo}&pageSize=${this.data.pageSize}`,
         method: 'GET'
       });
 
@@ -69,10 +69,10 @@ Page({
       });
       wx.stopPullDownRefresh();
     } catch (error) {
-      console.error('Load recommendation history failed', error);
+      console.error('Load favorites failed', error);
       this.setData({
         backendReady: false,
-        backendMessage: '推荐历史加载失败，请稍后再试。',
+        backendMessage: '收藏搭配加载失败，请稍后再试。',
         records: reset ? [] : this.data.records,
         groupedRecords: reset ? [] : this.data.groupedRecords,
         loading: false,
@@ -92,43 +92,6 @@ Page({
   openRecommendation(e) {
     const id = e.currentTarget.dataset.id;
     wx.navigateTo({ url: `/pages/recommend/result?id=${id}` });
-  },
-
-  handleDeleteRecord(e) {
-    const id = e.currentTarget.dataset.id;
-    if (!id) {
-      return;
-    }
-
-    wx.showModal({
-      title: '删除记录',
-      content: '删除后这条推荐记录将无法恢复，确认删除吗？',
-      success: async ({ confirm }) => {
-        if (!confirm) {
-          return;
-        }
-
-        try {
-          await api.request({
-            url: `/api/recommendations/${id}`,
-            method: 'DELETE'
-          });
-
-          const nextRecords = this.data.records.filter((record) => record.id !== id);
-          const nextTotal = Math.max(0, (this.data.total || 0) - 1);
-          this.setData({
-            records: nextRecords,
-            groupedRecords: buildGroups(nextRecords),
-            total: nextTotal,
-            noMore: nextRecords.length >= nextTotal
-          });
-          wx.showToast({ title: '已删除', icon: 'success' });
-        } catch (error) {
-          console.error('Delete recommendation failed', error);
-          wx.showToast({ title: '删除失败', icon: 'none' });
-        }
-      }
-    });
   },
 
   goRecommend() {

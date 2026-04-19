@@ -10,11 +10,14 @@ import type { ApiRequest, ApiRouteDefinition, PaginatedResult } from "../../../a
 import type { ApiResponse } from "../../../app/common/response";
 import type { ClosetService, ClothingAttributes } from "../application";
 import type {
+  ApplyClothingItemCutoutRequestDTO,
   ClothingItemDetailResponseDTO,
+  ClothingItemCutoutPreviewResponseDTO,
   ClothingItemListItemDTO,
   ClothingItemListQueryDTO,
   ConfirmClothingItemRequestDTO,
   GetClothingItemImageQueryDTO,
+  PreviewClothingItemCutoutRequestDTO,
   UpdateClothingItemRequestDTO,
   UploadClothingItemRequestDTO,
   UploadClothingItemResponseDTO
@@ -25,6 +28,8 @@ import {
   validateConfirmClothingItemRequest,
   validateGetClothingItemImageQuery,
   validateItemIdParams,
+  validateApplyClothingItemCutoutRequest,
+  validatePreviewClothingItemCutoutRequest,
   validateUpdateClothingItemRequest,
   validateUploadClothingItemRequest
 } from "./validators";
@@ -208,6 +213,76 @@ export class ClosetController {
     });
   }
 
+  async previewItemCutout(
+    request: ApiRequest<PreviewClothingItemCutoutRequestDTO, unknown, ItemIdParams>
+  ): Promise<ApiResponse<ClothingItemCutoutPreviewResponseDTO>> {
+    const userId = request.context.userId;
+    if (!userId) {
+      return fail("UNAUTHORIZED", "Missing user id");
+    }
+
+    const paramValidation = validateRequest(request.params, validateItemIdParams);
+    if (!paramValidation.ok) {
+      return fail("INVALID_REQUEST", formatValidationErrors(paramValidation.errors));
+    }
+
+    const bodyValidation = validateRequest(
+      request.body ?? {},
+      validatePreviewClothingItemCutoutRequest
+    );
+    if (!bodyValidation.ok) {
+      return fail("INVALID_REQUEST", formatValidationErrors(bodyValidation.errors));
+    }
+
+    const result = await this.deps.closetService.previewItemCutout({
+      itemId: paramValidation.value.itemId,
+      userId,
+      engine: bodyValidation.value.engine,
+      keepCanvas: bodyValidation.value.keepCanvas,
+      saveMask: bodyValidation.value.saveMask
+    });
+
+    return ok(result);
+  }
+
+  async applyItemCutout(
+    request: ApiRequest<ApplyClothingItemCutoutRequestDTO, unknown, ItemIdParams>
+  ): Promise<ApiResponse<ClothingItemDetailResponseDTO>> {
+    const userId = request.context.userId;
+    if (!userId) {
+      return fail("UNAUTHORIZED", "Missing user id");
+    }
+
+    const paramValidation = validateRequest(request.params, validateItemIdParams);
+    if (!paramValidation.ok) {
+      return fail("INVALID_REQUEST", formatValidationErrors(paramValidation.errors));
+    }
+
+    const bodyValidation = validateRequest(
+      request.body,
+      validateApplyClothingItemCutoutRequest
+    );
+    if (!bodyValidation.ok) {
+      return fail("INVALID_REQUEST", formatValidationErrors(bodyValidation.errors));
+    }
+
+    const detail = await this.deps.closetService.applyItemCutout({
+      itemId: paramValidation.value.itemId,
+      userId,
+      imageBase64: bodyValidation.value.imageBase64,
+      contentType: bodyValidation.value.contentType,
+      filename: bodyValidation.value.filename
+    });
+
+    return ok({
+      itemId: detail.itemId,
+      status: detail.status,
+      imageOriginalUrl: detail.imageOriginalUrl,
+      attributes: detail.attributes,
+      llmMeta: detail.providerMeta
+    });
+  }
+
   async updateItem(
     request: ApiRequest<UpdateClothingItemRequestDTO, unknown, ItemIdParams>
   ): Promise<ApiResponse<ClothingItemDetailResponseDTO>> {
@@ -380,6 +455,16 @@ export function createClosetControllerRoutes(
       ...parseRoute(ClosetRoutes.extractItem),
       summary: "Extract clothing item attributes",
       handler: controller.extractItem.bind(controller)
+    },
+    {
+      ...parseRoute(ClosetRoutes.previewItemCutout),
+      summary: "Preview clothing item cutout",
+      handler: controller.previewItemCutout.bind(controller)
+    },
+    {
+      ...parseRoute(ClosetRoutes.applyItemCutout),
+      summary: "Apply clothing item cutout",
+      handler: controller.applyItemCutout.bind(controller)
     },
     {
       ...parseRoute(ClosetRoutes.updateItem),

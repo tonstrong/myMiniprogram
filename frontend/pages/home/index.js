@@ -5,6 +5,7 @@ import { cacheProfile } from '../../utils/profile-cache';
 const LOCAL_AVATAR_KEY = 'profile:localAvatarUrl';
 const DEFAULT_AVATAR_URL = '';
 const PROFILE_GUIDE_SHOWN_KEY = 'profile:completionGuideShown';
+const CLOSET_PENDING_HIGHLIGHT_KEY = 'closet:highlightPendingFromHome';
 
 Page({
   data: {
@@ -67,8 +68,8 @@ Page({
       const stylePacks = stylePackRes.items || [];
       const activeClosetCount = closetItems.filter((item) => item.status === 'active').length;
       const activeStylePacks = stylePacks.filter((item) => item.status === 'active');
-      const pendingClosetCount = closetItems.filter((item) => item.status !== 'active').length;
-      const pendingStylePackCount = stylePacks.filter((item) => item.status !== 'active').length;
+      const pendingClosetItems = closetItems.filter((item) => item.status !== 'active');
+      const pendingStylePacks = stylePacks.filter((item) => item.status !== 'active');
       const weather = profile.city ? await getCurrentWeather().catch(() => null) : null;
 
       this.setData({
@@ -76,7 +77,7 @@ Page({
         avatarUrl: wx.getStorageSync(LOCAL_AVATAR_KEY) || profile.avatarUrl || DEFAULT_AVATAR_URL,
         closetCount: closetItems.length,
         stylePackCount: activeStylePacks.length,
-        tasks: buildTasks(pendingClosetCount, pendingStylePackCount),
+        tasks: buildDashboardTasks(pendingClosetItems, pendingStylePacks),
         todayRecommend: buildRecommendCard({
           activeClosetCount,
           activeStylePacks,
@@ -123,11 +124,12 @@ Page({
   handleTask(e) {
     const action = e.currentTarget.dataset.action;
     if (action === 'closet') {
+      wx.setStorageSync(CLOSET_PENDING_HIGHLIGHT_KEY, Date.now());
       wx.switchTab({ url: '/pages/closet/index' });
       return;
     }
     if (action === 'style-pack') {
-      wx.navigateTo({ url: '/pages/style-pack/index' });
+      wx.navigateTo({ url: '/pages/style-pack/index?highlightPending=1' });
     }
   },
 
@@ -166,7 +168,7 @@ Page({
       });
       return;
     }
-    wx.navigateTo({ url: '/pages/recommend/config?autoStart=1' });
+    wx.navigateTo({ url: '/pages/recommend/config' });
   },
 
   handleTodayPrimaryAction() {
@@ -231,6 +233,54 @@ function buildTasks(pendingClosetCount, pendingStylePackCount) {
     });
   }
   return tasks;
+}
+
+function buildDashboardTasks(pendingClosetItems, pendingStylePacks) {
+  const tasks = [];
+  const pendingClosetCount = (pendingClosetItems || []).length;
+  const pendingStylePackCount = (pendingStylePacks || []).length;
+
+  if (pendingClosetCount > 0) {
+    const previewTitles = pendingClosetItems
+      .slice(0, 3)
+      .map((item) => formatPendingName(item.title || item.subCategory || item.category));
+    const remainingCount = Math.max(pendingClosetCount - previewTitles.length, 0);
+
+    tasks.push({
+      id: 'closet-pending',
+      type: 'upload',
+      title: `${pendingClosetCount} 件单品待确认`,
+      detail: previewTitles.join('、'),
+      moreText: remainingCount > 0 ? `等 ${remainingCount} 件` : '',
+      action: 'closet'
+    });
+  }
+
+  if (pendingStylePackCount > 0) {
+    const previewNames = pendingStylePacks
+      .slice(0, 2)
+      .map((item) => formatPendingName(item.name || item.title || '风格包'));
+    const remainingCount = Math.max(pendingStylePackCount - previewNames.length, 0);
+
+    tasks.push({
+      id: 'style-pending',
+      type: 'style',
+      title: `${pendingStylePackCount} 个风格包待生效`,
+      detail: previewNames.join('、'),
+      moreText: remainingCount > 0 ? `等 ${remainingCount} 个` : '',
+      action: 'style-pack'
+    });
+  }
+
+  return tasks;
+}
+
+function formatPendingName(value) {
+  const text = String(value || '').trim();
+  if (!text) {
+    return '未命名';
+  }
+  return text.length > 10 ? `${text.slice(0, 10)}…` : text;
 }
 
 function buildRecommendCard({

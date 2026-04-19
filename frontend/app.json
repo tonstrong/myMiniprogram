@@ -11,6 +11,7 @@
     "pages/saved-outfits/index",
     "pages/recommend/config",
     "pages/recommend/result",
+    "pages/favorites/index",
     "pages/history/index",
     "pages/profile/index"
   ],

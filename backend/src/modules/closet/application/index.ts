@@ -76,6 +76,32 @@ export interface ConfirmClothingItemCommand {
   userId: string;
 }
 
+export interface PreviewClothingItemCutoutCommand {
+  itemId: string;
+  userId: string;
+  engine?: "auto" | "rembg" | "classic";
+  keepCanvas?: boolean;
+  saveMask?: boolean;
+}
+
+export interface ApplyClothingItemCutoutCommand {
+  itemId: string;
+  userId: string;
+  imageBase64: string;
+  contentType: string;
+  filename?: string;
+}
+
+export interface ClothingItemCutoutPreview {
+  itemId: string;
+  previewImageBase64: string;
+  previewContentType: string;
+  previewFilename: string;
+  engineRequested: string;
+  engineUsed: string;
+  transparentBackground: boolean;
+}
+
 export interface ClosetQueryFilters extends PaginationQuery {
   category?: string;
   season?: string;
@@ -96,6 +122,12 @@ export interface ClosetService {
     itemId: string,
     accessKey: string
   ): Promise<ClothingItemImageAsset>;
+  previewItemCutout(
+    command: PreviewClothingItemCutoutCommand
+  ): Promise<ClothingItemCutoutPreview>;
+  applyItemCutout(
+    command: ApplyClothingItemCutoutCommand
+  ): Promise<ClothingItemDetail>;
   updateItem(command: UpdateClothingItemCommand): Promise<ClothingItemDetail>;
   confirmItem(command: ConfirmClothingItemCommand): Promise<ClothingItemDetail>;
   archiveItem(userId: string, itemId: string): Promise<void>;

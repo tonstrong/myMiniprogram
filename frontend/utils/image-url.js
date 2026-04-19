@@ -1,4 +1,5 @@
 const imageUrlCache = new Map();
+const CLOUD_URL_CACHE_TTL_MS = 10 * 60 * 1000;
 
 export async function resolveImageUrl(inputUrl) {
   if (!inputUrl || typeof inputUrl !== 'string') {
@@ -9,8 +10,9 @@ export async function resolveImageUrl(inputUrl) {
     return inputUrl;
   }
 
-  if (imageUrlCache.has(inputUrl)) {
-    return imageUrlCache.get(inputUrl);
+  const cached = imageUrlCache.get(inputUrl);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.url;
   }
 
   if (!wx.cloud || typeof wx.cloud.getTempFileURL !== 'function') {
@@ -23,7 +25,10 @@ export async function resolveImageUrl(inputUrl) {
     });
     const tempFileURL = res.fileList?.[0]?.tempFileURL || '';
     if (tempFileURL) {
-      imageUrlCache.set(inputUrl, tempFileURL);
+      imageUrlCache.set(inputUrl, {
+        url: tempFileURL,
+        expiresAt: Date.now() + CLOUD_URL_CACHE_TTL_MS
+      });
     }
     return tempFileURL;
   } catch (error) {

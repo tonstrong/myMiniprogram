@@ -43,9 +43,8 @@
 
   <view class="action-fixed">
     <button
-      class="btn-primary w-full shadow-glow {{isGenerating ? 'disabled' : ''}}"
+      class="btn-primary w-full shadow-glow"
       bindtap="generateLook"
-      disabled="{{isGenerating}}"
       loading="{{isGenerating}}"
     >
       {{isGenerating ? '正在生成搭配...' : '开始生成灵感图集'}}

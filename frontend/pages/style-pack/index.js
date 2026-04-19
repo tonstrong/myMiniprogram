@@ -3,7 +3,14 @@ import api from '../../utils/api';
 Page({
   data: {
     activePacks: [],
-    pendingPacks: []
+    pendingPacks: [],
+    highlightPending: false
+  },
+
+  onLoad(options) {
+    this.setData({
+      highlightPending: options?.highlightPending === '1'
+    });
   },
 
   onShow() {

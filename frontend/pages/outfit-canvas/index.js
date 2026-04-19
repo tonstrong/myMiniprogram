@@ -104,11 +104,20 @@ Page({
           category: item.category,
           subCategory: item.subCategory || '',
           title: [item.category, item.subCategory].filter(Boolean).join(' / ') || '未命名单品',
+          sourceImageUrl: item.imageOriginalUrl || '',
           imageUrl: await resolveImageUrl(item.imageOriginalUrl),
           addedToCanvas: false
         }))
       );
       this.setData({ closetItems, loading: false });
+      if (this.data.canvasItems.length > 0) {
+        const refreshedCanvasItems = hydrateCanvasItemsWithClosetImages(
+          this.getNormalizedCanvasItems(),
+          closetItems
+        );
+        this.syncCanvasItems(refreshedCanvasItems, this.data.selectedCanvasItemId);
+        this.persistDraft(refreshedCanvasItems, this.data.selectedCanvasItemId);
+      }
       this.tryHydratePendingState();
     } catch (error) {
       console.error('Fetch canvas closet items failed', error);
@@ -144,7 +153,10 @@ Page({
     }
 
     if (this.pendingCanvasItems) {
-      const canvasItems = sanitizeCanvasItems(this.pendingCanvasItems);
+      const canvasItems = hydrateCanvasItemsWithClosetImages(
+        this.pendingCanvasItems,
+        this.data.closetItems
+      );
       const selectedCanvasItemId = this.pendingSelectedCanvasItemId || canvasItems[0]?.id || '';
       this.pendingCanvasItems = null;
       this.pendingSelectedCanvasItemId = '';
@@ -614,6 +626,7 @@ function sanitizeCanvasItems(items) {
       category: item.category || '',
       subCategory: item.subCategory || '',
       title: item.title || [item.category, item.subCategory].filter(Boolean).join(' / ') || '未命名单品',
+      sourceImageUrl: item.sourceImageUrl || '',
       imageUrl: item.imageUrl || '',
       x: clampPosition(Number(item.x), w),
       y: clampPosition(Number(item.y), h),
@@ -633,6 +646,7 @@ function buildCanvasItemFromCloset(item, index) {
     category: item.category,
     subCategory: item.subCategory || '',
     title: item.title,
+    sourceImageUrl: item.sourceImageUrl || '',
     imageUrl: item.imageUrl || '',
     x: clampPosition(0.36 - size.w / 2 + offset, size.w),
     y: clampPosition(0.22 + offset, size.h),
@@ -660,6 +674,7 @@ function buildCanvasItemsFromLayout(layoutItems, closetItems) {
       category: closetItem.category,
       subCategory: closetItem.subCategory || '',
       title: closetItem.title,
+      sourceImageUrl: closetItem.sourceImageUrl || '',
       imageUrl: closetItem.imageUrl || '',
       x: clampPosition(Number(layoutItem.x), width),
       y: clampPosition(Number(layoutItem.y), height),
@@ -698,6 +713,7 @@ function buildCanvasItemsFromSlots(slots, closetItems) {
       category: closetItem.category,
       subCategory: closetItem.subCategory || '',
       title: closetItem.title,
+      sourceImageUrl: closetItem.sourceImageUrl || '',
       imageUrl: closetItem.imageUrl || '',
       x: layout.x,
       y: layout.y,
@@ -719,6 +735,7 @@ function buildCanvasItemsFromSlots(slots, closetItems) {
       category: closetItem.category,
       subCategory: closetItem.subCategory || '',
       title: closetItem.title,
+      sourceImageUrl: closetItem.sourceImageUrl || '',
       imageUrl: closetItem.imageUrl || '',
       x: 0.8,
       y: Math.min(0.08 + index * 0.12, 0.78),
@@ -731,6 +748,25 @@ function buildCanvasItemsFromSlots(slots, closetItems) {
   return items;
 }
 
+function hydrateCanvasItemsWithClosetImages(items, closetItems) {
+  const closetMap = new Map((closetItems || []).map((item) => [item.id, item]));
+  return sanitizeCanvasItems(items).map((item) => {
+    const closetItem = closetMap.get(item.itemId);
+    if (!closetItem) {
+      return item;
+    }
+
+    return {
+      ...item,
+      category: closetItem.category || item.category,
+      subCategory: closetItem.subCategory || item.subCategory,
+      title: closetItem.title || item.title,
+      sourceImageUrl: closetItem.sourceImageUrl || item.sourceImageUrl,
+      imageUrl: closetItem.imageUrl || item.imageUrl
+    };
+  });
+}
+
 function stripCanvasMetrics(item) {
   return {
     id: item.id,
@@ -738,6 +774,7 @@ function stripCanvasMetrics(item) {
     category: item.category,
     subCategory: item.subCategory,
     title: item.title,
+    sourceImageUrl: item.sourceImageUrl,
     imageUrl: item.imageUrl,
     x: item.x,
     y: item.y,

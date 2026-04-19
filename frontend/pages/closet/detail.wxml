@@ -11,11 +11,15 @@
     <view class="form-header">
       <view class="flex-row items-center justify-between">
         <text class="text-h2">{{isNew ? '单品识别与确认' : '单品特征'}}</text>
+        <view class="tool-actions">
         <button class="btn-secondary mini-ai-btn" bindtap="triggerAiExtract" loading="{{aiExtracting}}">
-          {{aiExtracting ? '识别中' : '手动 AI 识别'}}
+          {{aiExtracting ? '识别中' : 'AI识别'}}
         </button>
+        <button class="btn-secondary mini-ai-btn cutout-btn" bindtap="triggerCutoutPreview" loading="{{cutoutProcessing}}">
+          {{cutoutProcessing ? '抠图中' : '智能抠图'}}
+        </button>
+        </view>
       </view>
-      <text class="text-caption text-tertiary form-caption">{{aiSummaryText}}</text>
     </view>
 
     <view class="form-list">
@@ -107,9 +111,54 @@
         <button class="btn-primary action-btn" bindtap="confirmItem">确认并入库</button>
       </block>
       <block wx:else>
-        <button class="btn-primary action-btn" bindtap="confirmItem">保存修改</button>
+        <button class="btn-primary action-btn" bindtap="confirmItem">{{requiresConfirmation ? '保存并确认' : '保存修改'}}</button>
         <button class="btn-secondary action-btn text-error" bindtap="deleteItem">删除单品</button>
       </block>
     </view>
   </view>
 </scroll-view>
+
+<view wx:if="{{inputSheet.visible}}" class="editor-sheet-mask" bindtap="closeInputSheet">
+  <view class="editor-sheet-panel" catchtap="noop">
+    <view class="editor-sheet-header">
+      <text class="editor-sheet-title">{{inputSheet.title}}</text>
+      <text class="editor-sheet-close" bindtap="closeInputSheet">×</text>
+    </view>
+    <text class="editor-sheet-copy">用更细的描述补充单品信息，搭配和检索都会更准确。</text>
+    <input
+      class="editor-sheet-input"
+      placeholder="{{inputSheet.placeholder}}"
+      placeholder-class="editor-sheet-placeholder"
+      value="{{inputSheet.value}}"
+      focus
+      maxlength="24"
+      bindinput="onInputSheetChange"
+      confirm-type="done"
+      bindconfirm="submitInputSheet"
+    />
+    <view class="editor-sheet-actions">
+      <button class="btn-secondary editor-sheet-btn" bindtap="closeInputSheet">取消</button>
+      <button class="btn-primary editor-sheet-btn" bindtap="submitInputSheet">{{inputSheet.confirmText}}</button>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{cutoutPreview.visible}}" class="editor-sheet-mask" bindtap="closeCutoutPreview">
+  <view class="editor-sheet-panel cutout-sheet-panel" catchtap="noop">
+    <view class="editor-sheet-header">
+      <text class="editor-sheet-title">智能抠图预览</text>
+      <text class="editor-sheet-close" bindtap="closeCutoutPreview">×</text>
+    </view>
+    <text class="editor-sheet-copy">已为你提取衣物主体。确认后会替换当前单品图片，用于画布搭配与展示。</text>
+    <view class="cutout-preview-wrap">
+      <image class="cutout-preview-image" src="{{cutoutPreview.imagePath}}" mode="aspectFit"></image>
+    </view>
+    <view class="cutout-meta">
+      <text class="cutout-meta-text">引擎：{{cutoutPreview.engineUsed || 'auto'}}</text>
+    </view>
+    <view class="editor-sheet-actions">
+      <button class="btn-secondary editor-sheet-btn" bindtap="closeCutoutPreview">保留原图</button>
+      <button class="btn-primary editor-sheet-btn" bindtap="confirmCutoutPreview" loading="{{cutoutProcessing}}">使用这张</button>
+    </view>
+  </view>
+</view>

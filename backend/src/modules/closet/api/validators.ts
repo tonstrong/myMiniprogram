@@ -1,5 +1,6 @@
 import {
   createObjectValidator,
+  optionalBoolean,
   optionalNumber,
   optionalString,
   optionalStringArray,
@@ -8,9 +9,11 @@ import {
   requiredStringEnum
 } from "../../../app/common/validation";
 import type {
+  ApplyClothingItemCutoutRequestDTO,
   ClothingItemListQueryDTO,
   ConfirmClothingItemRequestDTO,
   GetClothingItemImageQueryDTO,
+  PreviewClothingItemCutoutRequestDTO,
   UpdateClothingItemRequestDTO,
   UploadClothingItemRequestDTO
 } from "./dtos";
@@ -25,6 +28,7 @@ const clothingStatusValues = [
 ] as const;
 
 const uploadSourceTypes = ["camera", "album"] as const;
+const cutoutEngineValues = ["auto", "rembg", "classic"] as const;
 
 export const validateUploadClothingItemRequest =
   createObjectValidator<UploadClothingItemRequestDTO>({
@@ -68,6 +72,20 @@ export const validateConfirmClothingItemRequest =
   createObjectValidator<ConfirmClothingItemRequestDTO>({
     confirmedBy: optionalString({ minLength: 1 }),
     confirmedAt: optionalString({ minLength: 1 })
+  });
+
+export const validatePreviewClothingItemCutoutRequest =
+  createObjectValidator<PreviewClothingItemCutoutRequestDTO>({
+    engine: optionalStringEnum(cutoutEngineValues),
+    keepCanvas: optionalBoolean(),
+    saveMask: optionalBoolean()
+  });
+
+export const validateApplyClothingItemCutoutRequest =
+  createObjectValidator<ApplyClothingItemCutoutRequestDTO>({
+    imageBase64: requiredString({ minLength: 1 }),
+    contentType: requiredString({ minLength: 1 }),
+    filename: optionalString({ minLength: 1 })
   });
 
 export const validateItemIdParams = createObjectValidator<ItemIdParams>({

@@ -16,9 +16,15 @@
   <view class="task-section animate-fade-in" wx:if="{{tasks.length > 0}}" style="animation-delay: 0.2s;">
     <block wx:for="{{tasks}}" wx:key="id">
       <view class="task-card flex-row items-center justify-between glass-panel">
-        <view class="flex-row items-center">
+        <view class="flex-row items-center task-main">
           <view class="task-icon {{item.type}}"></view>
-          <text class="text-body">{{item.title}}</text>
+          <view class="task-copy">
+            <text class="text-body task-title">{{item.title}}</text>
+            <view wx:if="{{item.detail}}" class="task-detail-row">
+              <text class="task-detail">{{item.detail}}</text>
+              <text wx:if="{{item.moreText}}" class="task-more">{{item.moreText}}</text>
+            </view>
+          </view>
         </view>
         <button class="btn-action" bindtap="handleTask" data-action="{{item.action}}">去处理</button>
       </view>

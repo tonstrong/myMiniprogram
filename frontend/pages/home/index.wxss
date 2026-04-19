@@ -63,6 +63,44 @@
   margin-bottom: var(--spacing-sm);
 }
 
+.task-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.task-title {
+  line-height: 1.4;
+}
+
+.task-detail-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-top: 8rpx;
+}
+
+.task-detail {
+  max-width: 420rpx;
+  color: var(--text-secondary);
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.task-more {
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: rgba(212, 163, 115, 0.12);
+  color: var(--brand-primary);
+  font-size: 22rpx;
+}
+
 .task-icon {
   width: 16rpx;
   height: 16rpx;

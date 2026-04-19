@@ -3,13 +3,16 @@ import { AppError } from "../../../app/common/errors";
 import { loadConfig } from "../../../app/config";
 import type { PaginatedResult } from "../../../app/common/types";
 import type {
+  ApplyClothingItemCutoutCommand,
   ClothingAttributes,
+  ClothingItemCutoutPreview,
   ClothingItemDetail,
   ClothingItemStatus,
   ClothingItemSummary,
   ClosetQueryFilters,
   ClosetService,
   ConfirmClothingItemCommand,
+  PreviewClothingItemCutoutCommand,
   UpdateClothingItemCommand,
   UploadClothingItemCommand,
   UploadClothingItemResult
@@ -344,6 +347,71 @@ export class InMemoryClosetService implements ClosetService {
       bytes: image.bytes,
       contentType: image.contentType
     };
+  }
+
+  async previewItemCutout(
+    command: PreviewClothingItemCutoutCommand
+  ): Promise<ClothingItemCutoutPreview> {
+    const record = await this.ensureItem(command.userId, command.itemId);
+    const image = await this.deps.repository.findItemImageByItemId(command.itemId);
+    if (!image) {
+      throw new AppError("Item image is not available for cutout", "INVALID_REQUEST", 400);
+    }
+
+    const result = await requestClothesCutout({
+      bytes: image.bytes,
+      contentType: image.contentType,
+      filename: buildImageFilename(record, image.contentType),
+      engine: command.engine,
+      keepCanvas: command.keepCanvas,
+      saveMask: command.saveMask
+    });
+
+    return {
+      itemId: command.itemId,
+      previewImageBase64: result.outputBytes.toString("base64"),
+      previewContentType: result.outputContentType,
+      previewFilename: result.outputFilename,
+      engineRequested: result.engineRequested,
+      engineUsed: result.engineUsed,
+      transparentBackground: result.transparentBackground
+    };
+  }
+
+  async applyItemCutout(
+    command: ApplyClothingItemCutoutCommand
+  ): Promise<ClothingItemDetail> {
+    const record = await this.ensureItem(command.userId, command.itemId);
+    const now = new Date();
+    const nextBytes = Buffer.from(command.imageBase64, "base64");
+    if (nextBytes.byteLength === 0) {
+      throw new AppError("Cutout image content is empty", "INVALID_REQUEST", 400);
+    }
+
+    const contentType = normalizeContentType(command.contentType);
+    const imageAccessKey = generateId();
+    await this.deps.repository.saveItemImage({
+      itemId: command.itemId,
+      contentType,
+      byteSize: nextBytes.byteLength,
+      bytes: nextBytes,
+      createdAt: now,
+      updatedAt: now
+    });
+
+    await this.deps.repository.updateItem(command.itemId, {
+      imageOriginalUrl: buildImageUrl(
+        command.userId,
+        command.itemId,
+        imageAccessKey,
+        { bytes: nextBytes, contentType }
+      ),
+      imageAccessKey,
+      updatedAt: now
+    });
+
+    const next = await this.ensureItem(command.userId, command.itemId);
+    return mapClothingRecordToDetail(next);
   }
 
   async updateItem(command: UpdateClothingItemCommand): Promise<ClothingItemDetail> {
@@ -981,6 +1049,136 @@ function buildImageUrl(
   const config = loadConfig();
   const query = new URLSearchParams({ userId, key: accessKey });
   return `${config.publicBaseUrl}/api/closet/items/${itemId}/image?${query.toString()}`;
+}
+
+async function requestClothesCutout(input: {
+  bytes: Buffer;
+  contentType: string;
+  filename: string;
+  engine?: "auto" | "rembg" | "classic";
+  keepCanvas?: boolean;
+  saveMask?: boolean;
+}): Promise<{
+  outputBytes: Buffer;
+  outputContentType: string;
+  outputFilename: string;
+  engineRequested: string;
+  engineUsed: string;
+  transparentBackground: boolean;
+}> {
+  const config = loadConfig();
+  if (!config.skillCenter.baseUrl) {
+    throw new AppError("Clothes cutout service is not configured", "INVALID_REQUEST", 400);
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), config.skillCenter.timeoutMs);
+
+  try {
+    const formData = new FormData();
+    formData.set(
+      "file",
+      new Blob([new Uint8Array(input.bytes)], { type: input.contentType }),
+      input.filename
+    );
+    formData.set("engine", input.engine ?? "auto");
+    formData.set("keep_canvas", String(Boolean(input.keepCanvas)));
+    formData.set("save_mask", String(Boolean(input.saveMask)));
+
+    const response = await fetch(
+      `${config.skillCenter.baseUrl.replace(/\/$/, "")}/api/v1/clothes-cutout`,
+      {
+        method: "POST",
+        body: formData,
+        signal: controller.signal
+      }
+    );
+
+    if (!response.ok) {
+      const detail = await safeReadText(response);
+      throw new AppError(
+        `Clothes cutout request failed: ${detail || response.statusText}`,
+        "INVALID_REQUEST",
+        400
+      );
+    }
+
+    const payload = (await response.json()) as Record<string, unknown>;
+    const outputUrl = typeof payload.output_url === "string" ? payload.output_url : "";
+    if (!outputUrl) {
+      throw new AppError("Clothes cutout result did not include output_url", "INVALID_REQUEST", 400);
+    }
+
+    const fileResponse = await fetch(outputUrl, { signal: controller.signal });
+    if (!fileResponse.ok) {
+      throw new AppError("Failed to download cutout image", "INVALID_REQUEST", 400);
+    }
+
+    const arrayBuffer = await fileResponse.arrayBuffer();
+    const outputBytes = Buffer.from(arrayBuffer);
+    return {
+      outputBytes,
+      outputContentType: fileResponse.headers.get("content-type") || "image/png",
+      outputFilename:
+        (typeof payload.output_filename === "string" && payload.output_filename) ||
+        replaceFileExtension(input.filename, ".png"),
+      engineRequested:
+        (typeof payload.engine_requested === "string" && payload.engine_requested) ||
+        (input.engine ?? "auto"),
+      engineUsed:
+        (typeof payload.engine_used === "string" && payload.engine_used) ||
+        (input.engine ?? "auto"),
+      transparentBackground: payload.transparent_background !== false
+    };
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new AppError("Clothes cutout request timed out", "INVALID_REQUEST", 400);
+    }
+    throw new AppError(
+      error instanceof Error ? error.message : "Clothes cutout failed",
+      "INVALID_REQUEST",
+      400
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function buildImageFilename(
+  record: ClothingItemRecord,
+  contentType: string
+): string {
+  const extension = inferFileExtension(contentType);
+  return `${record.id}${extension}`;
+}
+
+function inferFileExtension(contentType: string): string {
+  switch (contentType) {
+    case "image/png":
+      return ".png";
+    case "image/webp":
+      return ".webp";
+    default:
+      return ".jpg";
+  }
+}
+
+function replaceFileExtension(filename: string, nextExtension: string): string {
+  if (!filename) {
+    return `cutout${nextExtension}`;
+  }
+  return filename.replace(/\.[a-zA-Z0-9]+$/, nextExtension);
+}
+
+async function safeReadText(response: Response): Promise<string> {
+  try {
+    return await response.text();
+  } catch {
+    return "";
+  }
 }
 
 function isPersistableRemoteUrl(value?: string): value is string {

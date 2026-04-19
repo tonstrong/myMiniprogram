@@ -32,6 +32,10 @@ export interface AppConfig {
     apiKey: string;
     ttlSeconds: number;
   };
+  skillCenter: {
+    baseUrl: string;
+    timeoutMs: number;
+  };
   worker: {
     pollIntervalMs: number;
     leaseMs: number;
@@ -124,6 +128,10 @@ export function loadConfig(): AppConfig {
       provider: optionalEnv("WEATHER_PROVIDER", ""),
       apiKey: optionalEnv("WEATHER_API_KEY", ""),
       ttlSeconds: Number(optionalEnv("WEATHER_TTL_SECONDS", "600"))
+    },
+    skillCenter: {
+      baseUrl: optionalEnv("SKILL_CENTER_BASE_URL", ""),
+      timeoutMs: Number(optionalEnv("SKILL_CENTER_TIMEOUT_MS", "120000"))
     },
     worker: {
       pollIntervalMs: Number(optionalEnv("WORKER_POLL_INTERVAL_MS", "1500")),

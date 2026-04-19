@@ -1,15 +1,21 @@
 <view class="container">
-  
-  <!-- 头部统计与筛选 -->
   <view class="closet-header animate-fade-in">
     <text class="text-h1">数字化单品</text>
     <text class="text-body subtitle">看看今天衣橱里有什么灵感</text>
-    
+
+    <view wx:if="{{highlightPending && pendingCount > 0}}" class="pending-guide glass-panel">
+      <text class="pending-guide-title">已为你标出待处理单品</text>
+      <text class="pending-guide-desc">当前共有 {{pendingCount}} 件待确认，卡片会带金色描边和“待确认”标签。</text>
+    </view>
+
     <scroll-view class="filter-scroll" scroll-x="true" show-scrollbar="false">
       <view class="filter-list flex-row">
-        <block wx:for="{{filters}}" wx:key="*this">
-          <view class="filter-item {{activeFilter === index ? 'active' : ''}}" 
-                bindtap="switchFilter" data-index="{{index}}">
+        <block wx:for="{{filters}}" wx:key="value">
+          <view
+            class="filter-item {{activeFilter === index ? 'active' : ''}}"
+            bindtap="switchFilter"
+            data-index="{{index}}"
+          >
             <text>{{item.label}}</text>
           </view>
         </block>
@@ -17,11 +23,11 @@
     </scroll-view>
   </view>
 
-  <!-- 瀑布流容器 (简化实现为 flex wrap) -->
   <view class="waterfall animate-fade-in" style="animation-delay: 0.1s;">
     <view class="col-left">
       <block wx:for="{{items}}" wx:key="id" wx:if="{{index % 2 === 0}}">
-        <view class="item-card glass-panel" bindtap="goDetail" data-id="{{item.id}}">
+        <view class="item-card glass-panel {{item.isPending ? 'item-card-pending' : ''}}" bindtap="goDetail" data-id="{{item.id}}">
+          <view wx:if="{{item.isPending}}" class="pending-chip">待确认</view>
           <image wx:if="{{item.img}}" class="i-img" src="{{item.img}}" mode="widthFix"></image>
           <view wx:else class="i-placeholder">
             <text class="i-placeholder-text">单品</text>
@@ -37,9 +43,11 @@
         </view>
       </block>
     </view>
+
     <view class="col-right">
       <block wx:for="{{items}}" wx:key="id" wx:if="{{index % 2 !== 0}}">
-        <view class="item-card glass-panel" bindtap="goDetail" data-id="{{item.id}}">
+        <view class="item-card glass-panel {{item.isPending ? 'item-card-pending' : ''}}" bindtap="goDetail" data-id="{{item.id}}">
+          <view wx:if="{{item.isPending}}" class="pending-chip">待确认</view>
           <image wx:if="{{item.img}}" class="i-img" src="{{item.img}}" mode="widthFix"></image>
           <view wx:else class="i-placeholder">
             <text class="i-placeholder-text">单品</text>
@@ -57,7 +65,6 @@
     </view>
   </view>
 
-  <!-- 悬浮长驻添加按钮 -->
   <view class="fab-btn" bindtap="goUpload">
     <view class="fab-icon">
       <view class="fab-line fab-line-horizontal"></view>

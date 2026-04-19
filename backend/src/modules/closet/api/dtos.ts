@@ -90,3 +90,25 @@ export interface ConfirmClothingItemRequestDTO {
   confirmedBy?: string;
   confirmedAt?: string;
 }
+
+export interface PreviewClothingItemCutoutRequestDTO {
+  engine?: "auto" | "rembg" | "classic";
+  keepCanvas?: boolean;
+  saveMask?: boolean;
+}
+
+export interface ApplyClothingItemCutoutRequestDTO {
+  imageBase64: string;
+  contentType: string;
+  filename?: string;
+}
+
+export interface ClothingItemCutoutPreviewResponseDTO {
+  itemId: string;
+  previewImageBase64: string;
+  previewContentType: string;
+  previewFilename: string;
+  engineRequested: string;
+  engineUsed: string;
+  transparentBackground: boolean;
+}

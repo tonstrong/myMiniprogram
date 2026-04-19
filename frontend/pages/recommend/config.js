@@ -17,9 +17,7 @@ Page({
     isGenerating: false
   },
 
-  onLoad(options) {
-    this.autoStart = options?.autoStart === '1';
-    this.autoGenerateTriggered = false;
+  onLoad() {
     this.requestInFlight = false;
   },
 
@@ -30,10 +28,6 @@ Page({
 
   async initializePage() {
     await Promise.all([this.fetchStylePacks(), this.prepareWeatherState()]);
-    if (this.autoStart && !this.autoGenerateTriggered) {
-      this.autoGenerateTriggered = true;
-      this.generateLook();
-    }
   },
 
   async fetchStylePacks() {
@@ -205,6 +199,7 @@ Page({
 
   async generateLook() {
     if (this.data.isGenerating || this.requestInFlight) {
+      wx.showToast({ title: '已在生成中', icon: 'none' });
       return;
     }
 

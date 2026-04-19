@@ -1,4 +1,5 @@
 import api from '../../utils/api';
+import { resolveImageUrl } from '../../utils/image-url';
 
 const CATEGORY_OPTIONS = ['上衣', '下装', '外套', '连衣裙', '鞋履', '包袋', '配饰'];
 const ACCESSORY_SUBCATEGORY_OPTIONS = ['层搭装饰片', '腰饰', '披肩', '围巾', '帽子', '首饰', '其他配饰'];
@@ -32,8 +33,11 @@ Page({
   data: {
     itemId: '',
     isNew: false,
+    itemStatus: '',
+    requiresConfirmation: false,
     previewImage: '',
     aiExtracting: false,
+    cutoutProcessing: false,
     hasAiResult: false,
     aiSummaryText: '还没触发 AI 识别，也可以直接手动填写',
     CATEGORY_OPTIONS,
@@ -48,6 +52,22 @@ Page({
       fit: '',
       seasons: [],
       tags: []
+    },
+    inputSheet: {
+      visible: false,
+      field: '',
+      title: '',
+      placeholder: '',
+      value: '',
+      confirmText: '保存'
+    },
+    cutoutPreview: {
+      visible: false,
+      imagePath: '',
+      imageBase64: '',
+      contentType: 'image/png',
+      filename: '',
+      engineUsed: ''
     }
   },
 
@@ -67,15 +87,19 @@ Page({
     }
   },
 
+  noop() {},
+
   async fetchDetail() {
     try {
       const detail = await api.request({
         url: `/api/closet/items/${this.data.itemId}`,
         method: 'GET'
       });
-      const item = mapItemDetail(detail, this.data.previewImage);
+      const item = await mapItemDetail(detail, this.data.previewImage);
       this.setData({
         item,
+        itemStatus: detail.status || '',
+        requiresConfirmation: shouldConfirmAfterSave(detail.status, this.data.isNew),
         hasAiResult: hasAiResult(detail),
         aiSummaryText: buildAiSummary(detail),
         COLOR_PALETTE: buildColorPaletteState(item.colors || [])
@@ -99,11 +123,13 @@ Page({
         method: 'POST',
         data: {}
       });
-      const item = mapItemDetail(detail, this.data.previewImage);
+      const item = await mapItemDetail(detail, this.data.previewImage);
       wx.hideLoading();
       this.setData({
         aiExtracting: false,
         item,
+        itemStatus: detail.status || '',
+        requiresConfirmation: shouldConfirmAfterSave(detail.status, this.data.isNew),
         hasAiResult: hasAiResult(detail),
         aiSummaryText: buildAiSummary(detail),
         COLOR_PALETTE: buildColorPaletteState(item.colors || [])
@@ -121,14 +147,112 @@ Page({
     }
   },
 
+  async triggerCutoutPreview() {
+    if (this.data.cutoutProcessing) {
+      return;
+    }
+
+    this.setData({ cutoutProcessing: true });
+    wx.showLoading({ title: '抠图中...' });
+    try {
+      const result = await api.request({
+        url: `/api/closet/items/${this.data.itemId}/cutout-preview`,
+        method: 'POST',
+        data: {
+          engine: 'auto',
+          keepCanvas: false,
+          saveMask: false
+        }
+      });
+
+      const imagePath = await writeBase64ImageToTempFile(
+        result.previewImageBase64,
+        result.previewContentType,
+        result.previewFilename
+      );
+
+      wx.hideLoading();
+      this.setData({
+        cutoutProcessing: false,
+        cutoutPreview: {
+          visible: true,
+          imagePath,
+          imageBase64: result.previewImageBase64,
+          contentType: result.previewContentType,
+          filename: result.previewFilename,
+          engineUsed: result.engineUsed || 'auto'
+        }
+      });
+    } catch (error) {
+      wx.hideLoading();
+      this.setData({ cutoutProcessing: false });
+      console.error('Preview cutout failed', error);
+      const message = error?.error?.message || error?.message || '';
+      wx.showToast({
+        title: message || '智能抠图失败',
+        icon: 'none'
+      });
+    }
+  },
+
+  closeCutoutPreview() {
+    this.setData({
+      'cutoutPreview.visible': false
+    });
+  },
+
+  async confirmCutoutPreview() {
+    const preview = this.data.cutoutPreview || {};
+    if (!preview.imageBase64 || this.data.cutoutProcessing) {
+      return;
+    }
+
+    this.setData({ cutoutProcessing: true });
+    wx.showLoading({ title: '应用中...' });
+    try {
+      const detail = await api.request({
+        url: `/api/closet/items/${this.data.itemId}/cutout-apply`,
+        method: 'POST',
+        data: {
+          imageBase64: preview.imageBase64,
+          contentType: preview.contentType || 'image/png',
+          filename: preview.filename || 'cutout.png'
+        }
+      });
+
+      const item = await mapItemDetail(detail, preview.imagePath || this.data.previewImage);
+      wx.hideLoading();
+      this.setData({
+        cutoutProcessing: false,
+        previewImage: preview.imagePath || this.data.previewImage,
+        item,
+        cutoutPreview: {
+          visible: false,
+          imagePath: '',
+          imageBase64: '',
+          contentType: 'image/png',
+          filename: '',
+          engineUsed: ''
+        }
+      });
+      wx.showToast({ title: '已使用抠图结果', icon: 'success' });
+    } catch (error) {
+      wx.hideLoading();
+      this.setData({ cutoutProcessing: false });
+      console.error('Apply cutout failed', error);
+      wx.showToast({ title: '应用抠图失败', icon: 'none' });
+    }
+  },
+
   bindCategoryChange(e) {
     const category = CATEGORY_OPTIONS[e.detail.value];
     const nextItem = {
       ...this.data.item,
       category,
-      subCategory: category === '配饰'
-        ? (this.data.item.subCategory || '层搭装饰片')
-        : this.data.item.subCategory
+      subCategory:
+        category === '配饰'
+          ? this.data.item.subCategory || '层搭装饰片'
+          : this.data.item.subCategory
     };
     this.setData({ item: nextItem });
   },
@@ -234,18 +358,56 @@ Page({
   },
 
   openSubCategoryInput() {
-    wx.showModal({
+    this.openInputSheet({
+      field: 'subCategory',
       title: '填写子类',
-      editable: true,
-      placeholderText: '请输入更细的单品类型',
-      content: this.data.item.subCategory || '',
-      success: (res) => {
-        if (!res.confirm) {
-          return;
-        }
-        this.setData({ 'item.subCategory': (res.content || '').trim() });
+      placeholder: '请输入更细的单品类型',
+      value: this.data.item.subCategory || '',
+      confirmText: '保存子类'
+    });
+  },
+
+  openInputSheet({ field, title, placeholder, value = '', confirmText = '保存' }) {
+    this.setData({
+      inputSheet: {
+        visible: true,
+        field,
+        title,
+        placeholder,
+        value,
+        confirmText
       }
     });
+  },
+
+  closeInputSheet() {
+    this.setData({
+      'inputSheet.visible': false
+    });
+  },
+
+  onInputSheetChange(e) {
+    this.setData({
+      'inputSheet.value': e.detail.value || ''
+    });
+  },
+
+  submitInputSheet() {
+    const { field, value } = this.data.inputSheet;
+    const nextValue = String(value || '').trim();
+
+    if (!nextValue) {
+      wx.showToast({ title: '请先输入内容', icon: 'none' });
+      return;
+    }
+
+    if (field === 'subCategory') {
+      this.setData({
+        'item.subCategory': nextValue
+      });
+    }
+
+    this.closeInputSheet();
   },
 
   pickMultiple(key, options, title) {
@@ -270,7 +432,8 @@ Page({
       return;
     }
 
-    wx.showLoading({ title: this.data.isNew ? '确认中...' : '保存中...' });
+    const shouldConfirm = this.data.requiresConfirmation;
+    wx.showLoading({ title: shouldConfirm ? '确认中...' : '保存中...' });
     try {
       await api.request({
         url: `/api/closet/items/${this.data.itemId}`,
@@ -278,7 +441,7 @@ Page({
         data: updatePayload
       });
 
-      if (this.data.isNew) {
+      if (shouldConfirm) {
         await api.request({
           url: `/api/closet/items/${this.data.itemId}/confirm`,
           method: 'POST',
@@ -287,7 +450,15 @@ Page({
       }
 
       wx.hideLoading();
-      wx.showToast({ title: this.data.isNew ? '已入库' : '保存成功', icon: 'success' });
+      this.setData({
+        itemStatus: 'active',
+        requiresConfirmation: false,
+        isNew: false
+      });
+      wx.showToast({
+        title: shouldConfirm ? '已确认入库' : '保存成功',
+        icon: 'success'
+      });
       setTimeout(() => {
         wx.switchTab({ url: '/pages/closet/index' });
       }, 800);
@@ -325,10 +496,10 @@ Page({
   }
 });
 
-function mapItemDetail(detail, previewImage = '') {
+async function mapItemDetail(detail, previewImage = '') {
   const attributes = detail.attributes || {};
   return {
-    img: normalizeImageUrl(detail.imageOriginalUrl) || previewImage || '',
+    img: await resolveDetailImageUrl(detail.imageOriginalUrl, previewImage),
     category: attributes.category || '',
     subCategory: attributes.subCategory || '',
     colors: attributes.colors || [],
@@ -339,20 +510,30 @@ function mapItemDetail(detail, previewImage = '') {
   };
 }
 
+async function resolveDetailImageUrl(imageOriginalUrl, previewImage = '') {
+  const normalized = normalizeImageUrl(imageOriginalUrl);
+  if (!normalized) {
+    return previewImage || '';
+  }
+
+  const resolved = await resolveImageUrl(normalized);
+  return resolved || previewImage || '';
+}
+
 function hasAiResult(detail) {
   const attributes = detail.attributes || {};
   return Boolean(
     detail.llmMeta?.provider ||
-    attributes.category ||
-    (attributes.colors && attributes.colors.length) ||
-    (attributes.tags && attributes.tags.length)
+      attributes.category ||
+      (attributes.colors && attributes.colors.length) ||
+      (attributes.tags && attributes.tags.length)
   );
 }
 
 function buildAiSummary(detail) {
   const provider = detail.llmMeta?.provider;
   if (provider) {
-    return `AI 已识别，可继续修改结果`;
+    return 'AI 已识别，可继续修改结果';
   }
   return '还没触发 AI 识别，也可以直接手动填写';
 }
@@ -386,13 +567,21 @@ function buildUpdatePayload(item) {
   };
 }
 
+function shouldConfirmAfterSave(status, isNew = false) {
+  if (isNew) {
+    return true;
+  }
+  return status === 'needs_review' || status === 'uploaded';
+}
+
 function buildColorPaletteState(selectedColors) {
   return COLOR_PALETTE_OPTIONS.map((option) => ({
     ...option,
     selected: selectedColors.includes(option.label),
-    swatchStyle: option.hex.indexOf('linear-gradient') === 0
-      ? `background:${option.hex};`
-      : `background-color:${option.hex};`
+    swatchStyle:
+      option.hex.indexOf('linear-gradient') === 0
+        ? `background:${option.hex};`
+        : `background-color:${option.hex};`
   }));
 }
 
@@ -401,7 +590,10 @@ function mapExtractErrorMessage(message) {
     return 'AI 识别失败，请稍后再试';
   }
 
-  if (message.includes('每天最多 3 次') || message.includes('今日 AI 识别次数已用完')) {
+  if (
+    message.includes('每天最多 3 次') ||
+    message.includes('今日 AI 识别次数已用完')
+  ) {
     return '今日 AI 识别次数已用完';
   }
 
@@ -410,4 +602,32 @@ function mapExtractErrorMessage(message) {
   }
 
   return message;
+}
+
+function writeBase64ImageToTempFile(base64, contentType = 'image/png', filename = 'cutout.png') {
+  return new Promise((resolve, reject) => {
+    const fs = wx.getFileSystemManager();
+    const extension = inferImageExtension(contentType, filename);
+    const tempPath = `${wx.env.USER_DATA_PATH}/cutout-${Date.now()}${extension}`;
+    fs.writeFile({
+      filePath: tempPath,
+      data: base64,
+      encoding: 'base64',
+      success: () => resolve(tempPath),
+      fail: reject
+    });
+  });
+}
+
+function inferImageExtension(contentType, filename = '') {
+  if (filename && /\.[a-zA-Z0-9]+$/.test(filename)) {
+    return filename.slice(filename.lastIndexOf('.'));
+  }
+  if (contentType === 'image/webp') {
+    return '.webp';
+  }
+  if (contentType === 'image/jpeg') {
+    return '.jpg';
+  }
+  return '.png';
 }
