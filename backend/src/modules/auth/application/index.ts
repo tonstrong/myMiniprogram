@@ -6,6 +6,7 @@ export interface AuthTokenPayload {
 
 export interface AuthLoginCommand {
   code: string;
+  legacyUserId?: string;
   requestId?: string;
 }
 

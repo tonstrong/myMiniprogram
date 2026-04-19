@@ -142,7 +142,15 @@ export class ClosetController {
       status: detail.status,
       imageOriginalUrl: detail.imageOriginalUrl,
       attributes: detail.attributes,
-      llmMeta: detail.providerMeta
+      llmMeta: detail.providerMeta,
+      aiQuota: detail.aiQuota
+        ? {
+            usedCount: detail.aiQuota.usedCount,
+            dailyLimit: detail.aiQuota.dailyLimit,
+            remainingCount: detail.aiQuota.remainingCount ?? undefined,
+            unlimited: detail.aiQuota.unlimited
+          }
+        : undefined
     });
   }
 
@@ -209,7 +217,15 @@ export class ClosetController {
       status: detail.status,
       imageOriginalUrl: detail.imageOriginalUrl,
       attributes: detail.attributes,
-      llmMeta: detail.providerMeta
+      llmMeta: detail.providerMeta,
+      aiQuota: detail.aiQuota
+        ? {
+            usedCount: detail.aiQuota.usedCount,
+            dailyLimit: detail.aiQuota.dailyLimit,
+            remainingCount: detail.aiQuota.remainingCount ?? undefined,
+            unlimited: detail.aiQuota.unlimited
+          }
+        : undefined
     });
   }
 

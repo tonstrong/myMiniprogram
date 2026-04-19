@@ -1,5 +1,6 @@
 import {
   createObjectValidator,
+  optionalString,
   requiredString
 } from "../../../app/common/validation";
 import type {
@@ -9,7 +10,8 @@ import type {
 
 export const validateWechatLoginRequest =
   createObjectValidator<WechatLoginRequestDTO>({
-    code: requiredString({ minLength: 1 })
+    code: requiredString({ minLength: 1 }),
+    legacyUserId: optionalString({ minLength: 1 })
   });
 
 export const validateRefreshTokenRequest =

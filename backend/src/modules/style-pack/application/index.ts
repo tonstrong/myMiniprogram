@@ -60,6 +60,11 @@ export interface UpdateStylePackCommand {
   promptProfile?: Record<string, unknown>;
 }
 
+export interface ExtractStylePackRulesCommand {
+  userId: string;
+  stylePackId: string;
+}
+
 export interface StylePackQuery extends PaginationQuery {
   status?: StylePackStatus;
   sourceType?: StylePackSourceType;
@@ -70,6 +75,7 @@ export interface StylePackService {
   importVideo(command: ImportStylePackVideoCommand): Promise<StylePackDetail>;
   list(userId: string, query: StylePackQuery): Promise<PaginatedResult<StylePackSummary>>;
   getDetail(userId: string, stylePackId: string): Promise<StylePackDetail>;
+  extractStructuredRules(command: ExtractStylePackRulesCommand): Promise<StylePackDetail>;
   update(command: UpdateStylePackCommand): Promise<StylePackDetail>;
   activate(userId: string, stylePackId: string): Promise<StylePackDetail>;
   deactivate(userId: string, stylePackId: string): Promise<StylePackDetail>;

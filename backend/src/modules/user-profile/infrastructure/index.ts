@@ -5,6 +5,7 @@ import type {
 
 export interface UserProfileRepository {
   findById(id: string): Promise<UserRecord | null>;
+  findByWechatOpenId(wechatOpenId: string): Promise<UserRecord | null>;
   saveUser(user: UserRecord): Promise<void>;
   savePreferences(preferences: UserPreferenceRecord): Promise<void>;
   findPreferencesByUserId(userId: string): Promise<UserPreferenceRecord | null>;

@@ -26,6 +26,13 @@ export interface ClothingAttributes {
   confidence?: Record<string, number>;
 }
 
+export interface AiExtractionQuotaSnapshot {
+  usedCount: number;
+  dailyLimit: number;
+  remainingCount: number | null;
+  unlimited: boolean;
+}
+
 export interface UploadClothingItemCommand {
   userId: string;
   sourceType: "camera" | "album";
@@ -63,6 +70,7 @@ export interface ClothingItemDetail {
   imageOriginalUrl?: string;
   attributes: ClothingAttributes;
   providerMeta?: ProviderMeta & { confidence?: Record<string, number> };
+  aiQuota?: AiExtractionQuotaSnapshot;
 }
 
 export interface UpdateClothingItemCommand {

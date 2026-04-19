@@ -66,12 +66,20 @@ export interface ClothingItemLlmMetaDTO extends ProviderMeta {
   confidence?: Record<string, number>;
 }
 
+export interface AiExtractionQuotaDTO {
+  usedCount: number;
+  dailyLimit: number;
+  remainingCount?: number;
+  unlimited: boolean;
+}
+
 export interface ClothingItemDetailResponseDTO {
   itemId: string;
   status: ClothingItemStatusDTO;
   imageOriginalUrl?: string;
   attributes: ClothingAttributesDTO;
   llmMeta?: ClothingItemLlmMetaDTO;
+  aiQuota?: AiExtractionQuotaDTO;
 }
 
 export interface UpdateClothingItemRequestDTO {

@@ -4,6 +4,7 @@ import type { JsonValue } from "../../../app/common/persistence";
 import type { PaginatedResult } from "../../../app/common/types";
 import { loadConfig } from "../../../app/config";
 import type {
+  ExtractStylePackRulesCommand,
   ImportStylePackTextCommand,
   ImportStylePackVideoCommand,
   StylePackDetail,
@@ -35,7 +36,6 @@ export class InMemoryStylePackService implements StylePackService {
   async importText(command: ImportStylePackTextCommand): Promise<StylePackDetail> {
     ensureAuthConfirmed(command.authConfirmed);
     const now = new Date();
-    const extraction = await this.extractTextStylePack(command.text);
     const record: StylePackRecord = {
       id: generateId(),
       userId: command.userId,
@@ -43,15 +43,15 @@ export class InMemoryStylePackService implements StylePackService {
       sourceType: "text",
       sourceFileUrl: null,
       transcriptText: command.text,
-      summaryText: extraction?.summaryText ?? null,
-      rulesJson: (extraction?.rulesJson as JsonValue | undefined) ?? null,
-      promptProfile: (extraction?.promptProfile as JsonValue | undefined) ?? null,
+      summaryText: null,
+      rulesJson: null,
+      promptProfile: null,
       version: 1,
       status: "draft",
       activatedAt: null,
-      provider: extraction?.providerMeta?.provider ?? null,
-      modelName: extraction?.providerMeta?.modelName ?? null,
-      modelTier: extraction?.providerMeta?.modelTier ?? null,
+      provider: null,
+      modelName: null,
+      modelTier: null,
       createdAt: now,
       updatedAt: now
     };
@@ -60,9 +60,7 @@ export class InMemoryStylePackService implements StylePackService {
     return mapStylePackRecordToDetail(record);
   }
 
-  async importVideo(
-    command: ImportStylePackVideoCommand
-  ): Promise<StylePackDetail> {
+  async importVideo(command: ImportStylePackVideoCommand): Promise<StylePackDetail> {
     ensureAuthConfirmed(command.authConfirmed);
     const now = new Date();
     const record: StylePackRecord = {
@@ -111,6 +109,39 @@ export class InMemoryStylePackService implements StylePackService {
   async getDetail(userId: string, stylePackId: string): Promise<StylePackDetail> {
     const record = await this.ensureStylePack(userId, stylePackId);
     return mapStylePackRecordToDetail(record);
+  }
+
+  async extractStructuredRules(
+    command: ExtractStylePackRulesCommand
+  ): Promise<StylePackDetail> {
+    const record = await this.ensureStylePack(command.userId, command.stylePackId);
+    if (!record.transcriptText || !record.transcriptText.trim()) {
+      throw new AppError(
+        "Style pack source text is not available for AI structuring",
+        "INVALID_REQUEST",
+        400
+      );
+    }
+
+    const extraction = await this.extractTextStylePack(record.transcriptText);
+    if (!extraction) {
+      throw new AppError("AI structuring is currently unavailable", "INVALID_REQUEST", 400);
+    }
+
+    await this.deps.repository.updateStylePack(command.stylePackId, {
+      summaryText: extraction.summaryText ?? record.summaryText ?? null,
+      rulesJson: (extraction.rulesJson as JsonValue | undefined) ?? record.rulesJson ?? null,
+      promptProfile:
+        (extraction.promptProfile as JsonValue | undefined) ?? record.promptProfile ?? null,
+      provider: extraction.providerMeta?.provider ?? null,
+      modelName: extraction.providerMeta?.modelName ?? null,
+      modelTier: extraction.providerMeta?.modelTier ?? null,
+      version: record.version + 1,
+      updatedAt: new Date()
+    });
+
+    const next = await this.ensureStylePack(command.userId, command.stylePackId);
+    return mapStylePackRecordToDetail(next);
   }
 
   async update(command: UpdateStylePackCommand): Promise<StylePackDetail> {
@@ -209,11 +240,13 @@ export class InMemoryStylePackService implements StylePackService {
             {
               role: "system",
               content:
-                "You extract concise fashion style-pack knowledge from user-provided text. Return strict JSON with keys: summaryText, rulesJson, promptProfile. summaryText must be a short Chinese summary. rulesJson and promptProfile must be JSON objects."
+                "You extract detailed fashion style-pack knowledge from user-provided text. Preserve as much actionable information as possible. Return strict JSON with keys: summaryText, rulesJson, promptProfile. summaryText must be a rich Simplified Chinese summary around 120-220 Chinese characters, not overly compressed. rulesJson must be a JSON object and should keep granular arrays and fields when possible, such as preferred_colors, accent_colors, preferred_fit, silhouettes, lengths, materials, fabrics, styling_methods, layering, key_items, accessories, shoes, bags, occasions, scenes, seasons, avoid, dos, donts, keywords, mood, makeup, hairstyle. promptProfile must be a JSON object containing a reusable long-form styling profile in Simplified Chinese, including tone, persona, silhouette, color strategy, fabric/details, occasion guidance, and pairing suggestions."
             },
             {
               role: "user",
-              content: `请从以下文本中提炼风格包，返回 JSON：\n${text}`
+              content:
+                "请从以下文本中提取风格包，并尽量完整保留穿搭偏好、禁忌、单品细节、场景、气质、色彩和搭配方法。不要过度摘要，不要只保留极少几个词。只返回 JSON。\n" +
+                text
             }
           ],
           temperature: 0.2

@@ -1,5 +1,6 @@
 export interface WechatLoginRequestDTO {
   code: string;
+  legacyUserId?: string;
 }
 
 export interface AuthUserInfoDTO {

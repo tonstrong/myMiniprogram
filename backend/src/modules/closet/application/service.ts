@@ -247,7 +247,7 @@ export class InMemoryClosetService implements ClosetService {
       });
 
       const next = await this.ensureItem(userId, itemId);
-      return mapClothingRecordToDetail(next);
+      return this.enrichDetailWithQuota(userId, mapClothingRecordToDetail(next));
     } catch (error) {
       await this.deps.taskCenterService.updateTask({
         taskId: task.taskId,
@@ -325,7 +325,7 @@ export class InMemoryClosetService implements ClosetService {
 
   async getItem(userId: string, itemId: string): Promise<ClothingItemDetail> {
     const record = await this.ensureItem(userId, itemId);
-    return mapClothingRecordToDetail(record);
+    return this.enrichDetailWithQuota(userId, mapClothingRecordToDetail(record));
   }
 
   async getItemImage(
@@ -417,7 +417,7 @@ export class InMemoryClosetService implements ClosetService {
     });
 
     const next = await this.ensureItem(command.userId, command.itemId);
-    return mapClothingRecordToDetail(next);
+    return this.enrichDetailWithQuota(command.userId, mapClothingRecordToDetail(next));
   }
 
   async updateItem(command: UpdateClothingItemCommand): Promise<ClothingItemDetail> {
@@ -430,7 +430,7 @@ export class InMemoryClosetService implements ClosetService {
     });
 
     const next = await this.ensureItem(command.userId, command.itemId);
-    return mapClothingRecordToDetail(next);
+    return this.enrichDetailWithQuota(command.userId, mapClothingRecordToDetail(next));
   }
 
   async confirmItem(command: ConfirmClothingItemCommand): Promise<ClothingItemDetail> {
@@ -450,7 +450,7 @@ export class InMemoryClosetService implements ClosetService {
     });
 
     const next = await this.ensureItem(command.userId, command.itemId);
-    return mapClothingRecordToDetail(next);
+    return this.enrichDetailWithQuota(command.userId, mapClothingRecordToDetail(next));
   }
 
   async archiveItem(userId: string, itemId: string): Promise<void> {
@@ -565,6 +565,45 @@ export class InMemoryClosetService implements ClosetService {
     return {
       bytes,
       contentType
+    };
+  }
+
+  private async enrichDetailWithQuota(
+    userId: string,
+    detail: ClothingItemDetail
+  ): Promise<ClothingItemDetail> {
+    return {
+      ...detail,
+      aiQuota: await this.buildAiQuotaSnapshot(userId)
+    };
+  }
+
+  private async buildAiQuotaSnapshot(userId: string) {
+    const unlimited = await this.isExtractionQuotaExemptUser(userId);
+    if (!this.deps.taskRepository) {
+      return {
+        usedCount: 0,
+        dailyLimit: DAILY_MANUAL_EXTRACTION_LIMIT,
+        remainingCount: unlimited ? null : DAILY_MANUAL_EXTRACTION_LIMIT,
+        unlimited
+      };
+    }
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const usedCount = await this.deps.taskRepository.countCreatedByUserAndTypeSince(
+      userId,
+      "extract_clothing_attributes",
+      startOfDay
+    );
+
+    return {
+      usedCount,
+      dailyLimit: DAILY_MANUAL_EXTRACTION_LIMIT,
+      remainingCount: unlimited
+        ? null
+        : Math.max(DAILY_MANUAL_EXTRACTION_LIMIT - usedCount, 0),
+      unlimited
     };
   }
 }

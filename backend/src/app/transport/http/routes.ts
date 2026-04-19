@@ -4,7 +4,8 @@ import { AppError } from "../../common/errors";
 import {
   AuthController,
   createAuthControllerRoutes,
-  createInMemoryAuthService
+  createInMemoryAuthService,
+  createPersistentWechatAuthService
 } from "../../../modules/auth";
 import {
   ClosetController,
@@ -97,7 +98,12 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
     ? createMySqlSavedOutfitRepository()
     : createInMemorySavedOutfitRepository();
   const authController = new AuthController({
-    authService: createInMemoryAuthService()
+    authService:
+      usesMySql && config.wechat.appId && config.wechat.appSecret
+        ? createPersistentWechatAuthService({
+            userProfileRepository
+          })
+        : createInMemoryAuthService()
   });
   const userProfileController = new UserProfileController({
     userProfileService: usesMySql

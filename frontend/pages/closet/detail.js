@@ -40,6 +40,12 @@ Page({
     cutoutProcessing: false,
     hasAiResult: false,
     aiSummaryText: '还没触发 AI 识别，也可以直接手动填写',
+    aiQuota: {
+      usedCount: 0,
+      dailyLimit: 3,
+      remainingCount: 3,
+      unlimited: false
+    },
     CATEGORY_OPTIONS,
     FIT_OPTIONS,
     COLOR_PALETTE: buildColorPaletteState([]),
@@ -59,7 +65,8 @@ Page({
       title: '',
       placeholder: '',
       value: '',
-      confirmText: '保存'
+      confirmText: '保存',
+      multiline: false
     },
     cutoutPreview: {
       visible: false,
@@ -106,6 +113,7 @@ Page({
         requiresConfirmation: shouldConfirmAfterSave(detail.status, this.data.isNew),
         hasAiResult: hasAiResult(detail),
         aiSummaryText: buildAiSummary(detail),
+        aiQuota: mapAiQuota(detail.aiQuota),
         COLOR_PALETTE: buildColorPaletteState(item.colors || [])
       });
     } catch (error) {
@@ -136,6 +144,7 @@ Page({
         requiresConfirmation: shouldConfirmAfterSave(detail.status, this.data.isNew),
         hasAiResult: hasAiResult(detail),
         aiSummaryText: buildAiSummary(detail),
+        aiQuota: mapAiQuota(detail.aiQuota),
         COLOR_PALETTE: buildColorPaletteState(item.colors || [])
       });
       wx.showToast({ title: 'AI 识别完成', icon: 'success' });
@@ -410,11 +419,12 @@ Page({
       title: '填写子类',
       placeholder: '请输入更细的单品类型',
       value: this.data.item.subCategory || '',
-      confirmText: '保存子类'
+      confirmText: '保存子类',
+      multiline: true
     });
   },
 
-  openInputSheet({ field, title, placeholder, value = '', confirmText = '保存' }) {
+  openInputSheet({ field, title, placeholder, value = '', confirmText = '保存', multiline = false }) {
     this.setData({
       inputSheet: {
         visible: true,
@@ -422,14 +432,18 @@ Page({
         title,
         placeholder,
         value,
-        confirmText
+        confirmText,
+        multiline
       }
     });
   },
 
   closeInputSheet() {
     this.setData({
-      'inputSheet.visible': false
+      inputSheet: {
+        ...this.data.inputSheet,
+        visible: false
+      }
     });
   },
 
@@ -583,6 +597,18 @@ function buildAiSummary(detail) {
     return 'AI 已识别，可继续修改结果';
   }
   return '还没触发 AI 识别，也可以直接手动填写';
+}
+
+function mapAiQuota(aiQuota) {
+  return {
+    usedCount: Number(aiQuota?.usedCount || 0),
+    dailyLimit: Number(aiQuota?.dailyLimit || 3),
+    remainingCount:
+      aiQuota?.remainingCount === null || aiQuota?.remainingCount === undefined
+        ? null
+        : Number(aiQuota.remainingCount),
+    unlimited: Boolean(aiQuota?.unlimited)
+  };
 }
 
 function normalizeImageUrl(url) {

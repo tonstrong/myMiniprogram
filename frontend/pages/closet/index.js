@@ -1,4 +1,5 @@
 import api from '../../utils/api';
+import { resolveImageUrl } from '../../utils/image-url';
 
 const HOME_PENDING_HIGHLIGHT_KEY = 'closet:highlightPendingFromHome';
 
@@ -50,16 +51,18 @@ Page({
         method: 'GET'
       });
 
-      const items = (res.items || [])
-        .filter((item) => item.status !== 'deleted')
-        .map((item) => ({
-          id: item.itemId,
-          img: item.imageOriginalUrl || '',
-          title: [item.category, item.subCategory].filter(Boolean).join(' / ') || '待补充信息单品',
-          tags: item.tags || [],
-          status: item.status,
-          isPending: item.status !== 'active'
-        }));
+      const items = await Promise.all(
+        (res.items || [])
+          .filter((item) => item.status !== 'deleted')
+          .map(async (item) => ({
+            id: item.itemId,
+            img: await resolveImageUrl(item.imageOriginalUrl || ''),
+            title: [item.category, item.subCategory].filter(Boolean).join(' / ') || '待补充信息单品',
+            tags: item.tags || [],
+            status: item.status,
+            isPending: item.status !== 'active'
+          }))
+      );
 
       const pendingCount = items.filter((item) => item.isPending).length;
       const sortedItems = this.data.highlightPending

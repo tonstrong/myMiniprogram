@@ -1,6 +1,6 @@
 <scroll-view class="container no-pad" scroll-y>
   <view class="hero-image-wrap">
-    <image wx:if="{{item.img}}" class="hero-img" src="{{item.img}}" mode="aspectFill"></image>
+    <image wx:if="{{item.img}}" class="hero-img" src="{{item.img}}" mode="aspectFit"></image>
     <view wx:else class="hero-placeholder">
       <text class="hero-placeholder-text">单品图片</text>
     </view>
@@ -19,6 +19,10 @@
           {{cutoutProcessing ? '抠图中' : '智能抠图'}}
         </button>
         </view>
+      </view>
+      <view class="ai-quota-bar">
+        <text class="ai-quota-text" wx:if="{{aiQuota.unlimited}}">AI识别次数：不限次</text>
+        <text class="ai-quota-text" wx:else>AI识别次数：今日已用 {{aiQuota.usedCount}} / {{aiQuota.dailyLimit}}</text>
       </view>
     </view>
 
@@ -106,9 +110,10 @@
       </view>
     </view>
 
-    <view class="action-bar mt-4 {{isNew ? 'single' : 'double'}}">
+    <view class="action-bar mt-4 double">
       <block wx:if="{{isNew}}">
         <button class="btn-primary action-btn" bindtap="confirmItem">确认并入库</button>
+        <button class="btn-secondary action-btn text-error" bindtap="deleteItem">删除单品</button>
       </block>
       <block wx:else>
         <button class="btn-primary action-btn" bindtap="confirmItem">{{requiresConfirmation ? '保存并确认' : '保存修改'}}</button>
@@ -125,13 +130,28 @@
       <text class="editor-sheet-close" bindtap="closeInputSheet">×</text>
     </view>
     <text class="editor-sheet-copy">用更细的描述补充单品信息，搭配和检索都会更准确。</text>
+    <textarea
+      wx:if="{{inputSheet.multiline}}"
+      class="editor-sheet-textarea"
+      placeholder="{{inputSheet.placeholder}}"
+      placeholder-class="editor-sheet-placeholder"
+      value="{{inputSheet.value}}"
+      focus
+      auto-height
+      maxlength="80"
+      cursor-spacing="240"
+      show-confirm-bar="{{false}}"
+      bindinput="onInputSheetChange"
+    />
     <input
+      wx:else
       class="editor-sheet-input"
       placeholder="{{inputSheet.placeholder}}"
       placeholder-class="editor-sheet-placeholder"
       value="{{inputSheet.value}}"
       focus
       maxlength="24"
+      cursor-spacing="200"
       bindinput="onInputSheetChange"
       confirm-type="done"
       bindconfirm="submitInputSheet"

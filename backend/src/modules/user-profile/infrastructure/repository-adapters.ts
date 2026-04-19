@@ -12,6 +12,14 @@ export class InMemoryUserProfileRepository implements UserProfileRepository {
     return this.users.get(id) ?? null;
   }
 
+  async findByWechatOpenId(wechatOpenId: string): Promise<UserRecord | null> {
+    return (
+      Array.from(this.users.values()).find(
+        (user) => user.wechatOpenId === wechatOpenId
+      ) ?? null
+    );
+  }
+
   async saveUser(user: UserRecord): Promise<void> {
     this.users.set(user.id, user);
   }
@@ -67,6 +75,31 @@ export class MySqlUserProfileRepository implements UserProfileRepository {
          WHERE id = ?
          LIMIT 1`,
         [id]
+      );
+      const row = rows[0];
+      return row
+        ? {
+            id: row.id,
+            wechatOpenId: row.wechat_open_id,
+            unionId: row.union_id,
+            nickname: row.nickname,
+            avatarUrl: row.avatar_url,
+            status: row.status,
+            createdAt: toDate(row.created_at),
+            updatedAt: toDate(row.updated_at)
+          }
+        : null;
+    });
+  }
+
+  async findByWechatOpenId(wechatOpenId: string): Promise<UserRecord | null> {
+    return withClient(async (client) => {
+      const [rows] = await client.query<UserRow[]>(
+        `SELECT id, wechat_open_id, union_id, nickname, avatar_url, status, created_at, updated_at
+         FROM users
+         WHERE wechat_open_id = ?
+         LIMIT 1`,
+        [wechatOpenId]
       );
       const row = rows[0];
       return row
@@ -199,6 +232,9 @@ export const createMySqlUserProfileRepository = (): UserProfileRepository =>
 
 export const createNoopUserProfileRepository = (): UserProfileRepository => ({
   async findById() {
+    return null;
+  },
+  async findByWechatOpenId() {
     return null;
   },
   async saveUser() {

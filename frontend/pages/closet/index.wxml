@@ -28,9 +28,11 @@
       <block wx:for="{{items}}" wx:key="id" wx:if="{{index % 2 === 0}}">
         <view class="item-card glass-panel {{item.isPending ? 'item-card-pending' : ''}}" bindtap="goDetail" data-id="{{item.id}}">
           <view wx:if="{{item.isPending}}" class="pending-chip">待确认</view>
-          <image wx:if="{{item.img}}" class="i-img" src="{{item.img}}" mode="widthFix"></image>
-          <view wx:else class="i-placeholder">
-            <text class="i-placeholder-text">单品</text>
+          <view class="i-media">
+            <image wx:if="{{item.img}}" class="i-img" src="{{item.img}}" mode="aspectFit"></image>
+            <view wx:else class="i-placeholder">
+              <text class="i-placeholder-text">单品</text>
+            </view>
           </view>
           <view class="i-info">
             <text class="text-body font-medium">{{item.title}}</text>
@@ -48,9 +50,11 @@
       <block wx:for="{{items}}" wx:key="id" wx:if="{{index % 2 !== 0}}">
         <view class="item-card glass-panel {{item.isPending ? 'item-card-pending' : ''}}" bindtap="goDetail" data-id="{{item.id}}">
           <view wx:if="{{item.isPending}}" class="pending-chip">待确认</view>
-          <image wx:if="{{item.img}}" class="i-img" src="{{item.img}}" mode="widthFix"></image>
-          <view wx:else class="i-placeholder">
-            <text class="i-placeholder-text">单品</text>
+          <view class="i-media">
+            <image wx:if="{{item.img}}" class="i-img" src="{{item.img}}" mode="aspectFit"></image>
+            <view wx:else class="i-placeholder">
+              <text class="i-placeholder-text">单品</text>
+            </view>
           </view>
           <view class="i-info">
             <text class="text-body font-medium">{{item.title}}</text>

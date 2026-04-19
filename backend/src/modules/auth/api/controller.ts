@@ -40,6 +40,7 @@ export class AuthController {
 
     const result = await this.deps.authService.wechatLogin({
       code: validation.value.code,
+      legacyUserId: validation.value.legacyUserId,
       requestId: request.context.requestId
     });
 

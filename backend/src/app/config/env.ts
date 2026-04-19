@@ -32,6 +32,10 @@ export interface AppConfig {
     apiKey: string;
     ttlSeconds: number;
   };
+  wechat: {
+    appId: string;
+    appSecret: string;
+  };
   skillCenter: {
     baseUrl: string;
     timeoutMs: number;
@@ -128,6 +132,10 @@ export function loadConfig(): AppConfig {
       provider: optionalEnv("WEATHER_PROVIDER", ""),
       apiKey: optionalEnv("WEATHER_API_KEY", ""),
       ttlSeconds: Number(optionalEnv("WEATHER_TTL_SECONDS", "600"))
+    },
+    wechat: {
+      appId: optionalEnv("WECHAT_APP_ID", ""),
+      appSecret: optionalEnv("WECHAT_APP_SECRET", "")
     },
     skillCenter: {
       baseUrl: optionalEnv("SKILL_CENTER_BASE_URL", ""),
