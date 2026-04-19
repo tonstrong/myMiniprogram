@@ -87,6 +87,10 @@ Page({
     }
   },
 
+  onUnload() {
+    cleanupCutoutPreviewFile(this.data.cutoutPreview?.imagePath);
+  },
+
   noop() {},
 
   async fetchDetail() {
@@ -139,7 +143,7 @@ Page({
       wx.hideLoading();
       this.setData({ aiExtracting: false });
       console.error('Extract clothing item failed', error);
-      const message = error?.error?.message || error?.message || '';
+      const message = error?.error?.message || error?.message || error?.errMsg || '';
       wx.showToast({
         title: mapExtractErrorMessage(message),
         icon: 'none'
@@ -187,7 +191,7 @@ Page({
       wx.hideLoading();
       this.setData({ cutoutProcessing: false });
       console.error('Preview cutout failed', error);
-      const message = error?.error?.message || error?.message || '';
+      const message = error?.error?.message || error?.message || error?.errMsg || '';
       wx.showToast({
         title: message || '智能抠图失败',
         icon: 'none'
@@ -196,8 +200,19 @@ Page({
   },
 
   closeCutoutPreview() {
+    const previewPath = this.data.cutoutPreview?.imagePath;
     this.setData({
-      'cutoutPreview.visible': false
+      cutoutPreview: {
+        ...this.data.cutoutPreview,
+        visible: false,
+        imagePath: '',
+        imageBase64: '',
+        contentType: 'image/png',
+        filename: '',
+        engineUsed: ''
+      }
+    }, () => {
+      cleanupCutoutPreviewFile(previewPath);
     });
   },
 
@@ -224,7 +239,7 @@ Page({
       wx.hideLoading();
       this.setData({
         cutoutProcessing: false,
-        previewImage: preview.imagePath || this.data.previewImage,
+        previewImage: item.img || '',
         item,
         cutoutPreview: {
           visible: false,
@@ -234,6 +249,8 @@ Page({
           filename: '',
           engineUsed: ''
         }
+      }, () => {
+        cleanupCutoutPreviewFile(preview.imagePath);
       });
       wx.showToast({ title: '已使用抠图结果', icon: 'success' });
     } catch (error) {
@@ -608,14 +625,85 @@ function writeBase64ImageToTempFile(base64, contentType = 'image/png', filename 
   return new Promise((resolve, reject) => {
     const fs = wx.getFileSystemManager();
     const extension = inferImageExtension(contentType, filename);
-    const tempPath = `${wx.env.USER_DATA_PATH}/cutout-${Date.now()}${extension}`;
-    fs.writeFile({
-      filePath: tempPath,
-      data: base64,
-      encoding: 'base64',
-      success: () => resolve(tempPath),
-      fail: reject
+    const tempPath = `${wx.env.USER_DATA_PATH}/cutout-preview${extension}`;
+    const normalizedBase64 = String(base64 || '').replace(/^data:[^;]+;base64,/, '');
+    const buffer = wx.base64ToArrayBuffer(normalizedBase64);
+
+    fs.access({
+      path: tempPath,
+      success: () => {
+        fs.unlink({
+          filePath: tempPath,
+          success: () => writePreviewFile(fs, tempPath, buffer, resolve, reject),
+          fail: () => writePreviewFile(fs, tempPath, buffer, resolve, reject)
+        });
+      },
+      fail: () => writePreviewFile(fs, tempPath, buffer, resolve, reject)
     });
+  });
+}
+
+function writePreviewFile(fs, filePath, buffer, resolve, reject) {
+  fs.writeFile({
+    filePath,
+    data: buffer,
+    success: () => resolve(filePath),
+    fail: (error) => {
+      if (error?.errMsg?.includes('the maximum size of the file storage limit is exceeded')) {
+        clearOldCutoutPreviewFiles(fs)
+          .then(() => {
+            fs.writeFile({
+              filePath,
+              data: buffer,
+              success: () => resolve(filePath),
+              fail: reject
+            });
+          })
+          .catch(() => reject(error));
+        return;
+      }
+      reject(error);
+    }
+  });
+}
+
+function clearOldCutoutPreviewFiles(fs) {
+  return new Promise((resolve) => {
+    fs.readdir({
+      dirPath: wx.env.USER_DATA_PATH,
+      success: (res) => {
+        const targets = (res.files || []).filter((name) => /^cutout-.*\.(png|jpg|jpeg|webp)$/i.test(name));
+        if (targets.length === 0) {
+          resolve();
+          return;
+        }
+
+        let pending = targets.length;
+        targets.forEach((name) => {
+          fs.unlink({
+            filePath: `${wx.env.USER_DATA_PATH}/${name}`,
+            complete: () => {
+              pending -= 1;
+              if (pending === 0) {
+                resolve();
+              }
+            }
+          });
+        });
+      },
+      fail: () => resolve()
+    });
+  });
+}
+
+function cleanupCutoutPreviewFile(filePath) {
+  if (!filePath || !filePath.startsWith(wx.env.USER_DATA_PATH)) {
+    return;
+  }
+
+  wx.getFileSystemManager().unlink({
+    filePath,
+    fail: () => {}
   });
 }
 

@@ -170,7 +170,7 @@ export class InMemoryClosetService implements ClosetService {
     await this.ensureManualExtractionQuota(userId, new Date());
 
     const record = await this.ensureItem(userId, itemId);
-    const image = await this.deps.repository.findItemImageByItemId(itemId);
+    const image = await this.getItemImageAsset(record);
     if (!image) {
       throw new AppError("Item image is not available for AI extraction", "INVALID_REQUEST", 400);
     }
@@ -338,7 +338,7 @@ export class InMemoryClosetService implements ClosetService {
       throw new AppError("Image not found", "NOT_FOUND", 404);
     }
 
-    const image = await this.deps.repository.findItemImageByItemId(itemId);
+    const image = await this.getItemImageAsset(record);
     if (!image) {
       throw new AppError("Image not found", "NOT_FOUND", 404);
     }
@@ -353,9 +353,13 @@ export class InMemoryClosetService implements ClosetService {
     command: PreviewClothingItemCutoutCommand
   ): Promise<ClothingItemCutoutPreview> {
     const record = await this.ensureItem(command.userId, command.itemId);
-    const image = await this.deps.repository.findItemImageByItemId(command.itemId);
+    const image = await this.getItemImageAsset(record);
     if (!image) {
-      throw new AppError("Item image is not available for cutout", "INVALID_REQUEST", 400);
+      throw new AppError(
+        "Item image is not available for cutout. Please re-upload or replace the image first.",
+        "INVALID_REQUEST",
+        400
+      );
     }
 
     const result = await requestClothesCutout({
@@ -469,6 +473,53 @@ export class InMemoryClosetService implements ClosetService {
       throw new AppError("Item not found", "NOT_FOUND", 404);
     }
     return record;
+  }
+
+  private async getItemImageAsset(
+    record: ClothingItemRecord
+  ): Promise<{ bytes: Buffer; contentType: string } | null> {
+    const stored = await this.deps.repository.findItemImageByItemId(record.id);
+    if (stored) {
+      return {
+        bytes: stored.bytes,
+        contentType: stored.contentType
+      };
+    }
+
+    const remoteUrl = resolveRecoverableImageUrl(record.imageOriginalUrl);
+    if (!remoteUrl) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(remoteUrl);
+      if (!response.ok) {
+        return null;
+      }
+
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (bytes.byteLength === 0) {
+        return null;
+      }
+
+      const contentType = normalizeContentType(response.headers.get("content-type") || undefined);
+      const now = new Date();
+      await this.deps.repository.saveItemImage({
+        itemId: record.id,
+        contentType,
+        byteSize: bytes.byteLength,
+        bytes,
+        createdAt: now,
+        updatedAt: now
+      });
+
+      return {
+        bytes,
+        contentType
+      };
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -1188,6 +1239,18 @@ function isPersistableRemoteUrl(value?: string): value is string {
       value.startsWith("https://") ||
       value.startsWith("cloud://"))
   );
+}
+
+function resolveRecoverableImageUrl(value?: string): string | undefined {
+  if (!value || typeof value !== "string") {
+    return undefined;
+  }
+
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    return value;
+  }
+
+  return undefined;
 }
 
 function buildImageAsset(
