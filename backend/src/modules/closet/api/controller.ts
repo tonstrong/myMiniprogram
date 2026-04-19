@@ -468,6 +468,7 @@ export function createClosetControllerRoutes(
     {
       ...parseRoute(ClosetRoutes.getItemImage),
       summary: "Get clothing item image",
+      public: true,
       handler: controller.getItemImage.bind(controller)
     },
     {

@@ -11,9 +11,18 @@ export interface ParsedRequestBody {
 
 export function createRequestContext(request: IncomingMessage): RequestContext {
   return {
-    requestId: generateRequestId(),
-    userId: readHeaderValue(request, "x-user-id")
+    requestId: generateRequestId()
   };
+}
+
+export function readBearerToken(request: IncomingMessage): string {
+  const authorization = readHeaderValue(request, "authorization") ?? "";
+  const matched = /^Bearer\s+(.+)$/i.exec(authorization.trim());
+  return matched?.[1]?.trim() ?? "";
+}
+
+export function readInternalApiToken(request: IncomingMessage): string {
+  return readHeaderValue(request, "x-internal-api-token")?.trim() ?? "";
 }
 
 export function parseQueryParams(url: URL): Record<string, unknown> {

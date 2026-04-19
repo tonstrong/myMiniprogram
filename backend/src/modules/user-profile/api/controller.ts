@@ -161,6 +161,7 @@ export function createUserProfileControllerRoutes(
     {
       ...parseRoute(UserProfileRoutes.getAvatar),
       summary: "Get user avatar",
+      public: true,
       handler: controller.getAvatar.bind(controller)
     }
   ];

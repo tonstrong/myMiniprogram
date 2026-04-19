@@ -27,6 +27,8 @@ export interface ApiRouteDefinition<
   path: string;
   handler: ApiHandler<TBody, TQuery, TParams, TResult>;
   summary?: string;
+  public?: boolean;
+  internal?: boolean;
 }
 
 export function parseRoute(route: string): { method: HttpMethod; path: string } {

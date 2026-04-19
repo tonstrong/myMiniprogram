@@ -47,6 +47,7 @@ export function createLlmGatewayControllerRoutes(
     {
       ...parseRoute(LlmGatewayRoutes.invoke),
       summary: "Invoke LLM gateway (internal)",
+      internal: true,
       handler: controller.invoke.bind(controller)
     }
   ];

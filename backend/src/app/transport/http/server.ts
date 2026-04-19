@@ -4,7 +4,14 @@ import type { AppContext } from "../../bootstrap/app";
 import type { ApiRouteDefinition, BinaryResponse } from "../../common";
 import { fail } from "../../common";
 import { AppError } from "../../common/errors";
-import { createRequestContext, parseQueryParams, parseRequestBody } from "./request";
+import { verifyStatelessToken } from "../../../modules/auth/application/tokens";
+import {
+  createRequestContext,
+  parseQueryParams,
+  parseRequestBody,
+  readBearerToken,
+  readInternalApiToken
+} from "./request";
 import { matchRoute } from "./router";
 
 export interface HttpServerOptions {
@@ -56,6 +63,22 @@ async function handleRequest(
   if (!match) {
     respondJson(response, 404, fail("NOT_FOUND", "Route not found"));
     return;
+  }
+
+  if (match.route.internal) {
+    const expectedToken = context.config.auth.internalApiToken;
+    if (!expectedToken || readInternalApiToken(request) !== expectedToken) {
+      respondJson(response, 401, fail("UNAUTHORIZED", "Invalid internal API token"));
+      return;
+    }
+  } else if (!match.route.public) {
+    try {
+      const payload = verifyStatelessToken(readBearerToken(request), "access");
+      requestContext.userId = payload.userId;
+    } catch {
+      respondJson(response, 401, fail("UNAUTHORIZED", "Invalid or missing token"));
+      return;
+    }
   }
 
   const query = parseQueryParams(url);

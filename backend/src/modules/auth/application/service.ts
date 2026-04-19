@@ -8,6 +8,11 @@ import type {
   AuthService,
   AuthTokenPayload
 } from "./index";
+import {
+  buildAccessToken,
+  buildRefreshToken,
+  verifyStatelessToken
+} from "./tokens";
 
 interface TokenRecord {
   token: string;
@@ -16,8 +21,6 @@ interface TokenRecord {
 
 export class InMemoryAuthService implements AuthService {
   private readonly codeToUserId = new Map<string, string>();
-  private readonly tokenByUserId = new Map<string, TokenRecord>();
-  private readonly tokenPayloads = new Map<string, AuthTokenPayload>();
   private readonly refreshTokenByUserId = new Map<string, string>();
   private readonly refreshTokenIndex = new Map<string, string>();
 
@@ -30,7 +33,7 @@ export class InMemoryAuthService implements AuthService {
       this.codeToUserId.set(command.code, userId);
     }
 
-    const token = this.issueToken(userId);
+    const token = buildAccessToken(userId);
     const refreshToken = this.issueRefreshToken(userId);
 
     return {
@@ -42,11 +45,7 @@ export class InMemoryAuthService implements AuthService {
   }
 
   async verifyToken(token: string): Promise<AuthTokenPayload> {
-    const payload = this.tokenPayloads.get(token);
-    if (!payload) {
-      throw new AppError("Invalid token", "INVALID_TOKEN", 401);
-    }
-    return payload;
+    return verifyStatelessToken(token, "access");
   }
 
   async refreshToken(refreshToken: string): Promise<AuthLoginResult> {
@@ -55,7 +54,7 @@ export class InMemoryAuthService implements AuthService {
       throw new AppError("Invalid refresh token", "INVALID_TOKEN", 401);
     }
 
-    const token = this.issueToken(userId);
+    const token = buildAccessToken(userId);
     const nextRefreshToken = this.issueRefreshToken(userId);
 
     return {
@@ -66,31 +65,13 @@ export class InMemoryAuthService implements AuthService {
     };
   }
 
-  private issueToken(userId: string): string {
-    const existing = this.tokenByUserId.get(userId);
-    if (existing) {
-      return existing.token;
-    }
-
-    const token = `token-${userId}`;
-    const payload: AuthTokenPayload = {
-      userId,
-      issuedAt: new Date().toISOString()
-    };
-
-    this.tokenByUserId.set(userId, { token, payload });
-    this.tokenPayloads.set(token, payload);
-
-    return token;
-  }
-
   private issueRefreshToken(userId: string): string {
     const existing = this.refreshTokenByUserId.get(userId);
     if (existing) {
       return existing;
     }
 
-    const refreshToken = `refresh-${userId}`;
+    const refreshToken = buildRefreshToken(userId);
     this.refreshTokenByUserId.set(userId, refreshToken);
     this.refreshTokenIndex.set(refreshToken, userId);
     return refreshToken;
@@ -215,27 +196,4 @@ async function exchangeWechatCode(code: string): Promise<Required<Pick<WechatCod
   }
 
   return payload as Required<Pick<WechatCodeSessionResponse, "openid">> & WechatCodeSessionResponse;
-}
-
-function buildAccessToken(userId: string): string {
-  return `access.${userId}`;
-}
-
-function buildRefreshToken(userId: string): string {
-  return `refresh.${userId}`;
-}
-
-function verifyStatelessToken(
-  token: string,
-  expectedPrefix: "access" | "refresh"
-): AuthTokenPayload {
-  const [prefix, userId] = String(token || "").split(".");
-  if (prefix !== expectedPrefix || !userId) {
-    throw new AppError("Invalid token", "INVALID_TOKEN", 401);
-  }
-
-  return {
-    userId,
-    issuedAt: new Date(0).toISOString()
-  };
 }

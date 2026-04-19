@@ -28,7 +28,28 @@ function request(options) {
         'x-user-id': userId || '',
         ...options.header
       },
-      success(res) {
+      async success(res) {
+        if (
+          res.statusCode === 401 &&
+          options.url !== '/api/auth/wechat-login' &&
+          !options.__authRetried
+        ) {
+          try {
+            const app = getApp();
+            if (app && typeof app.performWechatLogin === 'function') {
+              await app.performWechatLogin(userId);
+              const retryResult = await request({
+                ...options,
+                __authRetried: true
+              });
+              resolve(retryResult);
+              return;
+            }
+          } catch (error) {
+            // fall through to the original 401 handling below
+          }
+        }
+
         if (res.statusCode >= 200 && res.statusCode < 300) {
           // 假设后端返回标准结构: { code, message, data, requestId }
           if (res.data.code === 0 || !res.data.code) {
@@ -65,7 +86,24 @@ function uploadFile(options) {
         'x-user-id': userId || '',
         ...options.header
       },
-      success(res) {
+      async success(res) {
+        if (res.statusCode === 401 && !options.__authRetried) {
+          try {
+            const app = getApp();
+            if (app && typeof app.performWechatLogin === 'function') {
+              await app.performWechatLogin(userId);
+              const retryResult = await uploadFile({
+                ...options,
+                __authRetried: true
+              });
+              resolve(retryResult);
+              return;
+            }
+          } catch (error) {
+            // fall through to the original 401 handling below
+          }
+        }
+
         if (res.statusCode >= 200 && res.statusCode < 300) {
           try {
             const data = JSON.parse(res.data);

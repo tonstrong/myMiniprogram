@@ -82,11 +82,13 @@ export function createAuthControllerRoutes(
     {
       ...parseRoute(AuthRoutes.wechatLogin),
       summary: "WeChat login",
+      public: true,
       handler: controller.wechatLogin.bind(controller)
     },
     {
       ...parseRoute(AuthRoutes.refresh),
       summary: "Refresh access token",
+      public: true,
       handler: controller.refreshToken.bind(controller)
     }
   ];

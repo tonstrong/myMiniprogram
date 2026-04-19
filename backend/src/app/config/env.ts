@@ -51,6 +51,10 @@ export interface AppConfig {
     aiExtractionExemptWechatOpenIds: string[];
     aiExtractionExemptUnionIds: string[];
   };
+  auth: {
+    tokenSecret: string;
+    internalApiToken: string;
+  };
 }
 
 function requireEnv(key: string): string {
@@ -165,6 +169,13 @@ export function loadConfig(): AppConfig {
       aiExtractionExemptUserIds: parseCsvEnv("AI_EXTRACTION_EXEMPT_USER_IDS"),
       aiExtractionExemptWechatOpenIds: parseCsvEnv("AI_EXTRACTION_EXEMPT_WECHAT_OPEN_IDS"),
       aiExtractionExemptUnionIds: parseCsvEnv("AI_EXTRACTION_EXEMPT_UNION_IDS")
+    },
+    auth: {
+      tokenSecret: optionalEnv(
+        "AUTH_TOKEN_SECRET",
+        optionalEnv("WECHAT_APP_SECRET", "dev-insecure-auth-token-secret")
+      ),
+      internalApiToken: optionalEnv("INTERNAL_API_TOKEN", "")
     }
   };
 }
