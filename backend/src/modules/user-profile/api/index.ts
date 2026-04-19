@@ -4,5 +4,7 @@ export * from "./validators";
 
 export const UserProfileRoutes = {
   getProfile: "GET /api/users/profile",
-  updateProfile: "PUT /api/users/profile"
+  updateProfile: "PUT /api/users/profile",
+  updateAvatar: "POST /api/users/avatar",
+  getAvatar: "GET /api/users/avatar"
 };

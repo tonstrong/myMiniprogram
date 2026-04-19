@@ -67,7 +67,7 @@ Page({
       this.setData({
         profile,
         userInfo: {
-          avatarUrl: localAvatarUrl || profile.avatarUrl || DEFAULT_AVATAR_URL,
+          avatarUrl: profile.avatarUrl || localAvatarUrl || DEFAULT_AVATAR_URL,
           nickName: profile.nickname || '时尚体验官',
           signature: buildSignature(profile)
         },
@@ -99,7 +99,7 @@ Page({
     });
   },
 
-  onChooseAvatar(e) {
+  async onChooseAvatar(e) {
     const avatarUrl = e?.detail?.avatarUrl;
     if (!avatarUrl) {
       wx.showToast({ title: '未获取到头像', icon: 'none' });
@@ -117,7 +117,48 @@ Page({
     this.setData({
       'userInfo.avatarUrl': avatarUrl
     });
-    wx.showToast({ title: '头像已更新', icon: 'success' });
+    wx.showLoading({ title: '正在保存头像...' });
+    try {
+      const imageBase64 = await readFileAsBase64(avatarUrl);
+      const profile = await api.request({
+        url: '/api/users/avatar',
+        method: 'POST',
+        data: {
+          imageBase64,
+          contentType: inferImageContentType(avatarUrl),
+          filename: avatarUrl.split('/').pop() || 'avatar.jpg'
+        }
+      });
+      const nextProfile = {
+        ...(this.data.profile || {}),
+        ...profile,
+        avatarUrl: profile.avatarUrl || avatarUrl
+      };
+
+      wx.removeStorageSync(LOCAL_AVATAR_KEY);
+      this.setData({
+        profile: nextProfile,
+        'userInfo.avatarUrl': nextProfile.avatarUrl || avatarUrl,
+        'userInfo.signature': buildSignature(nextProfile)
+      });
+      cacheProfile(nextProfile);
+
+      const savedApp = getApp();
+      if (savedApp?.globalData) {
+        savedApp.globalData.userInfo = {
+          ...(savedApp.globalData.userInfo || {}),
+          avatarUrl: nextProfile.avatarUrl || avatarUrl
+        };
+      }
+      wx.hideLoading();
+      wx.showToast({ title: '头像已保存', icon: 'success' });
+      return;
+    } catch (error) {
+      wx.hideLoading();
+      console.error('Save avatar failed', error);
+      wx.showToast({ title: '头像保存失败', icon: 'none' });
+      return;
+    }
   },
 
   onNicknameBlur(e) {
@@ -407,4 +448,26 @@ function getTotalCount(result) {
   }
 
   return '--';
+}
+
+function readFileAsBase64(filePath) {
+  return new Promise((resolve, reject) => {
+    wx.getFileSystemManager().readFile({
+      filePath,
+      encoding: 'base64',
+      success: (res) => resolve(res.data),
+      fail: reject
+    });
+  });
+}
+
+function inferImageContentType(filePath) {
+  const lower = (filePath || '').toLowerCase();
+  if (lower.endsWith('.png')) {
+    return 'image/png';
+  }
+  if (lower.endsWith('.webp')) {
+    return 'image/webp';
+  }
+  return 'image/jpeg';
 }

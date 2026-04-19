@@ -17,3 +17,11 @@ export interface UserPreferenceRecord extends BaseRecord {
   city?: string | null;
   temperatureSensitivity?: string | null;
 }
+
+export interface UserAvatarImageRecord extends BaseRecord {
+  userId: string;
+  accessKey: string;
+  contentType: string;
+  byteSize: number;
+  bytes: Buffer;
+}

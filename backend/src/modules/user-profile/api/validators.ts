@@ -1,10 +1,15 @@
 import {
   createObjectValidator,
+  requiredString,
   optionalString,
   optionalStringArray,
   optionalStringEnum
 } from "../../../app/common/validation";
-import type { UpdateUserProfileRequestDTO } from "./dtos";
+import type {
+  GetUserAvatarQueryDTO,
+  UpdateUserAvatarRequestDTO,
+  UpdateUserProfileRequestDTO
+} from "./dtos";
 
 const temperatureSensitivityValues = ["low", "normal", "high"] as const;
 
@@ -18,4 +23,17 @@ export const validateUpdateUserProfileRequest =
     defaultTemperatureSensitivity: optionalStringEnum(
       temperatureSensitivityValues
     )
+  });
+
+export const validateUpdateUserAvatarRequest =
+  createObjectValidator<UpdateUserAvatarRequestDTO>({
+    imageBase64: requiredString({ minLength: 1 }),
+    contentType: optionalString({ minLength: 1 }),
+    filename: optionalString({ minLength: 1 })
+  });
+
+export const validateGetUserAvatarQuery =
+  createObjectValidator<GetUserAvatarQueryDTO>({
+    userId: requiredString({ minLength: 1 }),
+    key: requiredString({ minLength: 1 })
   });

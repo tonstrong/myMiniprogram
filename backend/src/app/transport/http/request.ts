@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import type { RequestContext } from "../../common";
 import { AppError } from "../../common/errors";
 
-const NUMERIC_QUERY_KEYS = new Set(["pageNo", "pageSize", "savedOnly"]);
+const NUMERIC_QUERY_KEYS = new Set(["pageNo", "pageSize", "savedOnly", "force"]);
 
 export interface ParsedRequestBody {
   body: unknown;

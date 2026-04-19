@@ -83,7 +83,16 @@ Page({
     this.setData({
       itemId: options.id || '',
       isNew,
-      previewImage: options.preview ? decodeURIComponent(options.preview) : ''
+      previewImage: options.preview ? decodeURIComponent(options.preview) : '',
+      cutoutProcessing: false,
+      cutoutPreview: {
+        visible: false,
+        imagePath: '',
+        imageBase64: '',
+        contentType: 'image/png',
+        filename: '',
+        engineUsed: ''
+      }
     });
     wx.setNavigationBarTitle({ title: isNew ? '确认单品' : '单品详情' });
   },
@@ -165,16 +174,28 @@ Page({
       return;
     }
 
+    const activeItemId = this.data.itemId;
     this.setData({ cutoutProcessing: true });
     wx.showLoading({ title: '抠图中...' });
     try {
       const result = await this.requestCutoutPreview();
+      if (!result || result.itemId !== activeItemId || this.data.itemId !== activeItemId) {
+        wx.hideLoading();
+        this.setData({ cutoutProcessing: false });
+        return;
+      }
 
       const imagePath = await writeBase64ImageToTempFile(
         result.previewImageBase64,
         result.previewContentType,
         result.previewFilename
       );
+      if (this.data.itemId !== activeItemId) {
+        cleanupCutoutPreviewFile(imagePath);
+        wx.hideLoading();
+        this.setData({ cutoutProcessing: false });
+        return;
+      }
 
       wx.hideLoading();
       this.setData({
@@ -681,22 +702,23 @@ function writeBase64ImageToTempFile(base64, contentType = 'image/png', filename 
   return new Promise((resolve, reject) => {
     const fs = wx.getFileSystemManager();
     const extension = inferImageExtension(contentType, filename);
-    const tempPath = `${wx.env.USER_DATA_PATH}/cutout-preview${extension}`;
+    const tempPath = `${wx.env.USER_DATA_PATH}/${buildCutoutPreviewTempFilename(filename, extension)}`;
     const normalizedBase64 = String(base64 || '').replace(/^data:[^;]+;base64,/, '');
     const buffer = wx.base64ToArrayBuffer(normalizedBase64);
 
-    fs.access({
-      path: tempPath,
-      success: () => {
-        fs.unlink({
-          filePath: tempPath,
-          success: () => writePreviewFile(fs, tempPath, buffer, resolve, reject),
-          fail: () => writePreviewFile(fs, tempPath, buffer, resolve, reject)
-        });
-      },
-      fail: () => writePreviewFile(fs, tempPath, buffer, resolve, reject)
+    clearOldCutoutPreviewFiles(fs).then(() => {
+      writePreviewFile(fs, tempPath, buffer, resolve, reject);
     });
   });
+}
+
+function buildCutoutPreviewTempFilename(filename, extension) {
+  const safeBaseName = String(filename || 'preview')
+    .replace(/\.[a-zA-Z0-9]+$/, '')
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .slice(0, 48) || 'preview';
+  const nonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `cutout-${safeBaseName}-${nonce}${extension}`;
 }
 
 function writePreviewFile(fs, filePath, buffer, resolve, reject) {

@@ -2,11 +2,16 @@ import type { RowDataPacket } from "mysql2/promise";
 import { withClient } from "../../../app/db";
 import type { JsonValue } from "../../../app/common/persistence";
 import type { UserProfileRepository } from "./index";
-import type { UserPreferenceRecord, UserRecord } from "./persistence";
+import type {
+  UserAvatarImageRecord,
+  UserPreferenceRecord,
+  UserRecord
+} from "./persistence";
 
 export class InMemoryUserProfileRepository implements UserProfileRepository {
   private users = new Map<string, UserRecord>();
   private preferences = new Map<string, UserPreferenceRecord>();
+  private avatarImages = new Map<string, UserAvatarImageRecord>();
 
   async findById(id: string): Promise<UserRecord | null> {
     return this.users.get(id) ?? null;
@@ -26,6 +31,16 @@ export class InMemoryUserProfileRepository implements UserProfileRepository {
 
   async savePreferences(preferences: UserPreferenceRecord): Promise<void> {
     this.preferences.set(preferences.userId, preferences);
+  }
+
+  async saveAvatarImage(image: UserAvatarImageRecord): Promise<void> {
+    this.avatarImages.set(image.userId, image);
+  }
+
+  async findAvatarImageByUserId(
+    userId: string
+  ): Promise<UserAvatarImageRecord | null> {
+    return this.avatarImages.get(userId) ?? null;
   }
 
   async findPreferencesByUserId(
@@ -62,6 +77,17 @@ interface UserPreferenceRow extends RowDataPacket {
   body_preferences: string | JsonValue[] | null;
   city: string | null;
   temperature_sensitivity: string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+interface UserAvatarImageRow extends RowDataPacket {
+  id: string;
+  user_id: string;
+  access_key: string;
+  content_type: string;
+  byte_size: number;
+  image_data: Buffer;
   created_at: Date | string;
   updated_at: Date | string;
 }
@@ -184,6 +210,69 @@ export class MySqlUserProfileRepository implements UserProfileRepository {
     });
   }
 
+  async saveAvatarImage(image: UserAvatarImageRecord): Promise<void> {
+    await withClient(async (client) => {
+      await client.query(
+        `INSERT INTO user_avatar_images (
+          id,
+          user_id,
+          access_key,
+          content_type,
+          byte_size,
+          image_data,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          id = VALUES(id),
+          access_key = VALUES(access_key),
+          content_type = VALUES(content_type),
+          byte_size = VALUES(byte_size),
+          image_data = VALUES(image_data),
+          updated_at = VALUES(updated_at)`,
+        [
+          image.id,
+          image.userId,
+          image.accessKey,
+          image.contentType,
+          image.byteSize,
+          image.bytes,
+          formatDateTime(image.createdAt),
+          formatDateTime(image.updatedAt)
+        ]
+      );
+    });
+  }
+
+  async findAvatarImageByUserId(
+    userId: string
+  ): Promise<UserAvatarImageRecord | null> {
+    return withClient(async (client) => {
+      const [rows] = await client.query<UserAvatarImageRow[]>(
+        `SELECT id, user_id, access_key, content_type, byte_size, image_data, created_at, updated_at
+         FROM user_avatar_images
+         WHERE user_id = ?
+         LIMIT 1`,
+        [userId]
+      );
+      const row = rows[0];
+      return row
+        ? {
+            id: row.id,
+            userId: row.user_id,
+            accessKey: row.access_key,
+            contentType: row.content_type,
+            byteSize: row.byte_size,
+            bytes: Buffer.isBuffer(row.image_data)
+              ? row.image_data
+              : Buffer.from(row.image_data),
+            createdAt: toDate(row.created_at),
+            updatedAt: toDate(row.updated_at)
+          }
+        : null;
+    });
+  }
+
   async findPreferencesByUserId(
     userId: string
   ): Promise<UserPreferenceRecord | null> {
@@ -242,6 +331,12 @@ export const createNoopUserProfileRepository = (): UserProfileRepository => ({
   },
   async savePreferences() {
     return undefined;
+  },
+  async saveAvatarImage() {
+    return undefined;
+  },
+  async findAvatarImageByUserId() {
+    return null;
   },
   async findPreferencesByUserId() {
     return null;

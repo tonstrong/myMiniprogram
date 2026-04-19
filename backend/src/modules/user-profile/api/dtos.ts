@@ -16,3 +16,14 @@ export interface UpdateUserProfileRequestDTO {
   city?: string;
   defaultTemperatureSensitivity?: "low" | "normal" | "high";
 }
+
+export interface UpdateUserAvatarRequestDTO {
+  imageBase64: string;
+  contentType?: string;
+  filename?: string;
+}
+
+export interface GetUserAvatarQueryDTO {
+  userId: string;
+  key: string;
+}
