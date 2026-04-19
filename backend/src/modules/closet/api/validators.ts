@@ -12,6 +12,7 @@ import type {
   ApplyClothingItemCutoutRequestDTO,
   ClothingItemListQueryDTO,
   ConfirmClothingItemRequestDTO,
+  ExtractClothingItemRequestDTO,
   GetClothingItemImageQueryDTO,
   PreviewClothingItemCutoutRequestDTO,
   UpdateClothingItemRequestDTO,
@@ -30,6 +31,7 @@ const clothingStatusValues = [
 const uploadSourceTypes = ["camera", "album"] as const;
 const cutoutEngineValues = ["auto", "rembg", "classic"] as const;
 const cutoutRecognitionTypes = ["clothes", "jewelry"] as const;
+const attributeEngineValues = ["auto", "fashion_clip", "clip", "rules"] as const;
 
 export const validateUploadClothingItemRequest =
   createObjectValidator<UploadClothingItemRequestDTO>({
@@ -73,6 +75,12 @@ export const validateConfirmClothingItemRequest =
   createObjectValidator<ConfirmClothingItemRequestDTO>({
     confirmedBy: optionalString({ minLength: 1 }),
     confirmedAt: optionalString({ minLength: 1 })
+  });
+
+export const validateExtractClothingItemRequest =
+  createObjectValidator<ExtractClothingItemRequestDTO>({
+    recognitionType: optionalStringEnum(cutoutRecognitionTypes),
+    engine: optionalStringEnum(attributeEngineValues)
   });
 
 export const validatePreviewClothingItemCutoutRequest =

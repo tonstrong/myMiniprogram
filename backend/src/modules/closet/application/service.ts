@@ -12,6 +12,7 @@ import type {
   ClosetQueryFilters,
   ClosetService,
   ConfirmClothingItemCommand,
+  ExtractClothingItemAttributesCommand,
   PreviewClothingItemCutoutCommand,
   UpdateClothingItemCommand,
   UploadClothingItemCommand,
@@ -107,7 +108,7 @@ export class InMemoryClosetService implements ClosetService {
     };
   }
 
-  private async extractAttributes(
+  private async extractAttributesWithLlm(
     command: UploadClothingItemCommand,
     imageAsset: { bytes: Buffer; contentType: string } | null
   ): Promise<
@@ -163,13 +164,59 @@ export class InMemoryClosetService implements ClosetService {
     }
   }
 
-  async extractItemAttributes(
-    userId: string,
-    itemId: string
-  ): Promise<ClothingItemDetail> {
-    await this.ensureManualExtractionQuota(userId, new Date());
+  private async extractAttributesWithSkillCenter(input: {
+    record: ClothingItemRecord;
+    imageAsset: { bytes: Buffer; contentType: string };
+    recognitionType: "clothes" | "jewelry";
+    engine?: "auto" | "fashion_clip" | "clip" | "rules";
+  }): Promise<{
+    attributes: Partial<ClothingAttributes>;
+    providerMeta: {
+      provider: string;
+      modelName?: string;
+      modelTier?: string;
+      retryCount?: number;
+      confidence?: Record<string, number>;
+    };
+  }> {
+    const result = await requestClothesAttribute({
+      bytes: input.imageAsset.bytes,
+      contentType: input.imageAsset.contentType,
+      filename: buildImageFilename(input.record, input.imageAsset.contentType),
+      recognitionType: input.recognitionType,
+      engine: input.engine,
+      topK: 3,
+      attributeThreshold: 0.18
+    });
 
-    const record = await this.ensureItem(userId, itemId);
+    const normalized = normalizeSkillCenterAttributes(result);
+    return {
+      attributes: normalized,
+      providerMeta: {
+        provider: "skill-center",
+        modelName: result.modelName,
+        modelTier: result.engine,
+        retryCount: 0,
+        confidence: normalized.confidence
+      }
+    };
+  }
+
+  async extractItemAttributes(
+    command: ExtractClothingItemAttributesCommand
+  ): Promise<ClothingItemDetail> {
+    await this.ensureManualExtractionQuota(command.userId, new Date());
+
+    const record = await this.ensureItem(command.userId, command.itemId);
+    const recognitionType =
+      command.recognitionType ?? inferAttributeRecognitionType(record);
+    if (!recognitionType) {
+      throw new AppError(
+        "Please choose item category before requesting AI extraction.",
+        "INVALID_REQUEST",
+        400
+      );
+    }
     const image = await this.getItemImageAsset(record);
     if (!image) {
       throw new AppError("Item image is not available for AI extraction", "INVALID_REQUEST", 400);
@@ -178,12 +225,14 @@ export class InMemoryClosetService implements ClosetService {
     const task = await this.deps.taskCenterService.createTask({
       taskType: "extract_clothing_attributes",
       payload: {
-        itemId,
-        userId
+        itemId: command.itemId,
+        userId: command.userId,
+        recognitionType,
+        engine: command.engine ?? "auto"
       },
-      requesterId: userId,
+      requesterId: command.userId,
       bizType: "closet_item",
-      bizId: itemId,
+      bizId: command.itemId,
       maxAttempts: 1
     });
 
@@ -197,37 +246,25 @@ export class InMemoryClosetService implements ClosetService {
     });
 
     try {
-      const extraction = await this.extractAttributes(
-        {
-          userId,
-          sourceType: record.sourceType === "import" ? "album" : record.sourceType ?? "album",
-          fileContentBase64: image.bytes.toString("base64"),
-          fileContentType: image.contentType,
-          fileId: record.imageOriginalUrl || undefined,
-          originalFilename: `${itemId}.jpg`
-        },
-        {
-          bytes: image.bytes,
-          contentType: image.contentType
-        }
-      );
+      const extraction = await this.extractAttributesWithSkillCenter({
+        record,
+        imageAsset: image,
+        recognitionType,
+        engine: command.engine
+      });
 
-      if (!extraction) {
-        throw new AppError("AI extraction is currently unavailable", "INVALID_REQUEST", 400);
-      }
-
-      await this.deps.repository.updateItem(itemId, {
-        category: extraction.attributes.category ?? null,
-        subCategory: extraction.attributes.subCategory ?? null,
-        colors: extraction.attributes.colors ?? null,
-        pattern: extraction.attributes.pattern ?? null,
-        material: extraction.attributes.material ?? null,
-        fit: extraction.attributes.fit ?? null,
-        length: extraction.attributes.length ?? null,
-        seasons: extraction.attributes.seasons ?? null,
-        tags: extraction.attributes.tags ?? null,
-        occasionTags: extraction.attributes.occasionTags ?? null,
-        llmConfidence: extraction.attributes.confidence ?? null,
+      await this.deps.repository.updateItem(command.itemId, {
+        category: extraction.attributes.category ?? record.category ?? null,
+        subCategory: extraction.attributes.subCategory ?? record.subCategory ?? null,
+        colors: extraction.attributes.colors ?? record.colors ?? null,
+        pattern: extraction.attributes.pattern ?? record.pattern ?? null,
+        material: extraction.attributes.material ?? record.material ?? null,
+        fit: extraction.attributes.fit ?? record.fit ?? null,
+        length: extraction.attributes.length ?? record.length ?? null,
+        seasons: extraction.attributes.seasons ?? record.seasons ?? null,
+        tags: extraction.attributes.tags ?? record.tags ?? null,
+        occasionTags: extraction.attributes.occasionTags ?? record.occasionTags ?? null,
+        llmConfidence: extraction.attributes.confidence ?? record.llmConfidence ?? null,
         provider: extraction.providerMeta?.provider ?? null,
         modelName: extraction.providerMeta?.modelName ?? null,
         modelTier: extraction.providerMeta?.modelTier ?? null,
@@ -240,14 +277,14 @@ export class InMemoryClosetService implements ClosetService {
         status: "completed",
         progress: 100,
         resultSummary: "Clothing attributes extracted",
-        resultPayload: { itemId },
+        resultPayload: { itemId: command.itemId },
         finishedAt: new Date(),
         lockedAt: null,
         lockedBy: null
       });
 
-      const next = await this.ensureItem(userId, itemId);
-      return this.enrichDetailWithQuota(userId, mapClothingRecordToDetail(next));
+      const next = await this.ensureItem(command.userId, command.itemId);
+      return this.enrichDetailWithQuota(command.userId, mapClothingRecordToDetail(next));
     } catch (error) {
       await this.deps.taskCenterService.updateTask({
         taskId: task.taskId,
@@ -1218,6 +1255,303 @@ function buildImageUrl(
   return `${config.publicBaseUrl}/api/closet/items/${itemId}/image?${query.toString()}`;
 }
 
+type AttributeRecognitionType = "clothes" | "jewelry";
+type AttributeEngine = "auto" | "fashion_clip" | "clip" | "rules";
+
+interface SkillCenterAttributeEntry {
+  label?: string;
+  nameCn?: string;
+  confidence?: number;
+  group?: string;
+}
+
+interface SkillCenterAttributeResult {
+  engine?: string;
+  recognitionType: AttributeRecognitionType;
+  modelName?: string;
+  category?: SkillCenterAttributeEntry;
+  attributes: SkillCenterAttributeEntry[];
+  colors?: string[];
+}
+
+async function requestClothesAttribute(input: {
+  bytes: Buffer;
+  contentType: string;
+  filename: string;
+  recognitionType: AttributeRecognitionType;
+  engine?: AttributeEngine;
+  topK?: number;
+  attributeThreshold?: number;
+}): Promise<SkillCenterAttributeResult> {
+  const config = loadConfig();
+  if (!config.skillCenter.baseUrl) {
+    throw new AppError(
+      "Clothes attribute service is not configured",
+      "INVALID_REQUEST",
+      400
+    );
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), config.skillCenter.timeoutMs);
+
+  try {
+    const formData = new FormData();
+    formData.set(
+      "file",
+      new Blob([new Uint8Array(input.bytes)], { type: input.contentType }),
+      input.filename
+    );
+    formData.set("recognition_type", input.recognitionType);
+    formData.set("engine", input.engine ?? "auto");
+    formData.set("top_k", String(input.topK ?? 3));
+    formData.set(
+      "attribute_threshold",
+      String(input.attributeThreshold ?? 0.18)
+    );
+
+    const response = await fetch(
+      `${config.skillCenter.baseUrl.replace(/\/$/, "")}/api/v1/clothes-attribute`,
+      {
+        method: "POST",
+        body: formData,
+        signal: controller.signal
+      }
+    );
+
+    if (!response.ok) {
+      const detail = await safeReadText(response);
+      throw new AppError(
+        `Clothes attribute request failed: ${detail || response.statusText}`,
+        "INVALID_REQUEST",
+        400
+      );
+    }
+
+    const payload = (await response.json()) as Record<string, unknown>;
+    return {
+      engine: asOptionalString(payload.engine),
+      recognitionType:
+        payload.recognition_type === "jewelry" ? "jewelry" : "clothes",
+      modelName: asOptionalString(payload.model_name),
+      category: normalizeSkillCenterEntry(payload.category),
+      attributes: normalizeSkillCenterEntryList(payload.attributes),
+      colors: asOptionalStringArray(payload.colors)
+    };
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new AppError(
+        "Clothes attribute request timed out",
+        "INVALID_REQUEST",
+        400
+      );
+    }
+    throw new AppError(
+      error instanceof Error ? error.message : "Clothes attribute failed",
+      "INVALID_REQUEST",
+      400
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function normalizeSkillCenterEntry(value: unknown): SkillCenterAttributeEntry | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const entry = value as Record<string, unknown>;
+  const label = asOptionalString(entry.label);
+  const nameCn = asOptionalString(entry.name_cn);
+  const group = asOptionalString(entry.group);
+  const confidence =
+    typeof entry.confidence === "number" ? entry.confidence : undefined;
+
+  if (!label && !nameCn && !group && confidence === undefined) {
+    return undefined;
+  }
+
+  return {
+    label,
+    nameCn,
+    group,
+    confidence
+  };
+}
+
+function normalizeSkillCenterEntryList(value: unknown): SkillCenterAttributeEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => normalizeSkillCenterEntry(entry))
+    .filter((entry): entry is SkillCenterAttributeEntry => Boolean(entry));
+}
+
+function normalizeSkillCenterAttributes(
+  result: SkillCenterAttributeResult
+): Partial<ClothingAttributes> {
+  const category = normalizeSkillCenterCategory(result);
+  const subCategory = normalizeSkillCenterSubCategory(result, category);
+  const colors = normalizeArray(result.colors, normalizeColorValue);
+  const material = normalizeSkillCenterAttributeValue(result, ["material"]);
+  const pattern = normalizeSkillCenterAttributeValue(result, ["pattern"]);
+  const fit = normalizeSkillCenterAttributeList(result, ["fit"], normalizeFitValue);
+  const length = normalizeSkillCenterAttributeValue(result, ["length"]);
+  const tags = normalizeSkillCenterTagList(result);
+  const confidence = buildSkillCenterConfidence(result);
+
+  return {
+    category,
+    subCategory,
+    colors,
+    material,
+    pattern,
+    fit,
+    length,
+    tags,
+    confidence
+  };
+}
+
+function normalizeSkillCenterCategory(
+  result: SkillCenterAttributeResult
+): string | undefined {
+  if (result.recognitionType === "jewelry") {
+    return "配饰";
+  }
+
+  const candidates = [
+    result.category?.nameCn,
+    result.category?.label
+  ].filter((value): value is string => Boolean(value));
+
+  for (const value of candidates) {
+    const normalized = normalizeCategoryValue(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeSkillCenterSubCategory(
+  result: SkillCenterAttributeResult,
+  category?: string
+): string | undefined {
+  const rawName =
+    result.category?.nameCn || result.category?.label || undefined;
+  if (!rawName) {
+    return undefined;
+  }
+
+  if (result.recognitionType === "jewelry" || category === "配饰") {
+    return normalizeAccessorySubCategory(rawName);
+  }
+
+  return fallbackLabel(rawName);
+}
+
+function normalizeAccessorySubCategory(value: string): string | undefined {
+  const key = toLookupKey(value);
+  const mapping: Record<string, string> = {
+    jewelry: "首饰",
+    pendant: "吊坠",
+    necklace: "项链",
+    earrings: "耳环",
+    earring: "耳环",
+    ring: "戒指",
+    bracelet: "手链",
+    brooch: "胸针",
+    anklet: "脚链",
+    首饰: "首饰",
+    吊坠: "吊坠",
+    项链: "项链",
+    耳环: "耳环",
+    耳饰: "耳环",
+    戒指: "戒指",
+    手链: "手链",
+    胸针: "胸针",
+    脚链: "脚链"
+  };
+
+  return mapping[key] ?? fallbackLabel(value);
+}
+
+function normalizeSkillCenterAttributeValue(
+  result: SkillCenterAttributeResult,
+  groups: string[],
+  mapper?: (value: string) => string | undefined
+): string | undefined {
+  const list = normalizeSkillCenterAttributeList(result, groups, mapper);
+  return list?.[0];
+}
+
+function normalizeSkillCenterAttributeList(
+  result: SkillCenterAttributeResult,
+  groups: string[],
+  mapper?: (value: string) => string | undefined
+): string[] | undefined {
+  const groupSet = new Set(groups.map((value) => toLookupKey(value)));
+  const values = result.attributes
+    .filter((entry) => groupSet.has(toLookupKey(entry.group || "")))
+    .map((entry) => entry.nameCn || entry.label || "")
+    .filter((value): value is string => Boolean(value));
+
+  if (values.length === 0) {
+    return undefined;
+  }
+
+  if (mapper) {
+    return normalizeArray(values, mapper);
+  }
+
+  return normalizeArray(values, fallbackLabel);
+}
+
+function normalizeSkillCenterTagList(
+  result: SkillCenterAttributeResult
+): string[] | undefined {
+  const skippedGroups = new Set(["material", "pattern", "fit", "length"]);
+  const values = result.attributes
+    .filter((entry) => !skippedGroups.has(toLookupKey(entry.group || "")))
+    .map((entry) => entry.nameCn || entry.label || "")
+    .filter((value): value is string => Boolean(value));
+
+  return normalizeArray(values, normalizeTagLikeValue);
+}
+
+function normalizeTagLikeValue(value: string): string | undefined {
+  return normalizeTagValue(value) ?? fallbackLabel(value);
+}
+
+function buildSkillCenterConfidence(
+  result: SkillCenterAttributeResult
+): Record<string, number> | undefined {
+  const entries: Array<[string, number]> = [];
+  if (typeof result.category?.confidence === "number") {
+    entries.push(["category", result.category.confidence]);
+  }
+
+  result.attributes.forEach((entry, index) => {
+    if (typeof entry.confidence !== "number") {
+      return;
+    }
+
+    const name = entry.nameCn || entry.label || `attr-${index + 1}`;
+    const group = entry.group ? toLookupKey(entry.group) : "attr";
+    entries.push([`${group}:${name}`, entry.confidence]);
+  });
+
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
 async function requestClothesCutout(input: {
   bytes: Buffer;
   contentType: string;
@@ -1329,7 +1663,20 @@ function buildImageFilename(
 function inferCutoutRecognitionType(
   record: Pick<ClothingItemRecord, "category" | "subCategory">
 ): "clothes" | "jewelry" | undefined {
-  const text = `${record.category ?? ""} ${record.subCategory ?? ""}`.trim();
+  return inferRecognitionTypeFromCategoryText(record.category, record.subCategory);
+}
+
+function inferAttributeRecognitionType(
+  record: Pick<ClothingItemRecord, "category" | "subCategory">
+): "clothes" | "jewelry" | undefined {
+  return inferRecognitionTypeFromCategoryText(record.category, record.subCategory);
+}
+
+function inferRecognitionTypeFromCategoryText(
+  category?: string | null,
+  subCategory?: string | null
+): "clothes" | "jewelry" | undefined {
+  const text = `${category ?? ""} ${subCategory ?? ""}`.trim();
   if (!text) {
     return undefined;
   }

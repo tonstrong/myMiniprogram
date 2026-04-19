@@ -16,6 +16,7 @@ import type {
   ClothingItemListItemDTO,
   ClothingItemListQueryDTO,
   ConfirmClothingItemRequestDTO,
+  ExtractClothingItemRequestDTO,
   GetClothingItemImageQueryDTO,
   PreviewClothingItemCutoutRequestDTO,
   UpdateClothingItemRequestDTO,
@@ -26,6 +27,7 @@ import { ClosetRoutes } from "./index";
 import {
   validateClothingItemListQuery,
   validateConfirmClothingItemRequest,
+  validateExtractClothingItemRequest,
   validateGetClothingItemImageQuery,
   validateItemIdParams,
   validateApplyClothingItemCutoutRequest,
@@ -192,7 +194,7 @@ export class ClosetController {
   }
 
   async extractItem(
-    request: ApiRequest<unknown, unknown, ItemIdParams>
+    request: ApiRequest<ExtractClothingItemRequestDTO, unknown, ItemIdParams>
   ): Promise<ApiResponse<ClothingItemDetailResponseDTO>> {
     const userId = request.context.userId;
     if (!userId) {
@@ -207,9 +209,24 @@ export class ClosetController {
       );
     }
 
+    const bodyValidation = validateRequest(
+      request.body ?? {},
+      validateExtractClothingItemRequest
+    );
+    if (!bodyValidation.ok) {
+      return fail(
+        "INVALID_REQUEST",
+        formatValidationErrors(bodyValidation.errors)
+      );
+    }
+
     const detail = await this.deps.closetService.extractItemAttributes(
-      userId,
-      paramValidation.value.itemId
+      {
+        userId,
+        itemId: paramValidation.value.itemId,
+        recognitionType: bodyValidation.value.recognitionType,
+        engine: bodyValidation.value.engine
+      }
     );
 
     return ok({

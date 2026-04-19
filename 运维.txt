@@ -19,6 +19,9 @@ pm2 logs closet-backend
 
 服装自动抠图：
 python main.py clothes-cutout "C:/Users/Administrator/Pictures/09c588e589c4d19e236e435d510a7b0.jpg"
+.\venv\Scripts\python.exe main.py clothes-attribute "D:\opencode\videoToWord\outputs\clothes_cutout\.png" --engine clip
+.\venv\Scripts\python.exe main.py clothes-attribute "D:\opencode\videoToWord\outputs\clothes_cutout\.png" --engine fashion_clip
+
 nssm start SkillCenterApi
 
 BethanyJacobsiddy@outlook.com----wfaDQEVMzLYZ----yptnfyraxb188----rt_WDjvmw4WOCjnpbNe4YHHt45pMa-uMe9GnguuQxI_GZ8.ToReMLseNi0vzF3WQ_3fQD4SpCNXMCBUL73tf_8N198

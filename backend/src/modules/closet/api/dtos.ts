@@ -82,6 +82,11 @@ export interface ClothingItemDetailResponseDTO {
   aiQuota?: AiExtractionQuotaDTO;
 }
 
+export interface ExtractClothingItemRequestDTO {
+  recognitionType?: "clothes" | "jewelry";
+  engine?: "auto" | "fashion_clip" | "clip" | "rules";
+}
+
 export interface UpdateClothingItemRequestDTO {
   category?: string;
   subCategory?: string;

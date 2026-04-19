@@ -73,6 +73,13 @@ export interface ClothingItemDetail {
   aiQuota?: AiExtractionQuotaSnapshot;
 }
 
+export interface ExtractClothingItemAttributesCommand {
+  itemId: string;
+  userId: string;
+  recognitionType?: "clothes" | "jewelry";
+  engine?: "auto" | "fashion_clip" | "clip" | "rules";
+}
+
 export interface UpdateClothingItemCommand {
   itemId: string;
   userId: string;
@@ -123,7 +130,9 @@ export interface ClosetQueryFilters extends PaginationQuery {
 
 export interface ClosetService {
   uploadItem(command: UploadClothingItemCommand): Promise<UploadClothingItemResult>;
-  extractItemAttributes(userId: string, itemId: string): Promise<ClothingItemDetail>;
+  extractItemAttributes(
+    command: ExtractClothingItemAttributesCommand
+  ): Promise<ClothingItemDetail>;
   listItems(
     userId: string,
     query: ClosetQueryFilters

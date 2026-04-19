@@ -136,13 +136,24 @@ Page({
       return;
     }
 
+    const recognitionType = resolveCutoutRecognitionType(
+      this.data.item?.category,
+      this.data.item?.subCategory
+    );
+    if (!recognitionType) {
+      wx.showToast({ title: '请先选择类别', icon: 'none' });
+      return;
+    }
+
     this.setData({ aiExtracting: true });
     wx.showLoading({ title: '识别中...' });
     try {
       const detail = await api.request({
         url: `/api/closet/items/${this.data.itemId}/extract`,
         method: 'POST',
-        data: {}
+        data: {
+          recognitionType
+        }
       });
       const item = await mapItemDetail(detail, this.data.previewImage);
       wx.hideLoading();
