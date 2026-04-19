@@ -46,6 +46,11 @@ export interface AppConfig {
     dailyHomeSweepIntervalMs: number;
     timeZone: string;
   };
+  quota: {
+    aiExtractionExemptUserIds: string[];
+    aiExtractionExemptWechatOpenIds: string[];
+    aiExtractionExemptUnionIds: string[];
+  };
 }
 
 function requireEnv(key: string): string {
@@ -73,6 +78,13 @@ function optionalEnv(key: string, fallback = ""): string {
 
 function parseProviderList(value: string): string[] {
   return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function parseCsvEnv(key: string): string[] {
+  return optionalEnv(key, "")
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean);
@@ -148,6 +160,11 @@ export function loadConfig(): AppConfig {
         optionalEnv("WORKER_DAILY_HOME_SWEEP_INTERVAL_MS", "600000")
       ),
       timeZone: optionalEnv("WORKER_TIME_ZONE", "Asia/Shanghai")
+    },
+    quota: {
+      aiExtractionExemptUserIds: parseCsvEnv("AI_EXTRACTION_EXEMPT_USER_IDS"),
+      aiExtractionExemptWechatOpenIds: parseCsvEnv("AI_EXTRACTION_EXEMPT_WECHAT_OPEN_IDS"),
+      aiExtractionExemptUnionIds: parseCsvEnv("AI_EXTRACTION_EXEMPT_UNION_IDS")
     }
   };
 }

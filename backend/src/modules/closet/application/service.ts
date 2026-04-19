@@ -32,7 +32,7 @@ import type { ClothingItemRecord } from "../infrastructure/persistence";
 const DEFAULT_PAGE_NO = 1;
 const DEFAULT_PAGE_SIZE = 20;
 const DAILY_MANUAL_EXTRACTION_LIMIT = 3;
-const DAILY_EXTRACTION_LIMIT_EXEMPT_WECHAT_OPEN_IDS = new Set([
+const LEGACY_DAILY_EXTRACTION_LIMIT_EXEMPT_IDENTIFIERS = new Set([
   "chenyiwang0413",
   "wxid_ipku9na2mb4712"
 ]);
@@ -291,17 +291,34 @@ export class InMemoryClosetService implements ClosetService {
   }
 
   private async isExtractionQuotaExemptUser(userId: string): Promise<boolean> {
+    const config = loadConfig();
+    const normalizedUserId = normalizeIdentifier(userId);
+    if (
+      config.quota.aiExtractionExemptUserIds
+        .map(normalizeIdentifier)
+        .includes(normalizedUserId) ||
+      LEGACY_DAILY_EXTRACTION_LIMIT_EXEMPT_IDENTIFIERS.has(normalizedUserId)
+    ) {
+      return true;
+    }
+
     if (!this.deps.userProfileRepository) {
       return false;
     }
 
     const user = await this.deps.userProfileRepository.findById(userId);
-    const wechatOpenId = user?.wechatOpenId?.trim().toLowerCase();
-    if (!wechatOpenId) {
-      return false;
-    }
+    const wechatOpenId = normalizeIdentifier(user?.wechatOpenId);
+    const unionId = normalizeIdentifier(user?.unionId);
 
-    return DAILY_EXTRACTION_LIMIT_EXEMPT_WECHAT_OPEN_IDS.has(wechatOpenId);
+    const exemptOpenIds = config.quota.aiExtractionExemptWechatOpenIds.map(normalizeIdentifier);
+    const exemptUnionIds = config.quota.aiExtractionExemptUnionIds.map(normalizeIdentifier);
+
+    return Boolean(
+      (wechatOpenId &&
+        (exemptOpenIds.includes(wechatOpenId) ||
+          LEGACY_DAILY_EXTRACTION_LIMIT_EXEMPT_IDENTIFIERS.has(wechatOpenId))) ||
+      (unionId && exemptUnionIds.includes(unionId))
+    );
   }
 
   async listItems(
@@ -630,6 +647,10 @@ function parseObjectLike(result: { output: Record<string, unknown>; rawText?: st
   }
 
   return {};
+}
+
+function normalizeIdentifier(value?: string | null): string {
+  return String(value || "").trim().toLowerCase();
 }
 
 function asOptionalString(value: unknown): string | undefined {
