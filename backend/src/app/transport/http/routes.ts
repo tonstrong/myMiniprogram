@@ -99,7 +99,7 @@ export function buildHttpRoutes(): ApiRouteDefinition[] {
     : createInMemorySavedOutfitRepository();
   const authController = new AuthController({
     authService:
-      usesMySql && config.wechat.appId && config.wechat.appSecret
+      usesMySql
         ? createPersistentWechatAuthService({
             userProfileRepository
           })
