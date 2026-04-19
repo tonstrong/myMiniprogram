@@ -71,6 +71,14 @@
   line-height: 1.6;
 }
 
+.ai-quota-tip {
+  display: block;
+  margin-top: 6rpx;
+  color: rgba(47, 36, 26, 0.48);
+  font-size: 22rpx;
+  line-height: 1.5;
+}
+
 .tool-actions {
   display: flex;
   align-items: center;
@@ -340,6 +348,35 @@
   font-size: 28rpx;
   line-height: 1.4;
   border-radius: 999rpx;
+}
+
+.option-sheet-panel {
+  max-height: 76vh;
+}
+
+.option-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18rpx;
+  margin-top: 28rpx;
+}
+
+.option-chip {
+  min-width: 140rpx;
+  padding: 18rpx 24rpx;
+  border-radius: 999rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: rgba(47, 36, 26, 0.82);
+  background: rgba(255, 255, 255, 0.86);
+  border: 1rpx solid rgba(181, 145, 98, 0.18);
+}
+
+.option-chip.active {
+  color: #fffaf2;
+  background: linear-gradient(135deg, #7a5230 0%, #b59162 100%);
+  border-color: rgba(122, 82, 48, 0.4);
+  box-shadow: 0 10rpx 24rpx rgba(122, 82, 48, 0.18);
 }
 
 .cutout-sheet-panel {

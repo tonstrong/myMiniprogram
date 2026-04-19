@@ -228,7 +228,7 @@ export class InMemoryClosetService implements ClosetService {
         itemId: command.itemId,
         userId: command.userId,
         recognitionType,
-        engine: command.engine ?? "auto"
+        engine: command.engine ?? "fashion_clip"
       },
       requesterId: command.userId,
       bizType: "closet_item",
@@ -1303,7 +1303,7 @@ async function requestClothesAttribute(input: {
       input.filename
     );
     formData.set("recognition_type", input.recognitionType);
-    formData.set("engine", input.engine ?? "auto");
+    formData.set("engine", input.engine ?? "fashion_clip");
     formData.set("top_k", String(input.topK ?? 3));
     formData.set(
       "attribute_threshold",

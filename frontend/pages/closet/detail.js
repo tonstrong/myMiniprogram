@@ -68,6 +68,13 @@ Page({
       confirmText: '保存',
       multiline: false
     },
+    optionSheet: {
+      visible: false,
+      key: '',
+      title: '',
+      options: [],
+      selectedValues: []
+    },
     cutoutPreview: {
       visible: false,
       imagePath: '',
@@ -136,6 +143,11 @@ Page({
       return;
     }
 
+    if (isAiExtractUnsupportedForItem(this.data.item?.category, this.data.item?.subCategory)) {
+      wx.showToast({ title: '鞋履暂不支持AI识别', icon: 'none' });
+      return;
+    }
+
     const recognitionType = resolveCutoutRecognitionType(
       this.data.item?.category,
       this.data.item?.subCategory
@@ -152,7 +164,8 @@ Page({
         url: `/api/closet/items/${this.data.itemId}/extract`,
         method: 'POST',
         data: {
-          recognitionType
+          recognitionType,
+          engine: 'fashion_clip'
         }
       });
       const item = await mapItemDetail(detail, this.data.previewImage);
@@ -319,7 +332,10 @@ Page({
         }
       });
 
-      const item = await mapItemDetail(detail, preview.imagePath || this.data.previewImage);
+      const item = mergeDraftItem(
+        await mapItemDetail(detail, preview.imagePath || this.data.previewImage),
+        this.data.item
+      );
       wx.hideLoading();
       this.setData({
         cutoutProcessing: false,
@@ -531,6 +547,62 @@ Page({
     });
   },
 
+  pickMultiple(key, options, title) {
+    const selectedValues = Array.isArray(this.data.item?.[key])
+      ? [...this.data.item[key]]
+      : [];
+    this.setData({
+      optionSheet: {
+        visible: true,
+        key,
+        title,
+        options: options.map((option) => ({
+          label: option,
+          selected: selectedValues.includes(option)
+        })),
+        selectedValues
+      }
+    });
+  },
+
+  toggleOptionSheetValue(e) {
+    const value = e.currentTarget.dataset.value;
+    const selectedValues = this.data.optionSheet.selectedValues || [];
+    const nextSelectedValues = selectedValues.includes(value)
+      ? selectedValues.filter((item) => item !== value)
+      : [...selectedValues, value];
+
+    this.setData({
+      'optionSheet.selectedValues': nextSelectedValues,
+      'optionSheet.options': (this.data.optionSheet.options || []).map((option) => ({
+        ...option,
+        selected: nextSelectedValues.includes(option.label)
+      }))
+    });
+  },
+
+  closeOptionSheet() {
+    this.setData({
+      optionSheet: {
+        ...this.data.optionSheet,
+        visible: false
+      }
+    });
+  },
+
+  submitOptionSheet() {
+    const key = this.data.optionSheet.key;
+    if (!key) {
+      this.closeOptionSheet();
+      return;
+    }
+
+    this.setData({
+      [`item.${key}`]: [...(this.data.optionSheet.selectedValues || [])]
+    });
+    this.closeOptionSheet();
+  },
+
   async confirmItem() {
     const updatePayload = buildUpdatePayload(this.data.item);
     if (!updatePayload.category || !updatePayload.colors?.length || !updatePayload.seasons?.length) {
@@ -613,6 +685,19 @@ async function mapItemDetail(detail, previewImage = '') {
     fit: (attributes.fit || [])[0] || '',
     seasons: attributes.seasons || [],
     tags: attributes.tags || []
+  };
+}
+
+function mergeDraftItem(nextItem, draftItem = {}) {
+  return {
+    ...nextItem,
+    category: nextItem.category || draftItem.category || '',
+    subCategory: nextItem.subCategory || draftItem.subCategory || '',
+    colors: nextItem.colors?.length ? nextItem.colors : (draftItem.colors || []),
+    material: nextItem.material || draftItem.material || '',
+    fit: nextItem.fit || draftItem.fit || '',
+    seasons: nextItem.seasons?.length ? nextItem.seasons : (draftItem.seasons || []),
+    tags: nextItem.tags?.length ? nextItem.tags : (draftItem.tags || [])
   };
 }
 
@@ -920,4 +1005,22 @@ function resolveCutoutRecognitionType(category = '', subCategory = '') {
   }
 
   return 'clothes';
+}
+
+function isAiExtractUnsupportedForItem(category = '', subCategory = '') {
+  const text = `${category || ''} ${subCategory || ''}`.trim();
+  if (!text) {
+    return false;
+  }
+
+  return (
+    text.includes('鞋履') ||
+    text.includes('鞋子') ||
+    text.includes('高跟鞋') ||
+    text.includes('乐福鞋') ||
+    text.includes('运动鞋') ||
+    text.includes('靴') ||
+    text.includes('凉鞋') ||
+    text.includes('拖鞋')
+  );
 }

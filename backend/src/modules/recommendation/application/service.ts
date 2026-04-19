@@ -51,7 +51,7 @@ const DAILY_RECOMMENDATION_LIMIT = 100;
 const DAILY_RECOMMENDATION_QUOTA_EXEMPT_WECHAT_OPEN_IDS = new Set([
   "chenyiwang0413"
 ]);
-const MAX_LLM_CANDIDATES = 12;
+const MAX_LLM_CANDIDATES = 20;
 const MAX_LLM_COLORS = 2;
 const MAX_LLM_TAGS = 3;
 const MAX_OUTFIT_COUNT = 1;
@@ -59,6 +59,16 @@ const MAX_OUTFIT_ITEMS = 5;
 const RECENT_DIVERSITY_LOOKBACK = 5;
 const RECOMMENDATION_TIME_ZONE = "Asia/Shanghai";
 const TASK_LEASE_FALLBACK_MS = 90_000;
+const SHORTLIST_BUCKET_TARGETS: Array<[RecommendationCategoryBucket, number]> = [
+  ["top", 4],
+  ["bottom", 4],
+  ["dress", 3],
+  ["outer", 3],
+  ["shoes", 2],
+  ["bag", 2],
+  ["accessory", 1],
+  ["other", 1]
+];
 
 export interface RecommendationServiceDependencies {
   closetRepository: ClosetRepository;
@@ -1168,26 +1178,50 @@ function buildPlannerCandidateShortlist(
   const grouped = groupCandidatesByBucket(prioritizedCandidates);
   const shortlist: RecommendationCandidateItem[] = [];
   const usedIds = new Set<string>();
-  const bucketLimits: Array<[RecommendationCategoryBucket, number]> = [
-    ["top", 3],
-    ["bottom", 3],
-    ["dress", 2],
-    ["outer", 2],
-    ["shoes", 2],
-    ["bag", 2],
-    ["accessory", 2],
-    ["other", 2]
-  ];
+  const bucketCounts = new Map<RecommendationCategoryBucket, number>();
+  const bucketCursors = new Map<RecommendationCategoryBucket, number>();
 
-  bucketLimits.forEach(([bucket, limit]) => {
-    (grouped.get(bucket) ?? []).slice(0, limit).forEach((candidate) => {
+  const tryPushFromBucket = (bucket: RecommendationCategoryBucket): boolean => {
+    const bucketCandidates = grouped.get(bucket) ?? [];
+    let cursor = bucketCursors.get(bucket) ?? 0;
+    while (cursor < bucketCandidates.length) {
+      const candidate = bucketCandidates[cursor];
+      cursor += 1;
+      bucketCursors.set(bucket, cursor);
       if (usedIds.has(candidate.itemId)) {
-        return;
+        continue;
       }
       shortlist.push(candidate);
       usedIds.add(candidate.itemId);
-    });
+      bucketCounts.set(bucket, (bucketCounts.get(bucket) ?? 0) + 1);
+      return true;
+    }
+    bucketCursors.set(bucket, cursor);
+    return false;
+  };
+
+  SHORTLIST_BUCKET_TARGETS.forEach(([bucket]) => {
+    if (shortlist.length >= MAX_LLM_CANDIDATES) {
+      return;
+    }
+    tryPushFromBucket(bucket);
   });
+
+  let addedInRound = true;
+  while (shortlist.length < MAX_LLM_CANDIDATES && addedInRound) {
+    addedInRound = false;
+    for (const [bucket, target] of SHORTLIST_BUCKET_TARGETS) {
+      if (shortlist.length >= MAX_LLM_CANDIDATES) {
+        break;
+      }
+      if ((bucketCounts.get(bucket) ?? 0) >= target) {
+        continue;
+      }
+      if (tryPushFromBucket(bucket)) {
+        addedInRound = true;
+      }
+    }
+  }
 
   for (const candidate of prioritizedCandidates) {
     if (shortlist.length >= MAX_LLM_CANDIDATES) {

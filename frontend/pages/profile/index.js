@@ -1,4 +1,5 @@
 import api from '../../utils/api';
+import { resolveImageUrl } from '../../utils/image-url';
 import { getCurrentWeather } from '../../utils/weather';
 import { cacheProfile } from '../../utils/profile-cache';
 
@@ -63,11 +64,12 @@ Page({
     if (profileResult.status === 'fulfilled') {
       const profile = profileResult.value;
       const localAvatarUrl = wx.getStorageSync(LOCAL_AVATAR_KEY) || '';
+      const resolvedAvatarUrl = await resolveProfileAvatarUrl(profile.avatarUrl, localAvatarUrl);
       const nextCity = profile.city || '';
       this.setData({
         profile,
         userInfo: {
-          avatarUrl: profile.avatarUrl || localAvatarUrl || DEFAULT_AVATAR_URL,
+          avatarUrl: resolvedAvatarUrl || DEFAULT_AVATAR_URL,
           nickName: profile.nickname || '时尚体验官',
           signature: buildSignature(profile)
         },
@@ -134,11 +136,15 @@ Page({
         ...profile,
         avatarUrl: profile.avatarUrl || avatarUrl
       };
+      const resolvedAvatarUrl = await resolveProfileAvatarUrl(
+        nextProfile.avatarUrl,
+        avatarUrl
+      );
 
       wx.removeStorageSync(LOCAL_AVATAR_KEY);
       this.setData({
         profile: nextProfile,
-        'userInfo.avatarUrl': nextProfile.avatarUrl || avatarUrl,
+        'userInfo.avatarUrl': resolvedAvatarUrl || avatarUrl,
         'userInfo.signature': buildSignature(nextProfile)
       });
       cacheProfile(nextProfile);
@@ -147,7 +153,7 @@ Page({
       if (savedApp?.globalData) {
         savedApp.globalData.userInfo = {
           ...(savedApp.globalData.userInfo || {}),
-          avatarUrl: nextProfile.avatarUrl || avatarUrl
+          avatarUrl: resolvedAvatarUrl || avatarUrl
         };
       }
       wx.hideLoading();
@@ -470,4 +476,35 @@ function inferImageContentType(filePath) {
     return 'image/webp';
   }
   return 'image/jpeg';
+}
+
+async function resolveProfileAvatarUrl(remoteUrl, fallbackUrl = '') {
+  const normalizedRemoteUrl = normalizeProfileAvatarUrl(remoteUrl);
+  if (!normalizedRemoteUrl) {
+    return fallbackUrl || '';
+  }
+
+  try {
+    const resolved = await resolveImageUrl(normalizedRemoteUrl);
+    return resolved || fallbackUrl || normalizedRemoteUrl;
+  } catch (error) {
+    console.error('Resolve profile avatar failed', error);
+    return fallbackUrl || normalizedRemoteUrl;
+  }
+}
+
+function normalizeProfileAvatarUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return '';
+  }
+
+  if (
+    url.startsWith('wxfile://') ||
+    url.startsWith('http://tmp/') ||
+    url.startsWith('https://tmp/')
+  ) {
+    return '';
+  }
+
+  return url;
 }

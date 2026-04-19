@@ -64,7 +64,13 @@ async function resolveHttpImageUrl(inputUrl) {
 }
 
 function shouldDownloadHttpImage(inputUrl) {
-  return /^https?:\/\//.test(inputUrl) && inputUrl.includes('/api/closet/items/') && inputUrl.includes('/image?');
+  return (
+    /^https?:\/\//.test(inputUrl) &&
+    (
+      (inputUrl.includes('/api/closet/items/') && inputUrl.includes('/image?')) ||
+      inputUrl.includes('/api/users/avatar?')
+    )
+  );
 }
 
 function downloadImageToTempFile(url) {

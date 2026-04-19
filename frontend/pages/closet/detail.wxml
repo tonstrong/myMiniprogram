@@ -23,6 +23,7 @@
       <view class="ai-quota-bar">
         <text class="ai-quota-text" wx:if="{{aiQuota.unlimited}}">AI识别次数：不限次</text>
         <text class="ai-quota-text" wx:else>AI识别次数：今日已用 {{aiQuota.usedCount}} / {{aiQuota.dailyLimit}}</text>
+        <text class="ai-quota-tip">结果仅供参考，可自行修改</text>
       </view>
     </view>
 
@@ -159,6 +160,31 @@
     <view class="editor-sheet-actions">
       <button class="btn-secondary editor-sheet-btn" bindtap="closeInputSheet">取消</button>
       <button class="btn-primary editor-sheet-btn" bindtap="submitInputSheet">{{inputSheet.confirmText}}</button>
+    </view>
+  </view>
+</view>
+
+<view wx:if="{{optionSheet.visible}}" class="editor-sheet-mask" bindtap="closeOptionSheet">
+  <view class="editor-sheet-panel option-sheet-panel" catchtap="noop">
+    <view class="editor-sheet-header">
+      <text class="editor-sheet-title">{{optionSheet.title}}</text>
+      <text class="editor-sheet-close" bindtap="closeOptionSheet">×</text>
+    </view>
+    <text class="editor-sheet-copy">可多选，选好后再确认保存。</text>
+    <view class="option-grid">
+      <block wx:for="{{optionSheet.options}}" wx:key="label">
+        <view
+          class="option-chip {{item.selected ? 'active' : ''}}"
+          bindtap="toggleOptionSheetValue"
+          data-value="{{item.label}}"
+        >
+          {{item.label}}
+        </view>
+      </block>
+    </view>
+    <view class="editor-sheet-actions">
+      <button class="btn-secondary editor-sheet-btn" bindtap="closeOptionSheet">取消</button>
+      <button class="btn-primary editor-sheet-btn" bindtap="submitOptionSheet">确认</button>
     </view>
   </view>
 </view>
