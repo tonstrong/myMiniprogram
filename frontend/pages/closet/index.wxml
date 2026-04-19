@@ -69,6 +69,13 @@
     </view>
   </view>
 
+  <view wx:if="{{loadingMore}}" class="list-footer">
+    <text class="list-footer-text">加载更多单品...</text>
+  </view>
+  <view wx:elif="{{!hasMore && items.length > 0}}" class="list-footer">
+    <text class="list-footer-text">已经到底了</text>
+  </view>
+
   <view class="fab-btn" bindtap="goUpload">
     <view class="fab-icon">
       <view class="fab-line fab-line-horizontal"></view>

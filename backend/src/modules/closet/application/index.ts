@@ -87,6 +87,7 @@ export interface ConfirmClothingItemCommand {
 export interface PreviewClothingItemCutoutCommand {
   itemId: string;
   userId: string;
+  recognitionType?: "clothes" | "jewelry";
   engine?: "auto" | "rembg" | "classic";
   keepCanvas?: boolean;
   saveMask?: boolean;

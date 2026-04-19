@@ -370,6 +370,15 @@ export class InMemoryClosetService implements ClosetService {
     command: PreviewClothingItemCutoutCommand
   ): Promise<ClothingItemCutoutPreview> {
     const record = await this.ensureItem(command.userId, command.itemId);
+    const recognitionType =
+      command.recognitionType ?? inferCutoutRecognitionType(record);
+    if (!recognitionType) {
+      throw new AppError(
+        "Please choose item category before requesting cutout.",
+        "INVALID_REQUEST",
+        400
+      );
+    }
     const image =
       (await this.getItemImageAsset(record)) ??
       (await this.persistCommandSourceImage(record, command));
@@ -385,6 +394,7 @@ export class InMemoryClosetService implements ClosetService {
       bytes: image.bytes,
       contentType: image.contentType,
       filename: buildImageFilename(record, image.contentType),
+      recognitionType,
       engine: command.engine,
       keepCanvas: command.keepCanvas,
       saveMask: command.saveMask
@@ -1212,6 +1222,7 @@ async function requestClothesCutout(input: {
   bytes: Buffer;
   contentType: string;
   filename: string;
+  recognitionType: "clothes" | "jewelry";
   engine?: "auto" | "rembg" | "classic";
   keepCanvas?: boolean;
   saveMask?: boolean;
@@ -1238,7 +1249,10 @@ async function requestClothesCutout(input: {
       new Blob([new Uint8Array(input.bytes)], { type: input.contentType }),
       input.filename
     );
-    formData.set("engine", input.engine ?? "auto");
+    formData.set("recognition_type", input.recognitionType);
+    if (input.recognitionType === "clothes") {
+      formData.set("engine", input.engine ?? "auto");
+    }
     formData.set("keep_canvas", String(Boolean(input.keepCanvas)));
     formData.set("save_mask", String(Boolean(input.saveMask)));
 
@@ -1273,20 +1287,20 @@ async function requestClothesCutout(input: {
 
     const arrayBuffer = await fileResponse.arrayBuffer();
     const outputBytes = Buffer.from(arrayBuffer);
-    return {
-      outputBytes,
-      outputContentType: fileResponse.headers.get("content-type") || "image/png",
-      outputFilename:
-        (typeof payload.output_filename === "string" && payload.output_filename) ||
-        replaceFileExtension(input.filename, ".png"),
-      engineRequested:
-        (typeof payload.engine_requested === "string" && payload.engine_requested) ||
-        (input.engine ?? "auto"),
-      engineUsed:
-        (typeof payload.engine_used === "string" && payload.engine_used) ||
-        (input.engine ?? "auto"),
-      transparentBackground: payload.transparent_background !== false
-    };
+      return {
+        outputBytes,
+        outputContentType: fileResponse.headers.get("content-type") || "image/png",
+        outputFilename:
+          (typeof payload.output_filename === "string" && payload.output_filename) ||
+          replaceFileExtension(input.filename, ".png"),
+        engineRequested:
+          (typeof payload.engine_requested === "string" && payload.engine_requested) ||
+          (input.recognitionType === "jewelry" ? "jewelry" : input.engine ?? "auto"),
+        engineUsed:
+          (typeof payload.engine_used === "string" && payload.engine_used) ||
+          (input.recognitionType === "jewelry" ? "jewelry" : input.engine ?? "auto"),
+        transparentBackground: payload.transparent_background !== false
+      };
   } catch (error) {
     if (error instanceof AppError) {
       throw error;
@@ -1310,6 +1324,30 @@ function buildImageFilename(
 ): string {
   const extension = inferFileExtension(contentType);
   return `${record.id}${extension}`;
+}
+
+function inferCutoutRecognitionType(
+  record: Pick<ClothingItemRecord, "category" | "subCategory">
+): "clothes" | "jewelry" | undefined {
+  const text = `${record.category ?? ""} ${record.subCategory ?? ""}`.trim();
+  if (!text) {
+    return undefined;
+  }
+
+  if (
+    text.includes("配饰") ||
+    text.includes("项链") ||
+    text.includes("耳环") ||
+    text.includes("耳饰") ||
+    text.includes("戒指") ||
+    text.includes("手链") ||
+    text.includes("胸针") ||
+    text.includes("首饰")
+  ) {
+    return "jewelry";
+  }
+
+  return "clothes";
 }
 
 function inferFileExtension(contentType: string): string {

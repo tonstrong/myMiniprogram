@@ -10,7 +10,7 @@ Page({
     refreshing: false,
     noMore: false,
     pageNo: 1,
-    pageSize: 12,
+    pageSize: 10,
     total: 0,
     backendReady: true,
     backendMessage: '',

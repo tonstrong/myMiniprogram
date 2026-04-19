@@ -100,6 +100,7 @@ export interface ConfirmClothingItemRequestDTO {
 }
 
 export interface PreviewClothingItemCutoutRequestDTO {
+  recognitionType?: "clothes" | "jewelry";
   engine?: "auto" | "rembg" | "classic";
   keepCanvas?: boolean;
   saveMask?: boolean;

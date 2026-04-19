@@ -253,6 +253,7 @@ export class ClosetController {
     const result = await this.deps.closetService.previewItemCutout({
       itemId: paramValidation.value.itemId,
       userId,
+      recognitionType: bodyValidation.value.recognitionType,
       engine: bodyValidation.value.engine,
       keepCanvas: bodyValidation.value.keepCanvas,
       saveMask: bodyValidation.value.saveMask,

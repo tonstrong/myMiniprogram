@@ -159,6 +159,16 @@
   margin-top: 8rpx;
 }
 
+.list-footer {
+  padding: 8rpx 0 150rpx;
+  text-align: center;
+}
+
+.list-footer-text {
+  color: var(--text-secondary);
+  font-size: 24rpx;
+}
+
 /* FAB */
 .fab-btn {
   position: fixed;

@@ -2,6 +2,7 @@ import api from '../../utils/api';
 import { resolveImageUrl } from '../../utils/image-url';
 
 const HOME_PENDING_HIGHLIGHT_KEY = 'closet:highlightPendingFromHome';
+const PAGE_SIZE = 10;
 
 Page({
   data: {
@@ -17,6 +18,11 @@ Page({
     activeFilter: 0,
     items: [],
     loading: true,
+    loadingMore: false,
+    pageNo: 1,
+    pageSize: PAGE_SIZE,
+    total: 0,
+    hasMore: true,
     highlightPending: false,
     pendingCount: 0
   },
@@ -30,7 +36,13 @@ Page({
       this.getTabBar().setData({ selected: 1 });
     }
     this.consumePendingHighlightFlag();
-    this.fetchItems();
+    this.fetchItems({ reset: true });
+  },
+
+  onReachBottom() {
+    if (!this.data.loading && !this.data.loadingMore && this.data.hasMore) {
+      this.fetchItems({ reset: false });
+    }
   },
 
   consumePendingHighlightFlag() {
@@ -41,13 +53,19 @@ Page({
     this.setData({ highlightPending });
   },
 
-  async fetchItems() {
-    this.setData({ loading: true });
+  async fetchItems({ reset = true } = {}) {
+    const pageNo = reset ? 1 : this.data.pageNo + 1;
+    this.setData(reset ? { loading: true, pageNo: 1, hasMore: true } : { loadingMore: true });
     try {
       const activeFilter = this.data.filters[this.data.activeFilter];
       const categoryFilter = activeFilter?.value || '';
+      const query = [
+        `pageNo=${pageNo}`,
+        `pageSize=${this.data.pageSize}`,
+        categoryFilter ? `category=${encodeURIComponent(categoryFilter)}` : ''
+      ].filter(Boolean).join('&');
       const res = await api.request({
-        url: `/api/closet/items${categoryFilter ? `?category=${encodeURIComponent(categoryFilter)}` : ''}`,
+        url: `/api/closet/items?${query}`,
         method: 'GET'
       });
 
@@ -64,26 +82,32 @@ Page({
           }))
       );
 
-      const pendingCount = items.filter((item) => item.isPending).length;
+      const nextItems = reset ? items : [...this.data.items, ...items];
+      const pendingCount = nextItems.filter((item) => item.isPending).length;
       const sortedItems = this.data.highlightPending
-        ? [...items].sort((left, right) => Number(right.isPending) - Number(left.isPending))
-        : items;
+        ? [...nextItems].sort((left, right) => Number(right.isPending) - Number(left.isPending))
+        : nextItems;
+      const total = Number(res.total || sortedItems.length);
 
       this.setData({
         items: sortedItems,
         pendingCount,
-        loading: false
+        total,
+        pageNo,
+        hasMore: sortedItems.length < total,
+        loading: false,
+        loadingMore: false
       });
     } catch (error) {
       console.error('Failed to fetch items', error);
-      this.setData({ loading: false });
+      this.setData({ loading: false, loadingMore: false });
     }
   },
 
   switchFilter(e) {
     const idx = Number(e.currentTarget.dataset.index || 0);
     this.setData({ activeFilter: idx });
-    this.fetchItems();
+    this.fetchItems({ reset: true });
   },
 
   goUpload() {

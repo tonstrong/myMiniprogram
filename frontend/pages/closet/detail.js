@@ -174,6 +174,15 @@ Page({
       return;
     }
 
+    const recognitionType = resolveCutoutRecognitionType(
+      this.data.item?.category,
+      this.data.item?.subCategory
+    );
+    if (!recognitionType) {
+      wx.showToast({ title: '请先选择类别', icon: 'none' });
+      return;
+    }
+
     const activeItemId = this.data.itemId;
     this.setData({ cutoutProcessing: true });
     wx.showLoading({ title: '抠图中...' });
@@ -223,6 +232,10 @@ Page({
 
   async requestCutoutPreview() {
     const payload = {
+      recognitionType: resolveCutoutRecognitionType(
+        this.data.item?.category,
+        this.data.item?.subCategory
+      ),
       engine: 'auto',
       keepCanvas: false,
       saveMask: false
@@ -874,4 +887,26 @@ function inferImageExtension(contentType, filename = '') {
     return '.jpg';
   }
   return '.png';
+}
+
+function resolveCutoutRecognitionType(category = '', subCategory = '') {
+  const text = `${category || ''} ${subCategory || ''}`.trim();
+  if (!text) {
+    return '';
+  }
+
+  if (
+    text.includes('配饰') ||
+    text.includes('项链') ||
+    text.includes('耳环') ||
+    text.includes('耳饰') ||
+    text.includes('戒指') ||
+    text.includes('手链') ||
+    text.includes('胸针') ||
+    text.includes('首饰')
+  ) {
+    return 'jewelry';
+  }
+
+  return 'clothes';
 }

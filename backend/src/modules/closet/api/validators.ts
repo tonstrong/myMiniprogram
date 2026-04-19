@@ -29,6 +29,7 @@ const clothingStatusValues = [
 
 const uploadSourceTypes = ["camera", "album"] as const;
 const cutoutEngineValues = ["auto", "rembg", "classic"] as const;
+const cutoutRecognitionTypes = ["clothes", "jewelry"] as const;
 
 export const validateUploadClothingItemRequest =
   createObjectValidator<UploadClothingItemRequestDTO>({
@@ -76,6 +77,7 @@ export const validateConfirmClothingItemRequest =
 
 export const validatePreviewClothingItemCutoutRequest =
   createObjectValidator<PreviewClothingItemCutoutRequestDTO>({
+    recognitionType: optionalStringEnum(cutoutRecognitionTypes),
     engine: optionalStringEnum(cutoutEngineValues),
     keepCanvas: optionalBoolean(),
     saveMask: optionalBoolean(),

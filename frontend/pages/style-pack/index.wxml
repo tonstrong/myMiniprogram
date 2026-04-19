@@ -38,6 +38,13 @@
         </view>
       </view>
     </block>
+
+    <view wx:if="{{loading}}" class="list-footer">
+      <text class="list-footer-text">加载更多风格包...</text>
+    </view>
+    <view wx:elif="{{noMore && packs.length > 0}}" class="list-footer">
+      <text class="list-footer-text">已经到底了</text>
+    </view>
   </view>
 
   <view class="action-fixed">
