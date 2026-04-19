@@ -62,6 +62,7 @@ export class RecommendationOrchestrator {
       scene: command.scene,
       weather: command.weather,
       preferenceTags: command.preferenceTags,
+      recentlyRecommendedItemIds: command.recentlyRecommendedItemIds,
       candidates: filtered.candidates
     };
 

@@ -9,6 +9,7 @@ export interface GenerateRecommendationCommand {
   stylePackId?: string;
   preferenceTags?: string[];
   preferredItemIds?: string[];
+  recentlyRecommendedItemIds?: string[];
   sourceType?: "manual" | "daily_home";
   displayDate?: string;
 }

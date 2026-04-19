@@ -56,6 +56,7 @@ const MAX_LLM_COLORS = 2;
 const MAX_LLM_TAGS = 3;
 const MAX_OUTFIT_COUNT = 1;
 const MAX_OUTFIT_ITEMS = 5;
+const RECENT_DIVERSITY_LOOKBACK = 5;
 const RECOMMENDATION_TIME_ZONE = "Asia/Shanghai";
 const TASK_LEASE_FALLBACK_MS = 90_000;
 
@@ -528,6 +529,12 @@ export class InMemoryRecommendationService implements RecommendationService {
       validation?: RecommendationValidationResult;
     }
   > {
+    const recentlyRecommendedItemIds =
+      input.command.recentlyRecommendedItemIds ??
+      (await this.listRecentManualRecommendationItemIds(
+        input.command.userId,
+        input.recommendationId
+      ));
     const candidateProvider = this.buildCandidateProvider();
     const candidateFilter = this.buildCandidateFilter();
     const planner = this.buildPlanner(
@@ -550,7 +557,8 @@ export class InMemoryRecommendationService implements RecommendationService {
 
     const orchestration = await orchestrator.execute({
       ...input.command,
-      weather: input.effectiveWeather
+      weather: input.effectiveWeather,
+      recentlyRecommendedItemIds
     });
 
     if (orchestration.status !== "completed" || !orchestration.outfits) {
@@ -628,6 +636,34 @@ export class InMemoryRecommendationService implements RecommendationService {
     if (!recommendation) {
       throw new AppError("Recommendation not found", "NOT_FOUND", 404);
     }
+  }
+
+  private async listRecentManualRecommendationItemIds(
+    userId: string,
+    excludeRecommendationId?: string
+  ): Promise<string[]> {
+    const recent = await this.deps.recommendationRepository.listByUser(userId, {
+      pageNo: 1,
+      pageSize: RECENT_DIVERSITY_LOOKBACK
+    });
+    const usedIds = new Set<string>();
+
+    for (const recommendation of recent.items) {
+      if (
+        recommendation.id === excludeRecommendationId ||
+        recommendation.status === "processing" ||
+        recommendation.status === "failed"
+      ) {
+        continue;
+      }
+
+      const items = await this.deps.recommendationRepository.findItemsByRecommendationId(
+        recommendation.id
+      );
+      items.forEach((item) => usedIds.add(item.itemId));
+    }
+
+    return Array.from(usedIds);
   }
 
   private async resolveWeather(command: GenerateRecommendationCommand) {
@@ -711,6 +747,7 @@ export class InMemoryRecommendationService implements RecommendationService {
           userProfileContext,
           preferenceTags: input.preferenceTags,
           preferredItemIds: input.preferredItemIds,
+          recentlyRecommendedItemIds: input.recentlyRecommendedItemIds,
           candidates: input.candidates
         });
         if (llmPlanned?.outfits.length) {
@@ -724,7 +761,8 @@ export class InMemoryRecommendationService implements RecommendationService {
 
         const items = buildPlannedOutfitItems(
           input.candidates,
-          input.preferredItemIds
+          input.preferredItemIds,
+          input.recentlyRecommendedItemIds
         );
         if (items.length < MIN_CANDIDATE_COUNT) {
           return {
@@ -898,6 +936,7 @@ export class InMemoryRecommendationService implements RecommendationService {
     userProfileContext?: RecommendationUserProfile;
     preferenceTags?: string[];
     preferredItemIds?: string[];
+    recentlyRecommendedItemIds?: string[];
     candidates: RecommendationCandidateItem[];
   }): Promise<
     | {
@@ -912,7 +951,8 @@ export class InMemoryRecommendationService implements RecommendationService {
 
     const shortlistedCandidates = buildPlannerCandidateShortlist(
       input.candidates,
-      input.preferredItemIds
+      input.preferredItemIds,
+      input.recentlyRecommendedItemIds
     );
     if (shortlistedCandidates.length < MIN_CANDIDATE_COUNT) {
       return undefined;
@@ -929,9 +969,10 @@ export class InMemoryRecommendationService implements RecommendationService {
             userProfileContext: input.userProfileContext,
             preferenceTags: input.preferenceTags,
             preferredItemIds: input.preferredItemIds,
+            recentlyRecommendedItemIds: input.recentlyRecommendedItemIds,
             candidates: shortlistedCandidates
           }),
-          temperature: 0.2
+          temperature: 0.55
         },
         outputSchema: { type: "object" }
       });
@@ -1087,9 +1128,14 @@ type RecommendationCategoryBucket =
 
 function buildPlannedOutfitItems(
   candidates: RecommendationCandidateItem[],
-  preferredItemIds?: string[]
+  preferredItemIds?: string[],
+  recentlyRecommendedItemIds?: string[]
 ): Array<{ itemId: string; role: string }> {
-  const prioritizedCandidates = prioritizeCandidates(candidates, preferredItemIds);
+  const prioritizedCandidates = prioritizeCandidates(
+    candidates,
+    preferredItemIds,
+    recentlyRecommendedItemIds
+  );
   const grouped = groupCandidatesByBucket(prioritizedCandidates);
   const topBottomPlan = buildTopBottomPlan(grouped);
   const dressPlan = buildDressPlan(grouped);
@@ -1111,9 +1157,14 @@ function buildPlannedOutfitItems(
 
 function buildPlannerCandidateShortlist(
   candidates: RecommendationCandidateItem[],
-  preferredItemIds?: string[]
+  preferredItemIds?: string[],
+  recentlyRecommendedItemIds?: string[]
 ): RecommendationCandidateItem[] {
-  const prioritizedCandidates = prioritizeCandidates(candidates, preferredItemIds);
+  const prioritizedCandidates = prioritizeCandidates(
+    candidates,
+    preferredItemIds,
+    recentlyRecommendedItemIds
+  );
   const grouped = groupCandidatesByBucket(prioritizedCandidates);
   const shortlist: RecommendationCandidateItem[] = [];
   const usedIds = new Set<string>();
@@ -1154,29 +1205,37 @@ function buildPlannerCandidateShortlist(
 
 function prioritizeCandidates(
   candidates: RecommendationCandidateItem[],
-  preferredItemIds?: string[]
+  preferredItemIds?: string[],
+  recentlyRecommendedItemIds?: string[]
 ): RecommendationCandidateItem[] {
-  if (!preferredItemIds?.length) {
-    return candidates;
-  }
-
   const preferredOrder = new Map(
-    preferredItemIds.map((itemId, index) => [itemId, index] as const)
+    (preferredItemIds ?? []).map((itemId, index) => [itemId, index] as const)
+  );
+  const recentPenalty = new Map(
+    (recentlyRecommendedItemIds ?? []).map((itemId, index) => [itemId, index + 1] as const)
   );
   return [...candidates].sort((left, right) => {
-    const leftScore = preferredOrder.get(left.itemId);
-    const rightScore = preferredOrder.get(right.itemId);
-    if (leftScore === undefined && rightScore === undefined) {
-      return 0;
+    const leftScore = scoreCandidatePriority(left, preferredOrder, recentPenalty);
+    const rightScore = scoreCandidatePriority(right, preferredOrder, recentPenalty);
+    if (leftScore !== rightScore) {
+      return leftScore - rightScore;
     }
-    if (leftScore === undefined) {
-      return 1;
-    }
-    if (rightScore === undefined) {
-      return -1;
-    }
-    return leftScore - rightScore;
+    return left.itemId.localeCompare(right.itemId);
   });
+}
+
+function scoreCandidatePriority(
+  candidate: RecommendationCandidateItem,
+  preferredOrder: Map<string, number>,
+  recentPenalty: Map<string, number>
+): number {
+  const preferredBoost = preferredOrder.has(candidate.itemId)
+    ? -100 + (preferredOrder.get(candidate.itemId) ?? 0)
+    : 0;
+  const recentScore = recentPenalty.has(candidate.itemId)
+    ? 40 - Math.min(recentPenalty.get(candidate.itemId) ?? 0, 20)
+    : 0;
+  return preferredBoost + recentScore;
 }
 
 function buildTopBottomPlan(
@@ -1402,6 +1461,7 @@ function buildPlannerMessages(input: {
   userProfileContext?: RecommendationUserProfile;
   preferenceTags?: string[];
   preferredItemIds?: string[];
+  recentlyRecommendedItemIds?: string[];
   candidates: RecommendationCandidateItem[];
 }) {
   return [
@@ -1418,6 +1478,9 @@ function buildPlannerMessages(input: {
           weather: input.weather,
           preferenceTags: input.preferenceTags ?? [],
           preferredItemIds: input.preferredItemIds ?? [],
+          avoidRecentlyRecommendedItemIds: input.recentlyRecommendedItemIds ?? [],
+          diversityInstruction:
+            "If enough compatible wardrobe candidates exist, avoid avoidRecentlyRecommendedItemIds and prefer items that were not used in recent generated outfits. Only reuse recent items when needed to form a complete outfit.",
           userProfile: input.userProfileContext ?? {},
           stylePack: slimStylePackContext(input.stylePackContext),
           wardrobeCandidates: input.candidates.map((candidate) => ({

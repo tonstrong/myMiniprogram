@@ -56,6 +56,7 @@ export interface RecommendationPlannerInput {
   userProfile?: RecommendationUserProfile;
   preferenceTags?: string[];
   preferredItemIds?: string[];
+  recentlyRecommendedItemIds?: string[];
   candidates: RecommendationCandidateItem[];
 }
 
