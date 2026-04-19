@@ -3,6 +3,7 @@ import { resolveImageUrl } from '../../utils/image-url';
 
 const CATEGORY_OPTIONS = ['上衣', '下装', '外套', '连衣裙', '鞋履', '包袋', '配饰'];
 const ACCESSORY_SUBCATEGORY_OPTIONS = ['层搭装饰片', '腰饰', '披肩', '围巾', '帽子', '首饰', '其他配饰'];
+const SHOE_SUBCATEGORY_OPTIONS = ['运动鞋', '乐福鞋', '高跟鞋', '单鞋', '玛丽珍鞋', '短靴', '长靴', '凉鞋', '拖鞋', '雪地靴', '其他鞋履'];
 const FIT_OPTIONS = ['宽松', '修身', '直筒', '短款', '超长'];
 const SEASON_OPTIONS = ['春', '夏', '秋', '冬'];
 const TAG_OPTIONS = ['极简', '通勤', '基础款', '休闲', '百搭', '甜酷', '优雅', '法式', '韩系', '复古', '时髦', '知性', '慵懒', '山系', '街头'];
@@ -363,13 +364,18 @@ Page({
 
   bindCategoryChange(e) {
     const category = CATEGORY_OPTIONS[e.detail.value];
+    const wasShoeSubCategory = SHOE_SUBCATEGORY_OPTIONS.includes(this.data.item.subCategory);
+    const wasAccessorySubCategory = ACCESSORY_SUBCATEGORY_OPTIONS.includes(this.data.item.subCategory);
     const nextItem = {
       ...this.data.item,
       category,
       subCategory:
         category === '配饰'
-          ? this.data.item.subCategory || '层搭装饰片'
-          : this.data.item.subCategory
+          ? (wasAccessorySubCategory ? this.data.item.subCategory : '层搭装饰片')
+        : category === '鞋履'
+          ? (wasShoeSubCategory ? this.data.item.subCategory : '')
+          : (wasShoeSubCategory || wasAccessorySubCategory ? '' : this.data.item.subCategory),
+      fit: category === '鞋履' || category === '配饰' ? '' : this.data.item.fit
     };
     this.setData({ item: nextItem });
   },
@@ -458,6 +464,19 @@ Page({
   },
 
   editSubCategory() {
+    if (this.data.item.category === '鞋履') {
+      wx.showActionSheet({
+        itemList: SHOE_SUBCATEGORY_OPTIONS,
+        success: ({ tapIndex }) => {
+          this.setData({ 'item.subCategory': SHOE_SUBCATEGORY_OPTIONS[tapIndex] });
+        },
+        fail: () => {
+          this.openSubCategoryInput();
+        }
+      });
+      return;
+    }
+
     if (this.data.item.category === '配饰') {
       wx.showActionSheet({
         itemList: ACCESSORY_SUBCATEGORY_OPTIONS,
