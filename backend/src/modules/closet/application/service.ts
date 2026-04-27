@@ -32,7 +32,6 @@ import type { ClothingItemRecord } from "../infrastructure/persistence";
 
 const DEFAULT_PAGE_NO = 1;
 const DEFAULT_PAGE_SIZE = 20;
-const DAILY_MANUAL_EXTRACTION_LIMIT = 3;
 const LEGACY_DAILY_EXTRACTION_LIMIT_EXEMPT_IDENTIFIERS = new Set([
   "chenyiwang0413",
   "wxid_ipku9na2mb4712"
@@ -48,6 +47,10 @@ export interface ClosetServiceDependencies {
 
 export class InMemoryClosetService implements ClosetService {
   constructor(private readonly deps: ClosetServiceDependencies) {}
+
+  private getManualExtractionDailyLimit(): number {
+    return Math.max(0, loadConfig().quota.aiExtractionDailyLimit || 0);
+  }
 
   async uploadItem(command: UploadClothingItemCommand): Promise<UploadClothingItemResult> {
     const now = new Date();
@@ -306,6 +309,11 @@ export class InMemoryClosetService implements ClosetService {
       return;
     }
 
+    const dailyLimit = this.getManualExtractionDailyLimit();
+    if (dailyLimit <= 0) {
+      return;
+    }
+
     if (await this.isExtractionQuotaExemptUser(userId)) {
       return;
     }
@@ -318,9 +326,9 @@ export class InMemoryClosetService implements ClosetService {
       startOfDay
     );
 
-    if (todayCount >= DAILY_MANUAL_EXTRACTION_LIMIT) {
+    if (todayCount >= dailyLimit) {
       throw new AppError(
-        `今日 AI 识别次数已用完，每天最多 ${DAILY_MANUAL_EXTRACTION_LIMIT} 次。`,
+        `今日 AI 识别次数已用完，每天最多 ${dailyLimit} 次。`,
         "INVALID_REQUEST",
         400
       );
@@ -643,12 +651,13 @@ export class InMemoryClosetService implements ClosetService {
   }
 
   private async buildAiQuotaSnapshot(userId: string) {
+    const dailyLimit = this.getManualExtractionDailyLimit();
     const unlimited = await this.isExtractionQuotaExemptUser(userId);
     if (!this.deps.taskRepository) {
       return {
         usedCount: 0,
-        dailyLimit: DAILY_MANUAL_EXTRACTION_LIMIT,
-        remainingCount: unlimited ? null : DAILY_MANUAL_EXTRACTION_LIMIT,
+        dailyLimit,
+        remainingCount: unlimited ? null : dailyLimit,
         unlimited
       };
     }
@@ -663,10 +672,10 @@ export class InMemoryClosetService implements ClosetService {
 
     return {
       usedCount,
-      dailyLimit: DAILY_MANUAL_EXTRACTION_LIMIT,
+      dailyLimit,
       remainingCount: unlimited
         ? null
-        : Math.max(DAILY_MANUAL_EXTRACTION_LIMIT - usedCount, 0),
+        : Math.max(dailyLimit - usedCount, 0),
       unlimited
     };
   }

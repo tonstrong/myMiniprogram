@@ -16,6 +16,15 @@
   </view>
 
   <view class="config-content flex-col animate-fade-in" style="animation-delay: 0.1s;">
+    <view class="history-entry glass-panel" bindtap="openHistory">
+      <view class="history-icon">历</view>
+      <view class="flex-col history-entry-copy">
+        <text class="history-entry-title">推荐历史</text>
+        <text class="history-entry-desc">查看生成中的任务和过往推荐结果</text>
+      </view>
+      <text class="history-entry-arrow">></text>
+    </view>
+
     <view class="c-group">
       <text class="c-title">前往什么场景？</text>
       <view class="c-options flex-row mt-md">

@@ -63,17 +63,23 @@
 
   <view class="action-grid animate-fade-in" style="animation-delay: 0.4s;">
     <view class="action-item glass-panel upload" bindtap="goUpload">
-      <view class="action-icon-badge upload-badge">👚</view>
+      <view class="action-icon-badge upload-badge">
+        <view class="css-icon icon-upload"></view>
+      </view>
       <text class="text-body action-title">录入单品</text>
       <text class="text-caption">拍照或上传衣服，补齐你的数字衣橱</text>
     </view>
     <view class="action-item glass-panel style" bindtap="goStylePack">
-      <view class="action-icon-badge style-badge">✦</view>
+      <view class="action-icon-badge style-badge">
+        <view class="css-icon icon-style"></view>
+      </view>
       <text class="text-body action-title">风格灵感</text>
       <text class="text-caption">管理风格包，让推荐更贴近你的偏好</text>
     </view>
     <view class="action-item glass-panel canvas" bindtap="goCanvas">
-      <view class="action-icon-badge canvas-badge">🧵</view>
+      <view class="action-icon-badge canvas-badge">
+        <view class="css-icon icon-canvas"></view>
+      </view>
       <text class="text-body action-title">手动搭配</text>
       <text class="text-caption">自己拼一套造型，并保存成搭配画布</text>
     </view>

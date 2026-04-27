@@ -197,7 +197,8 @@
 .menu-item {
   padding: var(--spacing-lg) 0;
   border-bottom: 1rpx solid rgba(0,0,0,0.03);
-  transition: opacity 0.2s;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
 }
 
 .menu-item:last-child {
@@ -205,12 +206,120 @@
 }
 
 .menu-item:active {
-  opacity: 0.7;
+  transform: scale(0.98);
+  background: rgba(0,0,0,0.02);
+  border-radius: var(--radius-sm);
+  padding-left: var(--spacing-sm);
+  padding-right: var(--spacing-sm);
 }
 
-.menu-icon {
-  font-size: 36rpx;
-  margin-right: var(--spacing-md);
+.menu-text {
+  margin-left: var(--spacing-md);
+}
+
+/* CSS Minimalist Icons consistent with TabBar */
+.css-icon {
+  width: 36rpx;
+  height: 36rpx;
+  position: relative;
+}
+
+.icon-favorite {
+  color: #fbbf24;
+}
+.icon-favorite::before {
+  content: '';
+  position: absolute;
+  top: 4rpx; left: 14rpx; right: 14rpx; bottom: 4rpx;
+  background: currentColor;
+  border-radius: 4rpx;
+  transform: rotate(45deg);
+}
+
+.icon-user {
+  color: #3b82f6;
+  border: 4rpx solid currentColor;
+  width: 32rpx; height: 32rpx;
+  border-radius: 50%;
+  margin-top: 4rpx;
+}
+.icon-user::before {
+  content: '';
+  position: absolute;
+  top: 4rpx; left: 50%;
+  transform: translateX(-50%);
+  width: 10rpx; height: 10rpx;
+  border: 4rpx solid currentColor;
+  border-radius: 50%;
+}
+.icon-user::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 22rpx; height: 8rpx;
+  border: 4rpx solid currentColor;
+  border-bottom: none;
+  border-radius: 12rpx 12rpx 0 0;
+}
+
+.icon-style {
+  color: #8b5cf6;
+}
+.icon-style::before, .icon-style::after {
+  content: '';
+  position: absolute;
+  background: currentColor;
+  border-radius: 4rpx;
+}
+.icon-style::before { top: 4rpx; bottom: 4rpx; left: 14rpx; right: 14rpx; }
+.icon-style::after { left: 4rpx; right: 4rpx; top: 14rpx; bottom: 14rpx; }
+
+.icon-outfit {
+  color: #ec4899;
+  border: 4rpx solid currentColor;
+  border-radius: 6rpx;
+  width: 30rpx; height: 32rpx;
+}
+.icon-outfit::before {
+  content: '';
+  position: absolute;
+  top: 8rpx; left: 50%;
+  transform: translateX(-50%);
+  border-top: 4rpx solid currentColor;
+  width: 14rpx;
+}
+.icon-outfit::after {
+  content: '';
+  position: absolute;
+  bottom: 8rpx; left: 50%;
+  transform: translateX(-50%);
+  border-top: 4rpx solid currentColor;
+  width: 14rpx;
+}
+
+.icon-history {
+  color: #10b981;
+  border: 4rpx solid currentColor;
+  border-radius: 50%;
+  width: 32rpx; height: 32rpx;
+}
+.icon-history::before {
+  content: '';
+  position: absolute;
+  top: 6rpx; left: 50%;
+  transform: translateX(-50%);
+  width: 4rpx; height: 10rpx;
+  background: currentColor;
+  border-radius: 2rpx;
+}
+.icon-history::after {
+  content: '';
+  position: absolute;
+  top: 14rpx; left: 14rpx;
+  width: 10rpx; height: 4rpx;
+  background: currentColor;
+  border-radius: 2rpx;
 }
 
 .font-medium {

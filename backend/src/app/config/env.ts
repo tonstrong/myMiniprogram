@@ -47,6 +47,7 @@ export interface AppConfig {
     timeZone: string;
   };
   quota: {
+    aiExtractionDailyLimit: number;
     aiExtractionExemptUserIds: string[];
     aiExtractionExemptWechatOpenIds: string[];
     aiExtractionExemptUnionIds: string[];
@@ -166,6 +167,7 @@ export function loadConfig(): AppConfig {
       timeZone: optionalEnv("WORKER_TIME_ZONE", "Asia/Shanghai")
     },
     quota: {
+      aiExtractionDailyLimit: Number(optionalEnv("AI_EXTRACTION_DAILY_LIMIT", "3")),
       aiExtractionExemptUserIds: parseCsvEnv("AI_EXTRACTION_EXEMPT_USER_IDS"),
       aiExtractionExemptWechatOpenIds: parseCsvEnv("AI_EXTRACTION_EXEMPT_WECHAT_OPEN_IDS"),
       aiExtractionExemptUnionIds: parseCsvEnv("AI_EXTRACTION_EXEMPT_UNION_IDS")

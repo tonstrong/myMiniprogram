@@ -43,8 +43,8 @@ Page({
     aiSummaryText: '还没触发 AI 识别，也可以直接手动填写',
     aiQuota: {
       usedCount: 0,
-      dailyLimit: 3,
-      remainingCount: 3,
+      dailyLimit: 0,
+      remainingCount: 0,
       unlimited: false
     },
     CATEGORY_OPTIONS,
@@ -751,7 +751,7 @@ function buildAiSummary(detail) {
 function mapAiQuota(aiQuota) {
   return {
     usedCount: Number(aiQuota?.usedCount || 0),
-    dailyLimit: Number(aiQuota?.dailyLimit || 3),
+    dailyLimit: Number(aiQuota?.dailyLimit || 0),
     remainingCount:
       aiQuota?.remainingCount === null || aiQuota?.remainingCount === undefined
         ? null
@@ -813,7 +813,7 @@ function mapExtractErrorMessage(message) {
   }
 
   if (
-    message.includes('每天最多 3 次') ||
+    message.includes('每天最多') ||
     message.includes('今日 AI 识别次数已用完')
   ) {
     return '今日 AI 识别次数已用完';

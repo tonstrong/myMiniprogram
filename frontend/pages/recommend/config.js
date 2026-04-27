@@ -197,6 +197,10 @@ Page({
     this.setData({ selectedPack: e.currentTarget.dataset.id });
   },
 
+  openHistory() {
+    wx.navigateTo({ url: '/pages/history/index' });
+  },
+
   async generateLook() {
     if (this.data.isGenerating || this.requestInFlight) {
       wx.showToast({ title: '已在生成中', icon: 'none' });

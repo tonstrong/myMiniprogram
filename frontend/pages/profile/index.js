@@ -27,10 +27,10 @@ Page({
     },
     weatherHint: '',
     menus: [
-      { id: 'profile', icon: '👤', text: '编辑资料', url: '' },
-      { id: 'style-pack', icon: '🧠', text: '风格包管理', url: '/pages/style-pack/index' },
-      { id: 'saved-outfits', icon: '🎨', text: '我的搭配', url: '/pages/saved-outfits/index' },
-      { id: 'history', icon: '🕘', text: '搭配历史', url: '/pages/history/index' }
+      { id: 'profile', icon: 'icon-user', text: '编辑资料', url: '' },
+      { id: 'style-pack', icon: 'icon-style', text: '风格包管理', url: '/pages/style-pack/index' },
+      { id: 'saved-outfits', icon: 'icon-outfit', text: '我的搭配', url: '/pages/saved-outfits/index' },
+      { id: 'history', icon: 'icon-history', text: '搭配历史', url: '/pages/history/index' }
     ]
   },
 
