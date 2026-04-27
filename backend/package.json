@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:migrate:status": "tsx scripts/migrate-status.ts",
+    "rewrite:image-base-url": "tsx scripts/rewrite-image-base-url.ts",
     "start": "node dist/main.js"
   },
   "dependencies": {

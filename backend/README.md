@@ -48,6 +48,7 @@ Copy `.env.example` to `.env` and fill in app/DB/queue/storage/LLM settings. The
 Important image upload settings:
 - `PUBLIC_BASE_URL` should be the externally reachable backend base URL used to build closet image URLs.
 - `MAX_UPLOAD_BYTES` limits base64 image uploads accepted by `/api/closet/items/upload`.
+- If you previously generated asset URLs with an IP address, you can set `OLD_PUBLIC_BASE_URLS` and run `npm run rewrite:image-base-url` once to rewrite historical `clothing_items.image_original_url` values to the current `PUBLIC_BASE_URL`.
 
 Weather settings:
 - `WEATHER_PROVIDER=qweather` enables city-based weather refresh using the user's saved city.
