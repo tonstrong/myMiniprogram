@@ -1386,16 +1386,36 @@ function resolveCandidateBucket(
   if (category === "外套") {
     return "outer";
   }
-  if (category === "鞋履") {
+  if (isShoeCandidate(categoryHint)) {
     return "shoes";
   }
-  if (category === "包袋") {
+  if (category === "包袋" || categoryHint.includes("包")) {
     return "bag";
   }
   if (category === "配饰") {
     return "accessory";
   }
   return "other";
+}
+
+function isShoeCandidate(categoryHint: string): boolean {
+  const normalized = categoryHint.toLowerCase();
+  return [
+    "鞋履",
+    "鞋子",
+    "鞋",
+    "靴",
+    "高跟鞋",
+    "乐福鞋",
+    "运动鞋",
+    "凉鞋",
+    "拖鞋",
+    "sneaker",
+    "shoe",
+    "boot",
+    "sandal",
+    "footwear"
+  ].some((keyword) => normalized.includes(keyword));
 }
 
 function validateCategoryConflicts(
@@ -1502,7 +1522,7 @@ function buildPlannerMessages(input: {
     {
       role: "system",
       content:
-        "你是一个服饰搭配助手。请只基于给定候选衣物生成搭配，不要杜撰不存在的单品。输出严格 JSON，格式为 {\"outfits\":[{\"outfitNo\":1,\"itemIds\":[\"...\"],\"reason\":\"...\"}]}。每套最多 5 件。优先形成完整穿搭：要么是连衣裙，要么是上衣+下装；可再补外套、鞋履、包袋、配饰。避免同一套里出现两条下装、两件连衣裙、两双鞋，避免重复 itemId。reason 用简短中文。"
+        "你是一个服饰搭配助手。请只基于给定候选衣物生成搭配，不要杜撰不存在的单品。输出严格 JSON，格式为 {\"outfits\":[{\"outfitNo\":1,\"itemIds\":[\"...\"],\"reason\":\"...\"}]}。每套最多 5 件。请根据场景、天气、用户偏好和风格包决定使用连衣裙还是上衣+下装，不要固定偏向裙装、裤装或任何单一品类。如果候选里有鞋履且与风格/场景协调，优先纳入一双鞋履；可再补外套、包袋、配饰。避免同一套里出现两条下装、两件连衣裙、两双鞋，避免重复 itemId。reason 用简短中文，并说明为什么这种组合符合当前风格。"
     },
     {
       role: "user",
@@ -1521,6 +1541,7 @@ function buildPlannerMessages(input: {
             itemId: candidate.itemId,
             category: candidate.category,
             subCategory: candidate.subCategory,
+            categoryBucket: resolveCandidateBucket(candidate),
             colors: limitStringArray(candidate.colors, MAX_LLM_COLORS),
             tags: limitStringArray(candidate.tags, MAX_LLM_TAGS)
           }))
@@ -1627,10 +1648,13 @@ function coercePlannedOutfits(
     }
 
     const data = entry as Record<string, unknown>;
-    const itemIds = coercePlannerItemIds(data)
+    const itemIds = rebalancePlannedItemIds(
+      coercePlannerItemIds(data)
       .filter((itemId) => candidateIds.has(itemId))
       .filter((itemId, itemIndex, list) => list.indexOf(itemId) === itemIndex)
-      .slice(0, MAX_OUTFIT_ITEMS);
+      .slice(0, MAX_OUTFIT_ITEMS),
+      candidates
+    );
     if (itemIds.length < MIN_CANDIDATE_COUNT) {
       return;
     }
@@ -1678,6 +1702,38 @@ function coercePlannerItemIds(data: Record<string, unknown>): string[] {
       return undefined;
     })
     .filter((itemId): itemId is string => Boolean(itemId));
+}
+
+function rebalancePlannedItemIds(
+  itemIds: string[],
+  candidates: RecommendationCandidateItem[]
+): string[] {
+  return ensureShoeIncluded(itemIds, candidates);
+}
+
+function ensureShoeIncluded(
+  itemIds: string[],
+  candidates: RecommendationCandidateItem[]
+): string[] {
+  const candidateMap = new Map(candidates.map((candidate) => [candidate.itemId, candidate]));
+  const selectedHasShoes = itemIds.some((itemId) => {
+    const candidate = candidateMap.get(itemId);
+    return candidate ? resolveCandidateBucket(candidate) === "shoes" : false;
+  });
+  if (selectedHasShoes) {
+    return itemIds;
+  }
+
+  const shoe = candidates.find((candidate) => resolveCandidateBucket(candidate) === "shoes");
+  if (!shoe) {
+    return itemIds;
+  }
+
+  if (itemIds.length < MAX_OUTFIT_ITEMS) {
+    return [...itemIds, shoe.itemId];
+  }
+
+  return itemIds;
 }
 
 function coercePlannerAlternatives(
