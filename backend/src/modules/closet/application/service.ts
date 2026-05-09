@@ -111,9 +111,10 @@ export class InMemoryClosetService implements ClosetService {
     };
   }
 
-  private async extractAttributesWithLlm(
-    command: UploadClothingItemCommand,
-    imageAsset: { bytes: Buffer; contentType: string } | null
+  private async extractAttributesWithLlm(input: {
+    imageAsset: { bytes: Buffer; contentType: string } | null;
+    recognitionType: "clothes" | "jewelry";
+  }
   ): Promise<
     | {
         attributes: Partial<ClothingAttributes>;
@@ -126,12 +127,16 @@ export class InMemoryClosetService implements ClosetService {
       }
     | undefined
   > {
-    if (!this.deps.llmGatewayService || !imageAsset || loadConfig().llm.providers.length === 0) {
+    if (
+      !this.deps.llmGatewayService ||
+      !input.imageAsset ||
+      loadConfig().llm.providers.length === 0
+    ) {
       return undefined;
     }
 
     try {
-      const imageDataUrl = `data:${imageAsset.contentType};base64,${command.fileContentBase64}`;
+      const imageDataUrl = `data:${input.imageAsset.contentType};base64,${input.imageAsset.bytes.toString("base64")}`;
       const result = await this.deps.llmGatewayService.invoke({
         taskType: "extract_clothing_attributes",
         input: {
@@ -149,7 +154,8 @@ export class InMemoryClosetService implements ClosetService {
               ]
             }
           ],
-          temperature: 0
+          temperature: 0,
+          recognitionType: input.recognitionType
         },
         outputSchema: {
           type: "object"
@@ -158,6 +164,10 @@ export class InMemoryClosetService implements ClosetService {
 
       const parsed = parseObjectLike(result);
       const normalized = normalizeExtractedAttributes(parsed);
+      if (!hasAnyExtractedAttribute(normalized)) {
+        return undefined;
+      }
+
       return {
         attributes: normalized,
         providerMeta: result.providerMeta
@@ -249,12 +259,16 @@ export class InMemoryClosetService implements ClosetService {
     });
 
     try {
-      const extraction = await this.extractAttributesWithSkillCenter({
-        record,
-        imageAsset: image,
-        recognitionType,
-        engine: command.engine
-      });
+      const extraction =
+        (await this.extractAttributesWithLlm({
+          imageAsset: image,
+          recognitionType
+        })) ?? (await this.extractAttributesWithConfiguredFallback({
+          record,
+          imageAsset: image,
+          recognitionType,
+          engine: command.engine
+        }));
 
       await this.deps.repository.updateItem(command.itemId, {
         category: extraction.attributes.category ?? record.category ?? null,
@@ -333,6 +347,23 @@ export class InMemoryClosetService implements ClosetService {
         400
       );
     }
+  }
+
+  private async extractAttributesWithConfiguredFallback(input: {
+    record: ClothingItemRecord;
+    imageAsset: { bytes: Buffer; contentType: string };
+    recognitionType: "clothes" | "jewelry";
+    engine?: "auto" | "fashion_clip" | "clip" | "rules";
+  }) {
+    if (loadConfig().skillCenter.baseUrl) {
+      return this.extractAttributesWithSkillCenter(input);
+    }
+
+    throw new AppError(
+      "Clothing attribute LLM returned no usable attributes",
+      "INVALID_REQUEST",
+      400
+    );
   }
 
   private async isExtractionQuotaExemptUser(userId: string): Promise<boolean> {
@@ -686,7 +717,7 @@ function parseObjectLike(result: { output: Record<string, unknown>; rawText?: st
     const text = typeof result.output.text === "string" ? result.output.text : undefined;
     if (text) {
       try {
-        return JSON.parse(text) as Record<string, unknown>;
+        return JSON.parse(stripCodeFence(text)) as Record<string, unknown>;
       } catch {
         return result.output;
       }
@@ -696,13 +727,19 @@ function parseObjectLike(result: { output: Record<string, unknown>; rawText?: st
 
   if (result.rawText) {
     try {
-      return JSON.parse(result.rawText) as Record<string, unknown>;
+      return JSON.parse(stripCodeFence(result.rawText)) as Record<string, unknown>;
     } catch {
       return {};
     }
   }
 
   return {};
+}
+
+function stripCodeFence(value: string): string {
+  const trimmed = value.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced?.[1]?.trim() ?? trimmed;
 }
 
 function normalizeIdentifier(value?: string | null): string {
@@ -746,6 +783,21 @@ function normalizeExtractedAttributes(
     occasionTags: normalizeArray(asOptionalStringArray(parsed.occasionTags), normalizeTagValue),
     confidence: asOptionalConfidence(parsed.confidence)
   };
+}
+
+function hasAnyExtractedAttribute(attributes: Partial<ClothingAttributes>): boolean {
+  return Boolean(
+    attributes.category ||
+      attributes.subCategory ||
+      attributes.pattern ||
+      attributes.material ||
+      attributes.length ||
+      attributes.colors?.length ||
+      attributes.fit?.length ||
+      attributes.seasons?.length ||
+      attributes.tags?.length ||
+      attributes.occasionTags?.length
+  );
 }
 
 function normalizeCategoryInfo(

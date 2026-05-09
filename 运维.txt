@@ -24,7 +24,7 @@ pm2 logs closet-backend
 .\venv\Scripts\python.exe main.py "你的视频链接" ocr
 
 服装自动抠图：
-python main.py clothes-cutout "C:/Users/Administrator/Pictures/09c588e589c4d19e236e435d510a7b0.jpg"
+.\venv\Scripts\python.exe main.py clothes-cutout "C:/Users/Administrator/Pictures/09c588e589c4d19e236e435d510a7b0.jpg"
 .\venv\Scripts\python.exe main.py clothes-attribute "D:\opencode\videoToWord\outputs\clothes_cutout\.png" --engine clip
 .\venv\Scripts\python.exe main.py clothes-attribute "D:\opencode\videoToWord\outputs\clothes_cutout\.png" --engine fashion_clip
 

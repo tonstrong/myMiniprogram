@@ -45,6 +45,18 @@ Each module is split into API, Application, Domain, and Infrastructure placehold
 ## Environment
 Copy `.env.example` to `.env` and fill in app/DB/queue/storage/LLM settings. The current DB runtime and migration scripts target MySQL via `DATABASE_URL`. Provider switching is driven by `LLM_PROVIDERS` and provider-specific settings; no vendor is hardcoded in code.
 
+Sub2api example:
+```
+LLM_PROVIDERS=sub2api
+LLM_PROVIDER_PRIORITY=sub2api
+LLM_PROVIDER_SUB2API_BASE_URL=https://zwyi.xin/sub2api
+LLM_PROVIDER_SUB2API_API_KEY=your_api_key_here
+LLM_PROVIDER_SUB2API_MODEL=gpt-4o-mini
+LLM_PROVIDER_SUB2API_MODEL_TIER=standard
+```
+
+`LLM_PROVIDER_SUB2API_BASE_URL` may be either `https://zwyi.xin/sub2api` or `https://zwyi.xin/sub2api/v1`; the adapter normalizes both to the OpenAI-compatible `/v1` endpoint.
+
 Important image upload settings:
 - `PUBLIC_BASE_URL` should be the externally reachable backend base URL used to build closet image URLs.
 - `MAX_UPLOAD_BYTES` limits base64 image uploads accepted by `/api/closet/items/upload`.

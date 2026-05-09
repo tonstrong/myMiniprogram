@@ -1,5 +1,7 @@
 {
-  "navigationBarTitleText": "今日衣橱",
+  "navigationBarTitleText": "想想明天穿什么",
   "navigationStyle": "custom",
+  "enableShareAppMessage": true,
+  "enableShareTimeline": true,
   "usingComponents": {}
 }

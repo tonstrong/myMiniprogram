@@ -10,24 +10,28 @@ export class OpenAIAdapter implements LlmProviderAdapter {
       baseUrl: string;
       apiKey: string;
       model: string;
+      timeoutMs?: number;
     }
   ) {
     this.client = new OpenAI({
-      baseURL: config.baseUrl,
+      baseURL: normalizeOpenAICompatibleBaseUrl(config.baseUrl),
       apiKey: config.apiKey,
+      timeout: config.timeoutMs,
     });
   }
 
   async call(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-    const messages = (payload.messages as any[]) || [];
+    const messages = Array.isArray(payload.messages) ? (payload.messages as any[]) : [];
     const responseSchema = payload.response_format as any;
 
     const options: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
       model: this.config.model,
       messages: messages,
       temperature: (payload.temperature as number) ?? 0,
-      response_format: responseSchema,
     };
+    if (responseSchema) {
+      options.response_format = responseSchema;
+    }
 
     try {
       const completion = await this.client.chat.completions.create(options);
@@ -42,4 +46,13 @@ export class OpenAIAdapter implements LlmProviderAdapter {
       throw new Error(`OpenAI Adapter (${this.name}) error: ${error.message}`);
     }
   }
+}
+
+function normalizeOpenAICompatibleBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/+$/, "");
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  return trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`;
 }

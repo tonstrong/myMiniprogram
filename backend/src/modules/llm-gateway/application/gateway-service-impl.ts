@@ -23,6 +23,7 @@ export class LlmGatewayServiceImpl implements LlmGatewayService {
         baseUrl: provider.baseUrl,
         apiKey: provider.apiKey,
         model: provider.model,
+        timeoutMs: config.llm.timeoutMs,
       });
       this.adapters.set(provider.name, adapter);
     }
@@ -37,33 +38,49 @@ export class LlmGatewayServiceImpl implements LlmGatewayService {
     }
 
     // Simple routing: use the first available provider or the hinted one
-    const providerName = request.providerHint || providers[0].name;
-    const adapter = this.adapters.get(providerName);
+    const requestedProvider = request.providerHint || providers[0].name;
+    const providerNames = [
+      requestedProvider,
+      ...providers.map((provider) => provider.name).filter((name) => name !== requestedProvider)
+    ];
 
-    if (!adapter) {
-      throw new Error(`Provider ${providerName} not found or not initialized`);
-    }
-
-    // Construct the actual LLM payload from task input
-    // This is a simplified version, in a real app this might need a mapper per task type
     const payload = this.preparePayload(request);
+    const startedAt = Date.now();
+    let lastError: Error | undefined;
 
-    try {
-      const result = await adapter.call(payload);
-      
-      return {
-        output: typeof result.output === 'string' ? { text: result.output } : (result.output as any),
-        rawText: result.output as string,
-        providerMeta: {
-          provider: adapter.name,
-          modelName: providers.find(p => p.name === adapter.name)?.model || "unknown",
-          latencyMs: 0, // Placeholder
-        }
-      };
-    } catch (error: any) {
-      // TODO: Implement retry logic and fallback routing
-      throw new Error(`LLM Gateway invocation failed for ${providerName}: ${error.message}`);
+    for (const [index, providerName] of providerNames.entries()) {
+      const adapter = this.adapters.get(providerName);
+      const provider = providers.find((item) => item.name === providerName);
+
+      if (!adapter || !provider) {
+        lastError = new Error(`Provider ${providerName} not found or not initialized`);
+        continue;
+      }
+
+      try {
+        const result = await adapter.call(payload);
+        const rawText = typeof result.output === "string" ? result.output : undefined;
+
+        return {
+          output: rawText ? { text: rawText } : ((result.output as Record<string, unknown>) ?? {}),
+          rawText,
+          providerMeta: {
+            provider: adapter.name,
+            modelName: provider.model || "unknown",
+            modelTier: request.modelTier ?? provider.modelTier,
+            retryCount: 0,
+            fallbackUsed: index > 0,
+            latencyMs: Date.now() - startedAt,
+          }
+        };
+      } catch (error: any) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
     }
+
+    throw new Error(
+      `LLM Gateway invocation failed for ${requestedProvider}: ${lastError?.message ?? "unknown error"}`
+    );
   }
 
   private preparePayload(request: LlmGatewayRequest): Record<string, unknown> {

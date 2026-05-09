@@ -25,8 +25,26 @@ Page({
   },
 
   onLoad() {
+    if (typeof wx.showShareMenu === 'function') {
+      wx.showShareMenu({
+        menus: ['shareAppMessage', 'shareTimeline']
+      });
+    }
     this.setGreeting();
     this.setCurrentDate();
+  },
+
+  onShareAppMessage() {
+    return {
+      title: '想想明天穿什么',
+      path: '/pages/home/index'
+    };
+  },
+
+  onShareTimeline() {
+    return {
+      title: '想想明天穿什么'
+    };
   },
 
   onShow() {

@@ -144,11 +144,6 @@ Page({
       return;
     }
 
-    if (isAiExtractUnsupportedForItem(this.data.item?.category, this.data.item?.subCategory)) {
-      wx.showToast({ title: '鞋履暂不支持AI识别', icon: 'none' });
-      return;
-    }
-
     const recognitionType = resolveCutoutRecognitionType(
       this.data.item?.category,
       this.data.item?.subCategory
@@ -1024,22 +1019,4 @@ function resolveCutoutRecognitionType(category = '', subCategory = '') {
   }
 
   return 'clothes';
-}
-
-function isAiExtractUnsupportedForItem(category = '', subCategory = '') {
-  const text = `${category || ''} ${subCategory || ''}`.trim();
-  if (!text) {
-    return false;
-  }
-
-  return (
-    text.includes('鞋履') ||
-    text.includes('鞋子') ||
-    text.includes('高跟鞋') ||
-    text.includes('乐福鞋') ||
-    text.includes('运动鞋') ||
-    text.includes('靴') ||
-    text.includes('凉鞋') ||
-    text.includes('拖鞋')
-  );
 }

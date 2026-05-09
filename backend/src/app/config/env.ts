@@ -7,6 +7,7 @@ export interface LlmProviderConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  modelTier?: string;
   priority: number;
 }
 
@@ -118,9 +119,13 @@ function buildProviders(): LlmProviderConfig[] {
         `LLM_PROVIDER_${normalized}_MODEL`,
         `LLM_PROVIDER_${legacyNormalized}_MODEL`
       ]),
+      modelTier: optionalEnv(
+        `LLM_PROVIDER_${normalized}_MODEL_TIER`,
+        optionalEnv(`LLM_PROVIDER_${legacyNormalized}_MODEL_TIER`, "")
+      ) || undefined,
       priority: priority === -1 ? 999 : priority
     };
-  });
+  }).sort((left, right) => left.priority - right.priority);
 }
 
 export function loadConfig(): AppConfig {

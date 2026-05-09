@@ -296,7 +296,7 @@ function parseObjectLike(result: { output: Record<string, unknown>; rawText?: st
     const text = typeof result.output.text === "string" ? result.output.text : undefined;
     if (text) {
       try {
-        return JSON.parse(text) as Record<string, unknown>;
+        return JSON.parse(stripCodeFence(text)) as Record<string, unknown>;
       } catch {
         return result.output;
       }
@@ -306,13 +306,19 @@ function parseObjectLike(result: { output: Record<string, unknown>; rawText?: st
 
   if (result.rawText) {
     try {
-      return JSON.parse(result.rawText) as Record<string, unknown>;
+      return JSON.parse(stripCodeFence(result.rawText)) as Record<string, unknown>;
     } catch {
       return {};
     }
   }
 
   return {};
+}
+
+function stripCodeFence(value: string): string {
+  const trimmed = value.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced?.[1]?.trim() ?? trimmed;
 }
 
 function asOptionalString(value: unknown): string | undefined {
