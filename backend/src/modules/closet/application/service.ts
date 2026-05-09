@@ -165,15 +165,28 @@ export class InMemoryClosetService implements ClosetService {
       const parsed = parseObjectLike(result);
       const normalized = normalizeExtractedAttributes(parsed);
       if (!hasAnyExtractedAttribute(normalized)) {
-        return undefined;
+        throw new AppError(
+          "Clothing attribute LLM returned no usable attributes",
+          "INVALID_REQUEST",
+          400
+        );
       }
 
       return {
         attributes: normalized,
         providerMeta: result.providerMeta
       };
-    } catch {
-      return undefined;
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError(
+        `Clothing attribute LLM failed: ${
+          error instanceof Error ? error.message : "unknown error"
+        }`,
+        "INVALID_REQUEST",
+        400
+      );
     }
   }
 
@@ -259,11 +272,31 @@ export class InMemoryClosetService implements ClosetService {
     });
 
     try {
-      const extraction =
-        (await this.extractAttributesWithLlm({
+      let llmExtraction:
+        | {
+            attributes: Partial<ClothingAttributes>;
+            providerMeta?: {
+              provider: string;
+              modelName?: string;
+              modelTier?: string;
+              retryCount?: number;
+            };
+          }
+        | undefined;
+
+      try {
+        llmExtraction = await this.extractAttributesWithLlm({
           imageAsset: image,
           recognitionType
-        })) ?? (await this.extractAttributesWithConfiguredFallback({
+        });
+      } catch (error) {
+        console.error(
+          "Clothing attribute LLM failed; falling back to skill-center",
+          formatErrorForLog(error)
+        );
+      }
+
+      const extraction = llmExtraction ?? (await this.extractAttributesWithConfiguredFallback({
           record,
           imageAsset: image,
           recognitionType,
@@ -798,6 +831,30 @@ function hasAnyExtractedAttribute(attributes: Partial<ClothingAttributes>): bool
       attributes.tags?.length ||
       attributes.occasionTags?.length
   );
+}
+
+function formatErrorForLog(error: unknown): Record<string, unknown> {
+  if (error instanceof AppError) {
+    return {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      status: error.status,
+      stack: error.stack
+    };
+  }
+
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    };
+  }
+
+  return {
+    message: String(error)
+  };
 }
 
 function normalizeCategoryInfo(

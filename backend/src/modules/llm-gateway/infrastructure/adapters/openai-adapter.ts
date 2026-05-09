@@ -43,9 +43,22 @@ export class OpenAIAdapter implements LlmProviderAdapter {
         usage: completion.usage,
       };
     } catch (error: any) {
-      throw new Error(`OpenAI Adapter (${this.name}) error: ${error.message}`);
+      throw new Error(`OpenAI Adapter (${this.name}) error: ${formatOpenAIError(error)}`);
     }
   }
+}
+
+function formatOpenAIError(error: any): string {
+  const status = error?.status ? `HTTP ${error.status}: ` : "";
+  const message = error?.message ?? "unknown error";
+  const body =
+    typeof error?.error === "string"
+      ? error.error
+      : error?.error && typeof error.error === "object"
+        ? JSON.stringify(error.error)
+        : "";
+
+  return `${status}${message}${body ? ` ${body}` : ""}`;
 }
 
 function normalizeOpenAICompatibleBaseUrl(baseUrl: string): string {
